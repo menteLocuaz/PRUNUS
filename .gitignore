@@ -1,0 +1,40 @@
+# Compilados de Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Archivos de prueba
+*.test
+
+# Archivos de salida de compilación
+*.out
+
+# Directorio de dependencias (si se usa dep)
+vendor/
+
+# Archivos de cobertura
+*.cover
+*.cov
+
+# Archivos de configuración locales
+.env
+*.local
+
+# Archivos de IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Módulos y cachés de Go
+/go/bin/
+/go/pkg/
+/go/build/
+
+# Archivos generados por go build
+*.a
+
+# Archivos de logs
+*.log
