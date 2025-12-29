@@ -89,6 +89,26 @@ go run cmd/main.go
 - PUT /api/v1/sucursal/{id} - Actualizar sucursal
 - DELETE /api/v1/sucursal/{id} - Eliminar sucursa
 
+### Rol
+GET /api/v1/rol - Obtener todos los roles
+POST /api/v1/rol - Crear un nuevo rol
+GET /api/v1/rol/{id} - Obtener rol por ID
+PUT /api/v1/rol/{id} - Actualizar rol
+DELETE /api/v1/rol/{id} - Eliminar rol (soft delete)
+### Usuario
+GET /api/v1/usuario - Obtener todos los usuarios (con información del rol)
+POST /api/v1/usuario - Crear un nuevo usuario
+GET /api/v1/usuario/{id} - Obtener usuario por ID
+PUT /api/v1/usuario/{id} - Actualizar usuario
+DELETE /api/v1/usuario/{id} - Eliminar usuario (soft delete)
+### 🔧 Características implementadas:
+Soft Delete: Todos los deletes actualizan deleted_at en lugar de eliminar físicamente
+Validaciones: Email, campos requeridos, formato de email
+Relaciones: Usuario incluye información del Rol mediante LEFT JOIN
+Comentarios descriptivos: Todo el código está documentado
+Manejo de errores: Errores claros y específicos en español
+Patrón arquitectónico: Clean Architecture con separación de capas
+
 ### Ejemplo de uso
 
 Crear una empresa:
@@ -100,6 +120,21 @@ curl -X POST http://localhost:8080/empresas \
     "rut": "12.345.678-9",
     "estado": 1
   }'
+```
+
+Crear un usuario
+```json
+{
+  "id_sucursal": 1,
+  "id_rol": 1,
+  "email": "usuario@example.com",
+  "usu_nombre": "Juan Pérez",
+  "usu_dni": "12345678",
+  "usu_telefono": "+57 3001234567",
+  "password": "MiClaveSegura123",
+  "estado": 1
+}
+
 ```
 
 ## Contribuir

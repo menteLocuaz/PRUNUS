@@ -7,18 +7,6 @@ import (
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func NewRouter(empresaHandler *transport.EmpresaHandler) http.Handler {
-	r := chi.NewRouter()
-
-	r.Route("/api", func(r chi.Router) {
-		r.Route("/v1", func(r chi.Router) {
-			r.Mount("/", RouterEmpresa(empresaHandler))
-		})
-	})
-
-	return r
-}
-
 func RouterEmpresa(empresaHandler *transport.EmpresaHandler) http.Handler {
 	r := chi.NewRouter()
 
