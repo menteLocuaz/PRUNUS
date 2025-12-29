@@ -21,19 +21,31 @@ func main() {
 	}
 	defer db.Close()
 	// crear la tabla si no existe
-	q := `CREATE TABLE IF NOT EXISTS sucursal (
-    id_sucursal     SERIAL PRIMARY KEY,
-    id_empresa      INTEGER NOT NULL,
-    nombre_sucursal VARCHAR(255) NOT NULL,
-    estado           INTEGER NOT NULL DEFAULT 1,
+	q := `CREATE TABLE IF NOT EXISTS usuario (
+    id_usuario    SERIAL PRIMARY KEY,
+    id_sucursal   INTEGER NOT NULL,
+    id_rol        INTEGER NOT NULL,
 
-    created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at       TIMESTAMP NULL,
+    email         VARCHAR(150) NOT NULL UNIQUE,
+    usu_nombre    VARCHAR(150) NOT NULL,
+    usu_dni       VARCHAR(30)  NOT NULL UNIQUE,
+    usu_telefono  VARCHAR(30),
+    password      TEXT NOT NULL,
+    estado        INTEGER NOT NULL DEFAULT 1,
 
-    CONSTRAINT fk_sucursal_empresa
-        FOREIGN KEY (id_empresa)
-        REFERENCES empresa(id_empresa)
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at    TIMESTAMP NULL,
+
+    CONSTRAINT fk_usuario_sucursal
+        FOREIGN KEY (id_sucursal)
+        REFERENCES sucursal(id_sucursal)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_usuario_rol
+        FOREIGN KEY (id_rol)
+        REFERENCES rol(id_rol)
         ON UPDATE CASCADE
         ON DELETE RESTRICT
 );
@@ -48,15 +60,23 @@ func main() {
 	empresaServices := services.NewServiceEmpresa(empresaStore)
 	empresahandler := transport.NewEmpresaHandler(empresaServices)
 
-	// inyetar depedencia emmpresa
+	// inyetar depedencia sucursal
 	sucusalStore := store.NewSucursal(db)
 	sucursalServices := services.NewServiceSucursal(sucusalStore)
 	sucursalHandler := transport.NewSucursalHandler(sucursalServices)
+	// inyetar depedencia rol
+	rolStore := store.NewRol(db)
+	rolService := services.NewServiceRol(rolStore)
+	rolHandler := transport.NewRolHandler(rolService)
+	// inyectar dependencia usuario
+	usuarioStore := store.NewUsuario(db)
+	usuarioService := services.NewServiceUsuario(usuarioStore)
+	usuarioHandler := transport.NewUsuarioHandler(usuarioService)
 
-	// configura rutas
-	router := routers.NewRouter(empresahandler)
-	router = routers.NewRouterSucursal(sucursalHandler)
-	// empeazar y escuchar el servidor
+	// configura rutas - combinar todos los handlers en un solo router
+	router := routers.NewMainRouter(empresahandler, sucursalHandler, rolHandler, usuarioHandler)
+
+	// empezar y escuchar el servidor
 	fmt.Println("✅ Iniciando servidor")
 	http.ListenAndServe(":9090", router)
 }

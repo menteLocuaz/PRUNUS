@@ -7,18 +7,6 @@ import (
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func NewRouterSucursal(sucursalHandler *transport.SucursalHandler) http.Handler {
-	r := chi.NewRouter()
-
-	r.Route("/api", func(r chi.Router) {
-		r.Route("/v1", func(r chi.Router) {
-			r.Mount("/", RouterSucursal(sucursalHandler))
-		})
-	})
-
-	return r
-}
-
 func RouterSucursal(sucursalHandler *transport.SucursalHandler) http.Handler {
 	r := chi.NewRouter()
 
