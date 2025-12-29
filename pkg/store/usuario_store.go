@@ -42,12 +42,17 @@ func (s *storeUsuario) GetAllUsuarios() ([]*models.Usuario, error) {
 			u.created_at,
 			u.updated_at,
 			u.deleted_at,
+			
 			r.id_rol,
 			r.nombre_rol,
-			r.id_sucursal,
-			r.estado
+			r.estado,
+
+			s.id_sucursal,
+			s.nombre_sucursal,
+			s.estado
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
+		LEFT JOIN sucursal s ON s.id_sucursal = u.id_sucursal
 		WHERE u.deleted_at IS NULL
 		ORDER BY u.created_at DESC
 	`
@@ -60,10 +65,13 @@ func (s *storeUsuario) GetAllUsuarios() ([]*models.Usuario, error) {
 
 	var usuarios []*models.Usuario
 	for rows.Next() {
-		var usuario models.Usuario
-		var rol models.Rol
+		usuario := &models.Usuario{
+			Rol:      &models.Rol{},
+			Sucursal: &models.Sucursal{},
+		}
 
 		err := rows.Scan(
+			// Usuario
 			&usuario.IDUsuario,
 			&usuario.IDSucursal,
 			&usuario.UsuEmail,
@@ -75,17 +83,22 @@ func (s *storeUsuario) GetAllUsuarios() ([]*models.Usuario, error) {
 			&usuario.CreatedAt,
 			&usuario.UpdatedAt,
 			&usuario.DeletedAt,
-			&rol.IDRol,
-			&rol.RolNombre,
-			&rol.IDSucursal,
-			&rol.Estado,
+
+			// Rol
+			&usuario.Rol.IDRol,
+			&usuario.Rol.RolNombre,
+			&usuario.Rol.Estado,
+
+			// Sucursal
+			&usuario.Sucursal.IDSucursal,
+			&usuario.Sucursal.NombreSucursal,
+			&usuario.Sucursal.Estado,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error al escanear usuario: %w", err)
 		}
 
-		usuario.Rol = &rol
-		usuarios = append(usuarios, &usuario)
+		usuarios = append(usuarios, usuario)
 	}
 
 	return usuarios, nil
@@ -106,19 +119,27 @@ func (s *storeUsuario) GetUsuarioByID(id uint) (*models.Usuario, error) {
 			u.created_at,
 			u.updated_at,
 			u.deleted_at,
+
 			r.id_rol,
 			r.nombre_rol,
-			r.id_sucursal,
-			r.estado
+			r.estado,
+
+			s.id_sucursal,
+			s.nombre_sucursal,
+			s.estado
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
+		LEFT JOIN sucursal s ON s.id_sucursal = u.id_sucursal
 		WHERE u.id_usuario = $1 AND u.deleted_at IS NULL
 	`
 
-	var usuario models.Usuario
-	var rol models.Rol
+	usuario := &models.Usuario{
+		Rol:      &models.Rol{},
+		Sucursal: &models.Sucursal{},
+	}
 
 	err := s.db.QueryRow(query, id).Scan(
+		// Usuario
 		&usuario.IDUsuario,
 		&usuario.IDSucursal,
 		&usuario.UsuEmail,
@@ -130,10 +151,16 @@ func (s *storeUsuario) GetUsuarioByID(id uint) (*models.Usuario, error) {
 		&usuario.CreatedAt,
 		&usuario.UpdatedAt,
 		&usuario.DeletedAt,
-		&rol.IDRol,
-		&rol.RolNombre,
-		&rol.IDSucursal,
-		&rol.Estado,
+
+		// Rol
+		&usuario.Rol.IDRol,
+		&usuario.Rol.RolNombre,
+		&usuario.Rol.Estado,
+
+		// Sucursal
+		&usuario.Sucursal.IDSucursal,
+		&usuario.Sucursal.NombreSucursal,
+		&usuario.Sucursal.Estado,
 	)
 
 	if err == sql.ErrNoRows {
@@ -143,8 +170,7 @@ func (s *storeUsuario) GetUsuarioByID(id uint) (*models.Usuario, error) {
 		return nil, fmt.Errorf("error al obtener usuario: %w", err)
 	}
 
-	usuario.Rol = &rol
-	return &usuario, nil
+	return usuario, nil
 }
 
 // CreateUsuario crea un nuevo usuario en la base de datos
@@ -184,17 +210,37 @@ func (s *storeUsuario) CreateUsuario(usuario *models.Usuario) (*models.Usuario, 
 func (s *storeUsuario) UpdateUsuario(id uint, usuario *models.Usuario) (*models.Usuario, error) {
 	query := `
 		UPDATE usuario
-		SET id_sucursal = $1, id_rol = $2, email = $3, usu_nombre = $4,
-		    usu_dni = $5, usu_telefono = $6, password = $7, estado = $8
+		SET
+			id_sucursal = $1,
+			id_rol = $2,
+			email = $3,
+			usu_nombre = $4,
+			usu_dni = $5,
+			usu_telefono = $6,
+			password = $7,
+			estado = $8,
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id_usuario = $9 AND deleted_at IS NULL
-		RETURNING id_usuario, id_sucursal, email, usu_nombre, usu_dni,
-		          usu_telefono, password, estado, created_at, updated_at
+		RETURNING
+			id_usuario,
+			id_sucursal,
+			email,
+			usu_nombre,
+			usu_dni,
+			usu_telefono,
+			password,
+			estado,
+			created_at,
+			updated_at
 	`
 
-	// Obtener id_rol del objeto Rol si existe
-	var idRol uint
+	// id_rol nullable
+	var idRol sql.NullInt64
 	if usuario.Rol != nil {
-		idRol = usuario.Rol.IDRol
+		idRol = sql.NullInt64{
+			Int64: int64(usuario.Rol.IDRol),
+			Valid: true,
+		}
 	}
 
 	err := s.db.QueryRow(

@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/prunus/pkg/models"
@@ -37,7 +38,7 @@ func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 		e.rut,
 		e.estado
 	FROM sucursal s
-	JOIN empresa e ON e.id_empresa = s.id_empresa
+	LEFT JOIN empresa e ON e.id_empresa = s.id_empresa
 	WHERE s.deleted_at IS NULL
 	  AND e.deleted_at IS NULL
 	ORDER BY s.id_sucursal
@@ -90,7 +91,7 @@ func (s *storeSucursal) GetSucursalByID(id uint) (*models.Sucursal, error) {
 		e.rut,
 		e.estado
 	FROM sucursal s
-	JOIN empresa e ON e.id_empresa = s.id_empresa
+	LEFT JOIN empresa e ON e.id_empresa = s.id_empresa
 	WHERE s.id_sucursal = $1
 	  AND s.deleted_at IS NULL
 	  AND e.deleted_at IS NULL
@@ -134,16 +135,46 @@ func (s *storeSucursal) CreateSucursal(sucursal *models.Sucursal) (*models.Sucur
 // ACTUALIZAR LA SUCURSAL
 
 func (s *storeSucursal) UpdateSucursal(id uint, sucursal *models.Sucursal) (*models.Sucursal, error) {
-	query := `UPDATE sucursal
-	          SET id_empresa = $1, nombre_sucursal = $2, estado = $3
-	          WHERE id_sucursal = $4 AND deleted_at IS NULL`
+	query := `
+		UPDATE sucursal
+		SET
+			id_empresa = $1,
+			nombre_sucursal = $2,
+			estado = $3,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id_sucursal = $4
+		  AND deleted_at IS NULL
+		RETURNING
+			id_sucursal,
+			id_empresa,
+			nombre_sucursal,
+			estado,
+			created_at,
+			updated_at
+	`
 
-	_, err := s.db.Exec(query, sucursal.IDEmpresa, sucursal.NombreSucursal, sucursal.Estado, id)
+	err := s.db.QueryRow(
+		query,
+		sucursal.IDEmpresa,
+		sucursal.NombreSucursal,
+		sucursal.Estado,
+		id,
+	).Scan(
+		&sucursal.IDSucursal,
+		&sucursal.IDEmpresa,
+		&sucursal.NombreSucursal,
+		&sucursal.Estado,
+		&sucursal.CreatedAt,
+		&sucursal.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("sucursal con ID %d no encontrada", id)
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error al actualizar sucursal: %w", err)
 	}
 
-	sucursal.IDSucursal = id
 	return sucursal, nil
 }
 
