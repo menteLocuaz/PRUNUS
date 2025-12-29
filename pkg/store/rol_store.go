@@ -30,17 +30,20 @@ func NewRol(db *sql.DB) StoreRol {
 // GetAllRoles obtiene todos los roles activos (no eliminados) de la base de datos
 func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
 	query := `
-		SELECT
-			r.id_rol,
-			r.nombre_rol,
-			r.id_sucursal,
-			r.estado,
-			r.created_at,
-			r.updated_at,
-			r.deleted_at
-		FROM rol r
-		WHERE r.deleted_at IS NULL
-		ORDER BY r.created_at DESC
+	SELECT
+		r.id_rol,
+		r.nombre_rol,
+		r.id_sucursal,
+		r.estado,
+
+		s.id_sucursal,
+		s.nombre_sucursal,
+		s.estado
+	FROM rol r
+	JOIN sucursal s ON s.id_sucursal = r.id_sucursal
+	WHERE r.deleted_at IS NULL
+	  AND s.deleted_at IS NULL
+	ORDER BY r.created_at DESC
 	`
 
 	rows, err := s.db.Query(query)
@@ -50,21 +53,27 @@ func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
 	defer rows.Close()
 
 	var roles []*models.Rol
+
 	for rows.Next() {
-		var rol models.Rol
+		rol := &models.Rol{
+			Sucursal: &models.Sucursal{},
+		}
+
 		err := rows.Scan(
 			&rol.IDRol,
 			&rol.RolNombre,
 			&rol.IDSucursal,
 			&rol.Estado,
-			&rol.CreatedAt,
-			&rol.UpdatedAt,
-			&rol.DeletedAt,
+
+			&rol.Sucursal.IDSucursal,
+			&rol.Sucursal.NombreSucursal,
+			&rol.Sucursal.Estado,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error al escanear rol: %w", err)
 		}
-		roles = append(roles, &rol)
+
+		roles = append(roles, rol)
 	}
 
 	return roles, nil
@@ -78,22 +87,27 @@ func (s *storeRol) GetRolByID(id uint) (*models.Rol, error) {
 			r.nombre_rol,
 			r.id_sucursal,
 			r.estado,
-			r.created_at,
-			r.updated_at,
-			r.deleted_at
+			
+			s.id_sucursal,
+    		s.nombre_sucursal,
+			s.estado
 		FROM rol r
+		JOIN sucursal s ON s.id_sucursal = r.id_sucursal
 		WHERE r.id_rol = $1 AND r.deleted_at IS NULL
 	`
 
-	var rol models.Rol
+	rol := models.Rol{
+		Sucursal: &models.Sucursal{},
+	}
 	err := s.db.QueryRow(query, id).Scan(
 		&rol.IDRol,
 		&rol.RolNombre,
 		&rol.IDSucursal,
 		&rol.Estado,
-		&rol.CreatedAt,
-		&rol.UpdatedAt,
-		&rol.DeletedAt,
+
+		&rol.Sucursal.IDSucursal,
+		&rol.Sucursal.NombreSucursal,
+		&rol.Sucursal.Estado,
 	)
 
 	if err == sql.ErrNoRows {

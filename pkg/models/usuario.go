@@ -13,7 +13,8 @@ type Usuario struct {
 	UsuPassword string `json:"password"`
 	Estado      int    `json:"estado"`
 
-	Rol *Rol `json:"rol,omitempty"`
+	Rol      *Rol      `json:"rol,omitempty"`
+	Sucursal *Sucursal `json:"sucursal,omitempty"`
 
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`

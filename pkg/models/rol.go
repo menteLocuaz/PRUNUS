@@ -8,6 +8,8 @@ type Rol struct {
 	IDSucursal uint   `json:"id_sucursal"`
 	Estado     int    `json:"estado"`
 
+	Sucursal *Sucursal `json:"sucursal,omitempty"`
+
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
