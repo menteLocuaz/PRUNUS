@@ -81,6 +81,14 @@ go run cmd/main.go
 - `PUT /empresas/{id}` - Actualizar una empresa
 - `DELETE /empresas/{id}` - Eliminar una empresa (soft delete)
 
+### Sucursal
+
+- GET /api/v1/sucursal - Obtener todas las sucursales
+- POST /api/v1/sucursal - Crear sucursal
+- GET /api/v1/sucursal/{id} - Obtener sucursal por ID
+- PUT /api/v1/sucursal/{id} - Actualizar sucursal
+- DELETE /api/v1/sucursal/{id} - Eliminar sucursa
+
 ### Ejemplo de uso
 
 Crear una empresa:
