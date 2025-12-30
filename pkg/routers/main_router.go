@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
 )
 
@@ -15,6 +16,10 @@ func NewMainRouter(
 	usuarioHandler *transport.UsuarioHandler,
 ) http.Handler {
 	r := chi.NewRouter()
+
+	// Middleware de logging - Registra todas las peticiones HTTP
+	// Para desactivar el logging, simplemente comenta la siguiente línea
+	r.Use(middleware.Logger(middleware.SimpleLogConfig()))
 
 	// Configurar rutas de API versionada
 	r.Route("/api", func(r chi.Router) {
