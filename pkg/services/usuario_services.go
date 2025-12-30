@@ -118,3 +118,49 @@ func (s *ServiceUsuario) DeleteUsuario(id uint) error {
 	}
 	return s.store.DeleteUsuario(id)
 }
+
+// AuthenticateUsuario valida las credenciales del usuario y retorna el usuario autenticado
+func (s *ServiceUsuario) AuthenticateUsuario(email, password string) (*models.Usuario, error) {
+	// Validar que se proporcionen ambos campos
+	if email == "" {
+		return nil, errors.New("el email es requerido")
+	}
+	if password == "" {
+		return nil, errors.New("la contraseña es requerida")
+	}
+
+	// Validar formato de email
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(email) {
+		return nil, errors.New("el formato del email es inválido")
+	}
+
+	// Buscar usuario por email
+	usuario, err := s.store.GetUsuarioByEmail(email)
+	if err != nil {
+		// No revelar si el usuario existe o no por seguridad
+		return nil, errors.New("credenciales inválidas")
+	}
+
+	// Verificar que el usuario esté activo
+	if usuario.Estado != 1 {
+		return nil, errors.New("usuario inactivo")
+	}
+
+	// Verificar que el rol esté activo (si existe)
+	if usuario.Rol != nil && usuario.Rol.Estado != 1 {
+		return nil, errors.New("el rol del usuario está inactivo")
+	}
+
+	// Verificar la contraseña usando bcrypt
+	err = helper.CheckPassword(password, usuario.UsuPassword)
+	if err != nil {
+		// Password incorrecta
+		return nil, errors.New("credenciales inválidas")
+	}
+
+	// Limpiar el password del objeto antes de retornarlo
+	usuario.UsuPassword = ""
+
+	return usuario, nil
+}

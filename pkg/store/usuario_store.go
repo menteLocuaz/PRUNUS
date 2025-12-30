@@ -12,6 +12,7 @@ import (
 type StoreUsuario interface {
 	GetAllUsuarios() ([]*models.Usuario, error)
 	GetUsuarioByID(id uint) (*models.Usuario, error)
+	GetUsuarioByEmail(email string) (*models.Usuario, error)
 	CreateUsuario(usuario *models.Usuario) (*models.Usuario, error)
 	UpdateUsuario(id uint, usuario *models.Usuario) (*models.Usuario, error)
 	DeleteUsuario(id uint) error
@@ -168,6 +169,76 @@ func (s *storeUsuario) GetUsuarioByID(id uint) (*models.Usuario, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener usuario: %w", err)
+	}
+
+	return usuario, nil
+}
+
+// GetUsuarioByEmail obtiene un usuario por su email con su rol
+// Este método incluye el password hasheado para validación de autenticación
+func (s *storeUsuario) GetUsuarioByEmail(email string) (*models.Usuario, error) {
+	query := `
+		SELECT
+			u.id_usuario,
+			u.id_sucursal,
+			u.email,
+			u.usu_nombre,
+			u.usu_dni,
+			u.usu_telefono,
+			u.password,
+			u.estado,
+			u.created_at,
+			u.updated_at,
+			u.deleted_at,
+
+			r.id_rol,
+			r.nombre_rol,
+			r.estado,
+
+			s.id_sucursal,
+			s.nombre_sucursal,
+			s.estado
+		FROM usuario u
+		LEFT JOIN rol r ON u.id_rol = r.id_rol
+		LEFT JOIN sucursal s ON s.id_sucursal = u.id_sucursal
+		WHERE u.email = $1 AND u.deleted_at IS NULL
+	`
+
+	usuario := &models.Usuario{
+		Rol:      &models.Rol{},
+		Sucursal: &models.Sucursal{},
+	}
+
+	err := s.db.QueryRow(query, email).Scan(
+		// Usuario
+		&usuario.IDUsuario,
+		&usuario.IDSucursal,
+		&usuario.UsuEmail,
+		&usuario.UsuNombre,
+		&usuario.UsuDni,
+		&usuario.UsuTelefono,
+		&usuario.UsuPassword,
+		&usuario.Estado,
+		&usuario.CreatedAt,
+		&usuario.UpdatedAt,
+		&usuario.DeletedAt,
+
+		// Rol
+		&usuario.Rol.IDRol,
+		&usuario.Rol.RolNombre,
+		&usuario.Rol.Estado,
+
+		// Sucursal
+		&usuario.Sucursal.IDSucursal,
+		&usuario.Sucursal.NombreSucursal,
+		&usuario.Sucursal.Estado,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("usuario con email %s no encontrado", email)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener usuario por email: %w", err)
 	}
 
 	return usuario, nil
