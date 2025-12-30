@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 
+	"github.com/prunus/pkg/helper"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -61,8 +62,12 @@ func (s *ServiceUsuario) CreateUsuario(usuario models.Usuario) (*models.Usuario,
 		usuario.Estado = 1
 	}
 
-	// TODO: Implementar hash de contraseña antes de guardar
-	// Por ahora se guarda en texto plano (NO RECOMENDADO PARA PRODUCCIÓN)
+	// Aqui se hashea la contraseña
+	hashearPassword, err := helper.HashPassword(usuario.UsuPassword)
+	if err != nil {
+		return nil, errors.New("error al generar hash de la contraseña")
+	}
+	usuario.UsuPassword = hashearPassword
 
 	return s.store.CreateUsuario(&usuario)
 }
@@ -91,8 +96,17 @@ func (s *ServiceUsuario) UpdateUsuario(id uint, usuario models.Usuario) (*models
 		return nil, errors.New("el formato del email es inválido")
 	}
 
-	// TODO: Si se actualiza la contraseña, implementar hash
-	// Por ahora se actualiza en texto plano (NO RECOMENDADO PARA PRODUCCIÓN)
+	// SOLO si viene contraseña nueva → hashear
+	if usuario.UsuPassword != "" {
+		hashearPasword, err := helper.HashPassword(usuario.UsuPassword)
+		if err != nil {
+			return nil, errors.New("error al hashear la contraseña")
+		}
+		usuario.UsuPassword = hashearPasword
+	} else {
+		// Evita sobreescribir contraseña en DB
+		usuario.UsuPassword = ""
+	}
 
 	return s.store.UpdateUsuario(id, &usuario)
 }
