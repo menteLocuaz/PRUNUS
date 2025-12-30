@@ -73,8 +73,11 @@ func main() {
 	usuarioService := services.NewServiceUsuario(usuarioStore)
 	usuarioHandler := transport.NewUsuarioHandler(usuarioService)
 
+	// inyectar dependencia autenticación (usa el mismo servicio de usuario)
+	authHandler := transport.NewAuthHandler(usuarioService)
+
 	// configura rutas - combinar todos los handlers en un solo router
-	router := routers.NewMainRouter(empresahandler, sucursalHandler, rolHandler, usuarioHandler)
+	router := routers.NewMainRouter(empresahandler, sucursalHandler, rolHandler, usuarioHandler, authHandler)
 
 	// empezar y escuchar el servidor
 	fmt.Println("✅ Iniciando servidor")
