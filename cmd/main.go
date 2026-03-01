@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/prunus/pkg/config/database"
+	"github.com/prunus/pkg/config/database/migrations"
 	"github.com/prunus/pkg/routers"
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/store"
@@ -20,39 +21,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	// crear la tabla si no existe
-	q := `CREATE TABLE IF NOT EXISTS usuario (
-    id_usuario    SERIAL PRIMARY KEY,
-    id_sucursal   INTEGER NOT NULL,
-    id_rol        INTEGER NOT NULL,
 
-    email         VARCHAR(150) NOT NULL UNIQUE,
-    usu_nombre    VARCHAR(150) NOT NULL,
-    usu_dni       VARCHAR(30)  NOT NULL UNIQUE,
-    usu_telefono  VARCHAR(30),
-    password      TEXT NOT NULL,
-    estado        INTEGER NOT NULL DEFAULT 1,
-
-    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at    TIMESTAMP NULL,
-
-    CONSTRAINT fk_usuario_sucursal
-        FOREIGN KEY (id_sucursal)
-        REFERENCES sucursal(id_sucursal)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_usuario_rol
-        FOREIGN KEY (id_rol)
-        REFERENCES rol(id_rol)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-);
-`
-	if _, err := db.Exec(q); err != nil {
-
-		log.Fatal(err.Error())
+	// ejecutar migraciones
+	if err := migrations.RunMigrations(db); err != nil {
+		log.Fatal(err)
 	}
 
 	// inyetar depedencia emmpresa
@@ -76,8 +48,50 @@ func main() {
 	// inyectar dependencia autenticación (usa el mismo servicio de usuario)
 	authHandler := transport.NewAuthHandler(usuarioService)
 
+	// inyectar dependencia categoria
+	categoriaStore := store.NewCategoria(db)
+	categoriaService := services.NewServiceCategoria(categoriaStore)
+	categoriaHandler := transport.NewCategoriaHandler(categoriaService)
+
+	// inyectar dependencia cliente
+	clienteStore := store.NewCliente(db)
+	clienteService := services.NewServiceCliente(clienteStore)
+	clienteHandler := transport.NewClienteHandler(clienteService)
+
+	// inyectar dependencia medida
+	medidaStore := store.NewUnidad(db)
+	medidaService := services.NewServiceUnidad(medidaStore)
+	medidaHandler := transport.NewMedidaHandler(medidaService)
+
+	// inyectar dependencia moneda
+	monedaStore := store.NewMoneda(db)
+	monedaService := services.NewServiceMoneda(monedaStore)
+	monedaHandler := transport.NewMonedaHandler(monedaService)
+
+	// inyectar dependencia producto
+	productoStore := store.NewProducto(db)
+	productoService := services.NewServiceProducto(productoStore)
+	productoHandler := transport.NewProductoHandler(productoService)
+
+	// inyectar dependencia proveedor
+	proveedorStore := store.NewProveedor(db)
+	proveedorService := services.NewServiceProveedor(proveedorStore)
+	proveedorHandler := transport.NewProveedorHandler(proveedorService)
+
 	// configura rutas - combinar todos los handlers en un solo router
-	router := routers.NewMainRouter(empresahandler, sucursalHandler, rolHandler, usuarioHandler, authHandler)
+	router := routers.NewMainRouter(
+		empresahandler,
+		sucursalHandler,
+		rolHandler,
+		usuarioHandler,
+		authHandler,
+		categoriaHandler,
+		clienteHandler,
+		medidaHandler,
+		monedaHandler,
+		productoHandler,
+		proveedorHandler,
+	)
 
 	// empezar y escuchar el servidor
 	fmt.Println("✅ Iniciando servidor")

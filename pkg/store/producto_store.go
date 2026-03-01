@@ -1,0 +1,341 @@
+package store
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+
+	"github.com/prunus/pkg/models"
+)
+
+type StoreProducto interface {
+	GetAllProductos() ([]*models.Producto, error)
+	GetProductoByID(id uint) (*models.Producto, error)
+	CreateProducto(producto *models.Producto) (*models.Producto, error)
+	UpdateProducto(id uint, producto *models.Producto) (*models.Producto, error)
+	DeleteProducto(id uint) error
+}
+
+type storeProducto struct {
+	db *sql.DB
+}
+
+func NewProducto(db *sql.DB) StoreProducto {
+	return &storeProducto{db: db}
+}
+
+func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
+	query := `
+	SELECT
+		p.id_producto,
+		p.nombre,
+		p.descripcion,
+		p.precio_compra,
+		p.precio_venta,
+		p.stock,
+		p.fecha_vencimiento,
+		p.imagen,
+		p.estado,
+		p.id_sucursal,
+		p.id_categoria,
+		p.id_moneda,
+		p.id_unidad,
+		p.created_at,
+		p.updated_at,
+
+		su.id_sucursal,
+		su.nombre_sucursal,
+		su.estado,
+
+		c.id_categoria,
+		c.nombre,
+
+		m.id_moneda,
+		m.nombre,
+		m.estado,
+
+		u.id_unidad,
+		u.nombre
+	FROM producto p
+	LEFT JOIN sucursal su ON su.id_sucursal = p.id_sucursal
+	LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
+	LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
+	LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
+	WHERE p.deleted_at IS NULL
+	ORDER BY p.id_producto
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener productos: %w", err)
+	}
+	defer rows.Close()
+
+	var productos []*models.Producto
+
+	for rows.Next() {
+		p := &models.Producto{
+			Sucursal:  &models.Sucursal{},
+			Categoria: &models.Categoria{},
+			Moneda:    &models.Moneda{},
+			Unidad:    &models.Unidad{},
+		}
+
+		if err := rows.Scan(
+			&p.IDProducto,
+			&p.Nombre,
+			&p.Descripcion,
+			&p.PrecioCompra,
+			&p.PrecioVenta,
+			&p.Stock,
+			&p.FechaVencimiento,
+			&p.Imagen,
+			&p.Estado,
+			&p.IDSucursal,
+			&p.IDCategoria,
+			&p.IDMoneda,
+			&p.IDUnidad,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+
+			&p.Sucursal.IDSucursal,
+			&p.Sucursal.NombreSucursal,
+			&p.Sucursal.Estado,
+
+			&p.Categoria.IDCategoria,
+			&p.Categoria.Nombre,
+
+			&p.Moneda.IDMoneda,
+			&p.Moneda.Nombre,
+			&p.Moneda.Estado,
+
+			&p.Unidad.IDUnidad,
+			&p.Unidad.Nombre,
+		); err != nil {
+			return nil, fmt.Errorf("error al escanear producto: %w", err)
+		}
+
+		productos = append(productos, p)
+	}
+
+	return productos, nil
+}
+
+func (s *storeProducto) GetProductoByID(id uint) (*models.Producto, error) {
+	query := `
+	SELECT
+		p.id_producto,
+		p.nombre,
+		p.descripcion,
+		p.precio_compra,
+		p.precio_venta,
+		p.stock,
+		p.fecha_vencimiento,
+		p.imagen,
+		p.estado,
+		p.id_sucursal,
+		p.id_categoria,
+		p.id_moneda,
+		p.id_unidad,
+		p.created_at,
+		p.updated_at,
+
+		su.id_sucursal,
+		su.nombre_sucursal,
+		su.estado,
+
+		c.id_categoria,
+		c.nombre,
+
+		m.id_moneda,
+		m.nombre,
+		m.estado,
+
+		u.id_unidad,
+		u.nombre
+	FROM producto p
+	LEFT JOIN sucursal su ON su.id_sucursal = p.id_sucursal
+	LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
+	LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
+	LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
+	WHERE p.id_producto = $1
+	  AND p.deleted_at IS NULL
+	`
+
+	p := &models.Producto{
+		Sucursal:  &models.Sucursal{},
+		Categoria: &models.Categoria{},
+		Moneda:    &models.Moneda{},
+		Unidad:    &models.Unidad{},
+	}
+
+	err := s.db.QueryRow(query, id).Scan(
+		&p.IDProducto,
+		&p.Nombre,
+		&p.Descripcion,
+		&p.PrecioCompra,
+		&p.PrecioVenta,
+		&p.Stock,
+		&p.FechaVencimiento,
+		&p.Imagen,
+		&p.Estado,
+		&p.IDSucursal,
+		&p.IDCategoria,
+		&p.IDMoneda,
+		&p.IDUnidad,
+		&p.CreatedAt,
+		&p.UpdatedAt,
+
+		&p.Sucursal.IDSucursal,
+		&p.Sucursal.NombreSucursal,
+		&p.Sucursal.Estado,
+
+		&p.Categoria.IDCategoria,
+		&p.Categoria.Nombre,
+
+		&p.Moneda.IDMoneda,
+		&p.Moneda.Nombre,
+		&p.Moneda.Estado,
+
+		&p.Unidad.IDUnidad,
+		&p.Unidad.Nombre,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("producto con ID %d no encontrado", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener producto: %w", err)
+	}
+
+	return p, nil
+}
+
+func (s *storeProducto) CreateProducto(producto *models.Producto) (*models.Producto, error) {
+	query := `
+		INSERT INTO producto (nombre, descripcion, precio_compra, precio_venta, stock, fecha_vencimiento, imagen, estado, id_sucursal, id_categoria, id_moneda, id_unidad)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		RETURNING id_producto
+	`
+
+	var id uint
+	err := s.db.QueryRow(query,
+		producto.Nombre,
+		producto.Descripcion,
+		producto.PrecioCompra,
+		producto.PrecioVenta,
+		producto.Stock,
+		producto.FechaVencimiento,
+		producto.Imagen,
+		producto.Estado,
+		producto.IDSucursal,
+		producto.IDCategoria,
+		producto.IDMoneda,
+		producto.IDUnidad,
+	).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("error al crear producto: %w", err)
+	}
+
+	producto.IDProducto = id
+	return producto, nil
+}
+
+func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*models.Producto, error) {
+	query := `
+		UPDATE producto
+		SET
+			nombre = $1,
+			descripcion = $2,
+			precio_compra = $3,
+			precio_venta = $4,
+			stock = $5,
+			fecha_vencimiento = $6,
+			imagen = $7,
+			estado = $8,
+			id_sucursal = $9,
+			id_categoria = $10,
+			id_moneda = $11,
+			id_unidad = $12,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id_producto = $13
+		  AND deleted_at IS NULL
+		RETURNING
+			id_producto,
+			nombre,
+			descripcion,
+			precio_compra,
+			precio_venta,
+			stock,
+			fecha_vencimiento,
+			imagen,
+			estado,
+			id_sucursal,
+			id_categoria,
+			id_moneda,
+			id_unidad,
+			created_at,
+			updated_at
+	`
+
+	err := s.db.QueryRow(query,
+		producto.Nombre,
+		producto.Descripcion,
+		producto.PrecioCompra,
+		producto.PrecioVenta,
+		producto.Stock,
+		producto.FechaVencimiento,
+		producto.Imagen,
+		producto.Estado,
+		producto.IDSucursal,
+		producto.IDCategoria,
+		producto.IDMoneda,
+		producto.IDUnidad,
+		id,
+	).Scan(
+		&producto.IDProducto,
+		&producto.Nombre,
+		&producto.Descripcion,
+		&producto.PrecioCompra,
+		&producto.PrecioVenta,
+		&producto.Stock,
+		&producto.FechaVencimiento,
+		&producto.Imagen,
+		&producto.Estado,
+		&producto.IDSucursal,
+		&producto.IDCategoria,
+		&producto.IDMoneda,
+		&producto.IDUnidad,
+		&producto.CreatedAt,
+		&producto.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("producto con ID %d no encontrado", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al actualizar producto: %w", err)
+	}
+
+	return producto, nil
+}
+
+func (s *storeProducto) DeleteProducto(id uint) error {
+	query := `UPDATE producto SET deleted_at = $1 WHERE id_producto = $2 AND deleted_at IS NULL`
+
+	result, err := s.db.Exec(query, time.Now(), id)
+	if err != nil {
+		return fmt.Errorf("error al eliminar producto: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
