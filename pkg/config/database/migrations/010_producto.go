@@ -53,7 +53,15 @@ func migrateProducto(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_producto_id_moneda    ON producto(id_moneda);
 	CREATE INDEX IF NOT EXISTS idx_producto_id_unidad    ON producto(id_unidad);
 	CREATE INDEX IF NOT EXISTS idx_producto_estado       ON producto(estado);
-	CREATE INDEX IF NOT EXISTS idx_producto_deleted_at   ON producto(deleted_at);
+	
+	-- Índice parcial para optimizar búsquedas de productos activos (Soft Delete)
+	CREATE INDEX IF NOT EXISTS idx_producto_active ON producto(id_producto) WHERE deleted_at IS NULL;
+	
+	-- Índice compuesto para filtros comunes
+	CREATE INDEX IF NOT EXISTS idx_producto_cat_suc_active ON producto(id_categoria, id_sucursal) WHERE deleted_at IS NULL;
+	
+	-- Índice para búsquedas por nombre (B-Tree o GIN para ILIKE)
+	CREATE INDEX IF NOT EXISTS idx_producto_nombre ON producto(nombre);
 	`
 	_, err := db.Exec(query)
 	return err
