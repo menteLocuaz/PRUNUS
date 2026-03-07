@@ -9,6 +9,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils/response" // Importa el paquete de respuestas
 )
 
 type MedidaHandler struct {
@@ -20,42 +21,36 @@ func NewMedidaHandler(s *services.ServiceUnidad) *MedidaHandler {
 }
 
 func (h *MedidaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	resp, err := h.service.GetAllUnidades()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.InternalServerError(w, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	response.Success(w, "Unidades obtenidas correctamente", resp)
 }
 
 func (h *MedidaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "ID inválido", http.StatusBadRequest)
+		response.BadRequest(w, "ID inválido")
 		return
 	}
 
 	resp, err := h.service.GetUnidadByID(uint(id))
 	if err != nil {
-		http.Error(w, "Medida no encontrada", http.StatusNotFound)
+		response.NotFound(w, "Medida no encontrada")
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	response.Success(w, "Medida obtenida correctamente", resp)
 }
 
 func (h *MedidaHandler) Create(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	var req dto.MedidaCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		response.BadRequest(w, "JSON inválido")
 		return
 	}
 
@@ -66,27 +61,24 @@ func (h *MedidaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.CreateUnidad(unidad)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response.BadRequest(w, err.Error())
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	response.Created(w, "Unidad creada correctamente", resp)
 }
 
 func (h *MedidaHandler) Update(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "ID inválido", http.StatusBadRequest)
+		response.BadRequest(w, "ID inválido")
 		return
 	}
 
 	var req dto.MedidaUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		response.BadRequest(w, "JSON inválido")
 		return
 	}
 
@@ -97,25 +89,23 @@ func (h *MedidaHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.UpdateUnidad(uint(id), unidad)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.InternalServerError(w, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	response.Success(w, "Unidad actualizada correctamente", resp)
 }
 
 func (h *MedidaHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "ID inválido", http.StatusBadRequest)
+		response.BadRequest(w, "ID inválido")
 		return
 	}
 
 	if err := h.service.DeleteUnidad(uint(id)); err != nil {
-		http.Error(w, "Medida no encontrada", http.StatusNotFound)
+		response.NotFound(w, "Medida no encontrada")
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/prunus/pkg/helper"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils/response" // Importa el paquete response para respuestas estandarizadas
 )
 
 // AuthHandler maneja las peticiones relacionadas con autenticación
@@ -26,7 +27,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Decodificar el body de la petición
 	var loginReq models.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&loginReq); err != nil {
-		http.Error(w, "Formato de petición inválido", http.StatusBadRequest)
+		// Si el formato es inválido, responde con error 400
+		response.BadRequest(w, "Formato de petición inválido")
 		return
 	}
 
@@ -34,28 +36,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	usuario, err := h.usuarioService.AuthenticateUsuario(loginReq.Email, loginReq.Password)
 	if err != nil {
 		// Retornar 401 para errores de autenticación
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		response.Unauthorized(w, err.Error())
 		return
 	}
 
 	// Generar JWT token
 	token, expiresAt, err := helper.GenerateToken(usuario)
 	if err != nil {
-		http.Error(w, "Error al generar token", http.StatusInternalServerError)
+		// Error al generar token, responde con error 500
+		response.InternalServerError(w, "Error al generar token")
 		return
 	}
 
 	// Preparar respuesta
-	response := models.LoginResponse{
+	responseData := models.LoginResponse{
 		Token:     token,
 		Usuario:   usuario,
 		ExpiresAt: expiresAt,
 	}
 
-	// Retornar respuesta
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	// Retornar respuesta exitosa con token
+	response.Success(w, "Inicio de sesión exitoso", responseData)
 }
 
 // Logout maneja la petición de cierre de sesión
@@ -69,14 +70,13 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		// Por ahora, solo confirmamos el logout
 	}
 
-	// Respuesta exitosa
-	response := models.LogoutResponse{
+	// Preparar respuesta de cierre de sesión
+	logoutResponse := models.LogoutResponse{
 		Message: "Sesión cerrada exitosamente",
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	// Retornar respuesta exitosa
+	response.Success(w, "Cierre de sesión exitoso", logoutResponse)
 }
 
 // GetMe retorna la información del usuario autenticado actual
@@ -85,24 +85,24 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	// Obtener los claims del contexto (agregados por el middleware de auth)
 	claims, ok := r.Context().Value("claims").(*models.JWTClaims)
 	if !ok {
-		http.Error(w, "No se pudo obtener información del usuario", http.StatusInternalServerError)
+		// Si no se pueden obtener los claims, responde con error 500
+		response.InternalServerError(w, "No se pudo obtener información del usuario")
 		return
 	}
 
 	// Obtener información completa del usuario desde la BD
 	usuario, err := h.usuarioService.GetUsuarioByID(claims.IDUsuario)
 	if err != nil {
-		http.Error(w, "Usuario no encontrado", http.StatusNotFound)
+		// Si no se encuentra el usuario, responde con error 404
+		response.NotFound(w, "Usuario no encontrado")
 		return
 	}
 
 	// Limpiar password antes de enviar
 	usuario.UsuPassword = ""
 
-	// Retornar usuario
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(usuario)
+	// Retornar usuario autenticado
+	response.Success(w, "Información de usuario obtenida correctamente", usuario)
 }
 
 // RefreshToken genera un nuevo token basado en el token actual
@@ -111,31 +111,33 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Obtener el token del header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		http.Error(w, "Token no proporcionado", http.StatusUnauthorized)
+		// Si no se proporciona token, responde con error 401
+		response.Unauthorized(w, "Token no proporcionado")
 		return
 	}
 
 	// Extraer token del header
 	token, err := helper.ExtractTokenFromHeader(authHeader)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		// Si hay error al extraer el token, responde con error 401
+		response.Unauthorized(w, err.Error())
 		return
 	}
 
 	// Refrescar el token
 	newToken, expiresAt, err := helper.RefreshToken(token)
 	if err != nil {
-		http.Error(w, "Error al refrescar token", http.StatusUnauthorized)
+		// Si hay error al refrescar el token, responde con error 401
+		response.Unauthorized(w, "Error al refrescar token")
 		return
 	}
 
-	// Preparar respuesta
-	response := map[string]interface{}{
+	// Preparar respuesta con nuevo token
+	tokenResponse := map[string]interface{}{
 		"token":      newToken,
 		"expires_at": expiresAt,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	// Retornar nuevo token
+	response.Success(w, "Token refrescado correctamente", tokenResponse)
 }

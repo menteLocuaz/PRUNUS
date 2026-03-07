@@ -9,6 +9,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils/response"
 )
 
 type EmpresaHandler struct {
@@ -24,44 +25,38 @@ func NewEmpresaHandler(s *services.ServiceEmpresa) *EmpresaHandler {
 
 // GetAll obtiene todas las empresas
 func (h *EmpresaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	resp, err := h.service.GetAllEmpresa()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.InternalServerError(w, "Error al obtener las empresas")
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	response.Success(w, "Empresas obtenidas correctamente", resp)
 }
 
 // GetByID obtiene una empresa por ID
 func (h *EmpresaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "ID inválido", http.StatusBadRequest)
+		response.BadRequest(w, "ID inválido")
 		return
 	}
 
 	resp, err := h.service.GetByIDEmpresa(uint(id))
 	if err != nil {
-		http.Error(w, "Empresa no encontrada", http.StatusNotFound)
+		response.NotFound(w, "Empresa no encontrada")
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	response.Success(w, "Empresa obtenida correctamente", resp)
 }
 
 // Create crea una nueva empresa
 func (h *EmpresaHandler) Create(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	var req dto.EmpresaCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		response.BadRequest(w, "JSON inválido")
 		return
 	}
 
@@ -73,28 +68,25 @@ func (h *EmpresaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.CrearEmpresa(empresa)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response.BadRequest(w, err.Error())
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	response.Created(w, "Empresa creada exitosamente", resp)
 }
 
 // Update actualiza una empresa existente
 func (h *EmpresaHandler) Update(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "ID inválido", http.StatusBadRequest)
+		response.BadRequest(w, "ID inválido")
 		return
 	}
 
 	var req dto.EmpresaUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		response.BadRequest(w, "JSON inválido")
 		return
 	}
 
@@ -106,28 +98,27 @@ func (h *EmpresaHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.UpdateEmpresa(uint(id), empresa)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response.InternalServerError(w, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(resp)
+	response.Success(w, "Empresa actualizada correctamente", resp)
 }
 
 // Delete elimina una empresa
 func (h *EmpresaHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "ID inválido", http.StatusBadRequest)
+		response.BadRequest(w, "ID inválido")
 		return
 	}
 
 	if err := h.service.ElimminarEmpresa(uint(id)); err != nil {
-		http.Error(w, "Empresa no encontrada", http.StatusNotFound)
+		response.NotFound(w, "Empresa no encontrada")
 		return
 	}
 
+	// Responde con código 204 No Content para indicar eliminación exitosa
 	w.WriteHeader(http.StatusNoContent)
 }
