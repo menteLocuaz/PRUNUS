@@ -94,7 +94,10 @@ func main() {
 		proveedorHandler,
 	)
 
-	// empezar y escuchar el servidor
-	fmt.Println("✅ Iniciando servidor")
-	http.ListenAndServe(":9090", router)
+	// Inicia el servidor HTTP en el puerto 9090 y queda en escucha de peticiones entrantes.
+	// Si el servidor no puede iniciar, log.Fatal detendrá la aplicación con el error correspondiente.
+	fmt.Println("✅ Iniciando servidor en :9090")
+	if err := http.ListenAndServe(":9090", router); err != nil {
+		log.Fatal(err)
+	}
 }
