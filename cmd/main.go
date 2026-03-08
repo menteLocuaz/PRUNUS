@@ -22,6 +22,13 @@ func main() {
 	}
 	defer db.Close()
 
+	// redis
+	rdb, err := database.RedisConexion()
+	if err != nil {
+		log.Printf("Aviso: No se pudo conectar a Redis: %v. Cache desactivado.", err)
+	}
+	cacheStore := store.NewRedisStore(rdb)
+
 	// ejecutar migraciones
 	if err := migrations.RunMigrations(db); err != nil {
 		log.Fatal(err)
@@ -39,7 +46,7 @@ func main() {
 	sucursalHandler := transport.NewSucursalHandler(sucursalServices)
 	// inyetar depedencia rol
 	rolStore := store.NewRol(db)
-	rolService := services.NewServiceRol(rolStore)
+	rolService := services.NewServiceRol(rolStore, cacheStore)
 	rolHandler := transport.NewRolHandler(rolService)
 	// inyectar dependencia usuario
 	usuarioStore := store.NewUsuario(db)
@@ -51,7 +58,7 @@ func main() {
 
 	// inyectar dependencia categoria
 	categoriaStore := store.NewCategoria(db)
-	categoriaService := services.NewServiceCategoria(categoriaStore)
+	categoriaService := services.NewServiceCategoria(categoriaStore, cacheStore)
 	categoriaHandler := transport.NewCategoriaHandler(categoriaService)
 
 	// inyectar dependencia cliente
