@@ -9,7 +9,8 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
-	"github.com/prunus/pkg/utils/response" // Importa el paquete response para respuestas estandarizadas
+	"github.com/prunus/pkg/utils/response"
+	"github.com/prunus/pkg/utils/validator"
 )
 
 // ProductoHandler maneja las solicitudes HTTP relacionadas con productos
@@ -68,6 +69,12 @@ func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
 	// Crea un modelo Producto con los datos recibidos
 	producto := models.Producto{
 		Nombre:           req.Nombre,
@@ -110,6 +117,12 @@ func (h *ProductoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var req dto.ProductoUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
 		return
 	}
 

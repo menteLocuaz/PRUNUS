@@ -46,6 +46,11 @@ func BadRequest(w http.ResponseWriter, message string) {
 	Error(w, http.StatusBadRequest, message)
 }
 
+// ValidationError envía un error 400 con detalles de validación
+func ValidationError(w http.ResponseWriter, errors interface{}) {
+	JSON(w, http.StatusBadRequest, false, "Error de validación", errors)
+}
+
 // Unauthorized envía un error 401
 func Unauthorized(w http.ResponseWriter, message string) {
 	Error(w, http.StatusUnauthorized, message)

@@ -9,7 +9,8 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
-	"github.com/prunus/pkg/utils/response" // Importa el paquete response para respuestas estandarizadas
+	"github.com/prunus/pkg/utils/response"
+	"github.com/prunus/pkg/utils/validator"
 )
 
 // ProveedorHandler maneja las solicitudes HTTP relacionadas con proveedores
@@ -69,6 +70,12 @@ func (h *ProveedorHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
 	// Crea un modelo Proveedor con los datos recibidos
 	proveedor := models.Proveedor{
 		Nombre:     req.Nombre,
@@ -110,6 +117,12 @@ func (h *ProveedorHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
 	// Crea un modelo Proveedor con los datos actualizados
 	proveedor := models.Proveedor{
 		Nombre:     req.Nombre,
@@ -122,7 +135,7 @@ func (h *ProveedorHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IDEmpresa:  req.IDEmpresa,
 	}
 
-	// Llama al servicio para actualizar el proveedor
+	// Llama al servicio para actualizar the proveedor
 	resp, err := h.service.UpdateProveedor(uint(id), proveedor)
 	if err != nil {
 		// En caso de error interno, responde con error 500

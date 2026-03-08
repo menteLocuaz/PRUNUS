@@ -9,7 +9,8 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
-	"github.com/prunus/pkg/utils/response" // Importa el paquete de respuestas
+	"github.com/prunus/pkg/utils/response"
+	"github.com/prunus/pkg/utils/validator"
 )
 
 type MedidaHandler struct {
@@ -54,6 +55,12 @@ func (h *MedidaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
 	unidad := models.Unidad{
 		Nombre:     req.Nombre,
 		IDSucursal: req.IDSucursal,
@@ -79,6 +86,12 @@ func (h *MedidaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var req dto.MedidaUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
 		return
 	}
 

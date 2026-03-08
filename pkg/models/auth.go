@@ -4,8 +4,8 @@ import "github.com/golang-jwt/jwt/v5"
 
 // LoginRequest representa la petición de login
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 // LoginResponse representa la respuesta exitosa de login

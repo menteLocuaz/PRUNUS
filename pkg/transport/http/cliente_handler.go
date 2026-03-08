@@ -9,7 +9,8 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
-	"github.com/prunus/pkg/utils/response" // Importa el paquete response para respuestas estandarizadas
+	"github.com/prunus/pkg/utils/response"
+	"github.com/prunus/pkg/utils/validator"
 )
 
 // ClienteHandler maneja las solicitudes HTTP relacionadas con clientes
@@ -69,6 +70,12 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
 	// Crea un modelo Cliente con los datos recibidos
 	cliente := models.Cliente{
 		EmpresaCliente: req.EmpresaCliente,
@@ -108,6 +115,12 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		// Si el JSON es inválido, responde con error 400
 		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	// Validar la estructura
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
 		return
 	}
 

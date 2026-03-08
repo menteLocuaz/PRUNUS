@@ -7,7 +7,8 @@ import (
 	"github.com/prunus/pkg/helper"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
-	"github.com/prunus/pkg/utils/response" // Importa el paquete response para respuestas estandarizadas
+	"github.com/prunus/pkg/utils/response"
+	"github.com/prunus/pkg/utils/validator"
 )
 
 // AuthHandler maneja las peticiones relacionadas con autenticación
@@ -29,6 +30,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&loginReq); err != nil {
 		// Si el formato es inválido, responde con error 400
 		response.BadRequest(w, "Formato de petición inválido")
+		return
+	}
+
+	// Validar la estructura
+	if err := validator.Validate.Struct(loginReq); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
 		return
 	}
 
