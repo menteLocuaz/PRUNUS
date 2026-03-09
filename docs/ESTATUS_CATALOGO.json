@@ -1,0 +1,310 @@
+{
+  "success": true,
+  "message": "Catálogo maestro de estatus obtenido correctamente",
+  "data": {
+    "1": {
+      "modulo": "Empresa",
+      "items": [
+        {
+          "id_status": "fc273a6a-ab7b-4453-a560-ac62fa64348b",
+          "std_descripcion": "Activa",
+          "stp_tipo_estado": "GENERAL",
+          "mdl_id": 1,
+          "created_at": "2026-03-09T22:49:29.260657Z",
+          "updated_at": "2026-03-09T22:49:29.260657Z"
+        },
+        {
+          "id_status": "b4d0544d-1778-4560-a170-a681ab3399bd",
+          "std_descripcion": "Suspendida",
+          "stp_tipo_estado": "RESTRICCION",
+          "mdl_id": 1,
+          "created_at": "2026-03-09T22:48:24.703754Z",
+          "updated_at": "2026-03-09T22:48:24.703754Z"
+        },
+        {
+          "id_status": "421f3bc9-baeb-4d15-999f-d653ac3168e3",
+          "std_descripcion": "Activa",
+          "stp_tipo_estado": "GENERAL",
+          "mdl_id": 1,
+          "created_at": "2026-03-09T22:48:17.213669Z",
+          "updated_at": "2026-03-09T22:48:17.213669Z"
+        }
+      ]
+    },
+    "2": {
+      "modulo": "Sucursal",
+      "items": [
+        {
+          "id_status": "dba9516b-257e-46c9-8372-e1bb58e999f1",
+          "std_descripcion": "Mantenimiento",
+          "stp_tipo_estado": "TECNICO",
+          "mdl_id": 2,
+          "created_at": "2026-03-09T22:56:34.385986Z",
+          "updated_at": "2026-03-09T22:56:34.385986Z"
+        },
+        {
+          "id_status": "34be5a4c-ab4c-4afd-9a3c-98dfeb500fbc",
+          "std_descripcion": "Cerrada",
+          "stp_tipo_estado": "OPERATIVO",
+          "mdl_id": 2,
+          "created_at": "2026-03-09T22:56:23.869041Z",
+          "updated_at": "2026-03-09T22:56:23.869041Z"
+        },
+        {
+          "id_status": "6cf06fbe-b21c-46e3-a34b-b24f5167cd9a",
+          "std_descripcion": "Abierta",
+          "stp_tipo_estado": "OPERATIVO",
+          "mdl_id": 2,
+          "created_at": "2026-03-09T22:56:02.267651Z",
+          "updated_at": "2026-03-09T22:56:02.267651Z"
+        }
+      ]
+    },
+    "3": {
+      "modulo": "Usuario",
+      "items": [
+        {
+          "id_status": "3ae0a60b-8abc-43ea-95da-c1300245a327",
+          "std_descripcion": "Pendiente",
+          "stp_tipo_estado": "REGISTRO",
+          "mdl_id": 3,
+          "created_at": "2026-03-09T23:00:08.778449Z",
+          "updated_at": "2026-03-09T23:00:08.778449Z"
+        },
+        {
+          "id_status": "f210ac4b-81dd-4e52-a247-79a93b8b1a68",
+          "std_descripcion": "Bloqueado",
+          "stp_tipo_estado": "SEGURIDAD",
+          "mdl_id": 3,
+          "created_at": "2026-03-09T23:00:01.960111Z",
+          "updated_at": "2026-03-09T23:00:01.960111Z"
+        },
+        {
+          "id_status": "3a99d245-b34f-48a5-ac08-a5a010c5822f",
+          "std_descripcion": "Activo",
+          "stp_tipo_estado": "ACCESO",
+          "mdl_id": 3,
+          "created_at": "2026-03-09T22:59:54.735813Z",
+          "updated_at": "2026-03-09T22:59:54.735813Z"
+        }
+      ]
+    },
+    "4": {
+      "modulo": "Producto",
+      "items": [
+        {
+          "id_status": "f566215a-a391-4904-b736-26c7f258aa00",
+          "std_descripcion": "Descontinuado",
+          "stp_tipo_estado": "COMERCIAL",
+          "mdl_id": 4,
+          "created_at": "2026-03-09T23:02:03.082936Z",
+          "updated_at": "2026-03-09T23:02:03.082936Z"
+        },
+        {
+          "id_status": "073f4513-a88e-4278-af95-bd9cde61bdbd",
+          "std_descripcion": "Agotado",
+          "stp_tipo_estado": "STOCK",
+          "mdl_id": 4,
+          "created_at": "2026-03-09T23:01:56.417967Z",
+          "updated_at": "2026-03-09T23:01:56.417967Z"
+        },
+        {
+          "id_status": "31f4e127-e7e1-414d-aaef-6e92e4c5d970",
+          "std_descripcion": "Disponible",
+          "stp_tipo_estado": "STOCK",
+          "mdl_id": 4,
+          "created_at": "2026-03-09T23:01:48.497508Z",
+          "updated_at": "2026-03-09T23:01:48.497508Z"
+        }
+      ]
+    },
+    "5": {
+      "modulo": "Venta",
+      "items": [
+        {
+          "id_status": "892340e0-4328-491d-9102-80550bb6aac4",
+          "std_descripcion": "Pendiente",
+          "stp_tipo_estado": "TRANSACCION",
+          "mdl_id": 5,
+          "created_at": "2026-03-09T23:03:14.085481Z",
+          "updated_at": "2026-03-09T23:03:14.085481Z"
+        },
+        {
+          "id_status": "62ed7d82-0c81-4511-8f02-e7fd140018d8",
+          "std_descripcion": "Anulada",
+          "stp_tipo_estado": "TRANSACCION",
+          "mdl_id": 5,
+          "created_at": "2026-03-09T23:03:06.509399Z",
+          "updated_at": "2026-03-09T23:03:06.509399Z"
+        },
+        {
+          "id_status": "0f447fd7-9849-4a68-b82f-c69297e7a924",
+          "std_descripcion": "Pagada",
+          "stp_tipo_estado": "TRANSACCION",
+          "mdl_id": 5,
+          "created_at": "2026-03-09T23:02:57.418563Z",
+          "updated_at": "2026-03-09T23:02:57.418563Z"
+        }
+      ]
+    },
+    "6": {
+      "modulo": "Compra",
+      "items": [
+        {
+          "id_status": "9e370f25-d719-46ec-ade7-9fb476c96f44",
+          "std_descripcion": "Cancelada",
+          "stp_tipo_estado": "FLUJO",
+          "mdl_id": 6,
+          "created_at": "2026-03-09T23:04:33.975847Z",
+          "updated_at": "2026-03-09T23:04:33.975847Z"
+        },
+        {
+          "id_status": "00363491-8508-4220-9661-e99f05b0d545",
+          "std_descripcion": "Recibida",
+          "stp_tipo_estado": "FLUJO",
+          "mdl_id": 6,
+          "created_at": "2026-03-09T23:04:26.968794Z",
+          "updated_at": "2026-03-09T23:04:26.968794Z"
+        },
+        {
+          "id_status": "0cd9aa6e-5768-45d2-a66d-12758a3bd0cc",
+          "std_descripcion": "Solicitada",
+          "stp_tipo_estado": "FLUJO",
+          "mdl_id": 6,
+          "created_at": "2026-03-09T23:04:18.745839Z",
+          "updated_at": "2026-03-09T23:04:18.745839Z"
+        }
+      ]
+    },
+    "7": {
+      "modulo": "Finanzas",
+      "items": [
+        {
+          "id_status": "877e725b-ae57-4501-b1cd-1158fe2df087",
+          "std_descripcion": "Pendiente",
+          "stp_tipo_estado": "CONTABLE",
+          "mdl_id": 7,
+          "created_at": "2026-03-09T23:05:41.792204Z",
+          "updated_at": "2026-03-09T23:05:41.792204Z"
+        },
+        {
+          "id_status": "e69d8b1d-d267-47ab-b0ef-507ed6382cd3",
+          "std_descripcion": "Conciliado",
+          "stp_tipo_estado": "CONTABLE",
+          "mdl_id": 7,
+          "created_at": "2026-03-09T23:05:33.012495Z",
+          "updated_at": "2026-03-09T23:05:33.012495Z"
+        }
+      ]
+    },
+    "8": {
+      "modulo": "Caja/POS",
+      "items": [
+        {
+          "id_status": "a864475f-0d34-e711-80c1-000c29c9e0e0",
+          "std_descripcion": "Fondo Activo",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "84920103-640e-e611-80c1-000c29c9e0e0",
+          "std_descripcion": "Retiro Total",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "e8297cfa-630e-e611-80c1-000c29c9e0e0",
+          "std_descripcion": "Retiro Efectivo",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "159e3fe6-630e-e611-80c1-000c29c9e0e0",
+          "std_descripcion": "Arqueo Retiros",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "0d4515fe-c907-e611-a6b8-000c29c9e0e0",
+          "std_descripcion": "Arqueo",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "9c039503-85cf-e511-80c1-000c29c9e0e0",
+          "std_descripcion": "Salir Admin",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "9b039503-85cf-e511-80c1-000c29c9e0e0",
+          "std_descripcion": "Ingreso Admin",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "9a039503-85cf-e511-80c1-000c29c9e0e0",
+          "std_descripcion": "Desmontado",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "99039503-85cf-e511-80c1-000c29c9e0e0",
+          "std_descripcion": "Fondo Asignado",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "59039503-85cf-e511-80c1-000c29c9e0e0",
+          "std_descripcion": "Activo",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "5a039503-85cf-e511-80c1-000c29c9e0e0",
+          "std_descripcion": "Inactivo",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "5e8dd0fb-5550-e711-80c1-000c29c9e0e0",
+          "std_descripcion": "Fondo Por Confirmar",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        },
+        {
+          "id_status": "2160b065-0d34-e711-80c1-000c29c9e0e0",
+          "std_descripcion": "Fondo Retirado",
+          "stp_tipo_estado": "1",
+          "mdl_id": 8,
+          "created_at": "2026-03-09T02:20:33.429105Z",
+          "updated_at": "2026-03-09T02:20:33.429105Z"
+        }
+      ]
+    }
+  }
+}

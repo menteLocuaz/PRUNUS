@@ -86,6 +86,11 @@ func main() {
 	proveedorService := services.NewServiceProveedor(proveedorStore)
 	proveedorHandler := transport.NewProveedorHandler(proveedorService)
 
+	// inyectar dependencia estatus
+	estatusStore := store.NewEstatus(db)
+	estatusService := services.NewServiceEstatus(estatusStore, cacheStore)
+	estatusHandler := transport.NewEstatusHandler(estatusService)
+
 	// configura rutas - combinar todos los handlers en un solo router
 	router := routers.NewMainRouter(
 		empresahandler,
@@ -99,6 +104,7 @@ func main() {
 		monedaHandler,
 		productoHandler,
 		proveedorHandler,
+		estatusHandler,
 	)
 
 	// Inicia el servidor HTTP en el puerto 9090 y queda en escucha de peticiones entrantes.

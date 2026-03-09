@@ -22,6 +22,7 @@ func NewMainRouter(
 	monedaHandler *transport.MonedaHandler,
 	productoHandler *transport.ProductoHandler,
 	proveedorHandler *transport.ProveedorHandler,
+	estatusHandler *transport.EstatusHandler,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -102,6 +103,15 @@ func NewMainRouter(
 				r.Get("/proveedores/{id}", proveedorHandler.GetByID)
 				r.Put("/proveedores/{id}", proveedorHandler.Update)
 				r.Delete("/proveedores/{id}", proveedorHandler.Delete)
+
+				r.Get("/estatus", estatusHandler.GetAll)
+				r.Get("/estatus/catalogo", estatusHandler.GetMasterCatalog)
+				r.Post("/estatus", estatusHandler.Create)
+				r.Get("/estatus/{id}", estatusHandler.GetByID)
+				r.Put("/estatus/{id}", estatusHandler.Update)
+				r.Delete("/estatus/{id}", estatusHandler.Delete)
+				r.Get("/estatus/tipo/{tipo}", estatusHandler.GetByTipo)
+				r.Get("/estatus/modulo/{moduloID}", estatusHandler.GetByModulo)
 			})
 		})
 	})

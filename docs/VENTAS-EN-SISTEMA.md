@@ -64,5 +64,72 @@ Para comenzar a realizar ventas en el sistema, la estructura que hemos diseñado
    2. ¿Tiene el usuario un Control de Estación abierto para la estación desde la que está intentando vender?
 
 
-  ¿Deseas que comencemos a crear los servicios en Go para manejar esta lógica de "Apertura de Caja"?
 
+## Estados
+Para que el sistema de estatus sea eficaz y rápido, tanto en el backend como para el consumo del frontend, propongo un plan basado
+  en un Catálogo Maestro Estructurado.
+
+
+  1. Definición de Identificadores de Módulos (mdl_id)
+  Primero, estandarizamos los IDs de los módulos en el código (vía constantes) para evitar "números mágicos":
+
+
+
+  ┌────┬──────────┬─────────────────────────────────────────┐
+  │ ID │ Módulo   │ Descripción                             │
+  ├────┼──────────┼─────────────────────────────────────────┤
+  │ 1  │ EMPRESA  │ Configuración global de la empresa      │
+  │ 2  │ SUCURSAL │ Gestión de sucursales                   │
+  │ 3  │ USUARIO  │ Gestión de accesos y perfiles           │
+  │ 4  │ PRODUCTO │ Catálogo de productos e inventario      │
+  │ 5  │ VENTA    │ Facturación y pedidos                   │
+  │ 6  │ COMPRA   │ Órdenes de compra y proveedores         │
+  │ 7  │ FINANZAS │ Tesorería, monedas y pagos              │
+  │ 8  │ CAJA_POS │ Control de estaciones, turnos y arqueos │
+  └────┴──────────┴─────────────────────────────────────────┘
+
+
+
+  2. Estructura de Respuesta JSON "Caché-Friendly"
+  En lugar de que el frontend pida estatus uno por uno, diseñaremos un endpoint de Catálogo Maestro que devuelva un objeto indexado
+  por el ID del módulo. Esto permite al frontend cargar una sola vez y acceder en $O(1)$.
+
+  Endpoint Propuesto: GET /api/v1/estatus/catalogo
+
+
+    1 {
+    2   "status": "success",
+    3   "data": {
+    4     "1": {
+    5       "modulo": "Empresa",
+    6       "items": [
+    7         { "id": "uuid-1", "descripcion": "Activo", "tipo": "1" },
+    8         { "id": "uuid-2", "descripcion": "Suspendido", "tipo": "1" }
+    9       ]
+   10     },
+   11     "8": {
+   12       "modulo": "Caja/POS",
+   13       "items": [
+   14         { "id": "59039503...", "descripcion": "Activo", "tipo": "1" },
+   15         { "id": "99039503...", "descripcion": "Fondo Asignado", "tipo": "1" }
+   16       ]
+   17     }
+   18   }
+   19 }
+
+
+  3. Implementación de "Slugs" o Códigos Rápidos
+  Para que el backend sea rápido al validar lógica de negocio (ej: "solo permitir venta si el estatus es ACTIVO"), añadiremos una
+  columna opcional std_codigo (ej: ACT, INA, ARC) o usaremos la descripción normalizada.
+
+
+  4. Estrategia de Carga y Rendimiento
+   1. Warm-up de Caché: Al iniciar la aplicación, el ServiceEstatus precargará todos los estatus en Redis agrupados por módulo.
+   2. Single Source of Truth: El frontend solicita este JSON al iniciar sesión y lo guarda en su estado global (Redux/Pinia/Context).
+   3. Validación en Base de Datos: Las tablas transaccionales (como factura o inventario) solo guardarán el id_status (UUID),
+      garantizando integridad referencial.
+
+
+  5. Acción Inmediata: Endpoint de Catálogo
+  Implementaré un método en el servicio que transforme la lista plana de la base de datos en este mapa estructurado por módulo para
+  maximizar la velocidad de lectura del cliente.
