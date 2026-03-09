@@ -3,9 +3,9 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
@@ -41,7 +41,7 @@ func (h *RolHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *RolHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	// Obtener el ID del parámetro de la URL
 	idParam := chi.URLParam(r, "id")
-	id, err := strconv.ParseUint(idParam, 10, 32)
+	id, err := uuid.Parse(idParam)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -49,7 +49,7 @@ func (h *RolHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener el rol por ID
-	rol, err := h.service.GetRolByID(uint(id))
+	rol, err := h.service.GetRolByID(id)
 	if err != nil {
 		// Si no se encuentra el rol, responde con error 404
 		response.NotFound(w, err.Error())
@@ -80,7 +80,7 @@ func (h *RolHandler) Create(w http.ResponseWriter, r *http.Request) {
 	rol := models.Rol{
 		RolNombre:  req.RolNombre,
 		IDSucursal: req.IDSucursal,
-		Estado:     req.Estado,
+		IDStatus:   req.IDStatus,
 	}
 
 	// Crear el rol usando el servicio
@@ -99,7 +99,7 @@ func (h *RolHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *RolHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Obtener el ID del parámetro de la URL
 	idParam := chi.URLParam(r, "id")
-	id, err := strconv.ParseUint(idParam, 10, 32)
+	id, err := uuid.Parse(idParam)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -124,11 +124,11 @@ func (h *RolHandler) Update(w http.ResponseWriter, r *http.Request) {
 	rol := models.Rol{
 		RolNombre:  req.RolNombre,
 		IDSucursal: req.IDSucursal,
-		Estado:     req.Estado,
+		IDStatus:   req.IDStatus,
 	}
 
 	// Actualizar el rol usando el servicio
-	resp, err := h.service.UpdateRol(uint(id), rol)
+	resp, err := h.service.UpdateRol(id, rol)
 	if err != nil {
 		// Si hay error en la actualización, responde con error 400
 		response.BadRequest(w, err.Error())
@@ -143,7 +143,7 @@ func (h *RolHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *RolHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// Obtener el ID del parámetro de la URL
 	idParam := chi.URLParam(r, "id")
-	id, err := strconv.ParseUint(idParam, 10, 32)
+	id, err := uuid.Parse(idParam)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -151,7 +151,7 @@ func (h *RolHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Eliminar el rol usando el servicio
-	if err := h.service.DeleteRol(uint(id)); err != nil {
+	if err := h.service.DeleteRol(id); err != nil {
 		// Si hay error en la eliminación, responde con error 400
 		response.BadRequest(w, err.Error())
 		return

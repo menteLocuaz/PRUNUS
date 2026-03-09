@@ -5,19 +5,25 @@ import "database/sql"
 func migrateProveedor(db *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS proveedor (
-		id_proveedor  SERIAL PRIMARY KEY,
+		id_proveedor  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		nombre        VARCHAR(150) NOT NULL,
 		ruc           VARCHAR(20),
 		telefono      VARCHAR(30),
 		direccion     VARCHAR(255),
 		email         VARCHAR(150),
-		estado        INTEGER      NOT NULL DEFAULT 1,
-		id_sucursal   INTEGER      NOT NULL,
-		id_empresa    INTEGER      NOT NULL,
+		id_status     UUID         NOT NULL,
+		id_sucursal   UUID         NOT NULL,
+		id_empresa    UUID         NOT NULL,
 
 		created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at    TIMESTAMP NULL,
+
+		CONSTRAINT fk_proveedor_status
+			FOREIGN KEY (id_status)
+			REFERENCES estatus(id_status)
+			ON UPDATE CASCADE
+			ON DELETE RESTRICT,
 
 		CONSTRAINT fk_proveedor_sucursal
 			FOREIGN KEY (id_sucursal)
@@ -34,7 +40,7 @@ func migrateProveedor(db *sql.DB) error {
 
 	CREATE INDEX IF NOT EXISTS idx_proveedor_id_sucursal ON proveedor(id_sucursal);
 	CREATE INDEX IF NOT EXISTS idx_proveedor_id_empresa  ON proveedor(id_empresa);
-	CREATE INDEX IF NOT EXISTS idx_proveedor_estado      ON proveedor(estado);
+	CREATE INDEX IF NOT EXISTS idx_proveedor_id_status   ON proveedor(id_status);
 	CREATE INDEX IF NOT EXISTS idx_proveedor_deleted_at  ON proveedor(deleted_at);
 	`
 	_, err := db.Exec(query)

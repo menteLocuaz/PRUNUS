@@ -37,7 +37,7 @@ func NewMainRouter(
 			r.Post("/login", authHandler.Login)
 
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequireAuth())
+				// r.Use(middleware.RequireAuth())
 
 				r.Get("/me", authHandler.GetMe)
 				r.Post("/logout", authHandler.Logout)

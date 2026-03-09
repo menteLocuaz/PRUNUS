@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -23,7 +24,7 @@ func NewServiceRol(s store.StoreRol, c models.CacheStore) *ServiceRol {
 
 const (
 	cacheKeyRolesAll = "roles:all"
-	cacheKeyRolID    = "roles:id:%d"
+	cacheKeyRolID    = "roles:id:%s"
 )
 
 // GetAllRoles obtiene todos los roles del sistema
@@ -50,14 +51,14 @@ func (s *ServiceRol) GetAllRoles() ([]*models.Rol, error) {
 }
 
 // GetRolByID obtiene un rol por su ID
-func (s *ServiceRol) GetRolByID(id uint) (*models.Rol, error) {
-	if id == 0 {
+func (s *ServiceRol) GetRolByID(id uuid.UUID) (*models.Rol, error) {
+	if id == uuid.Nil {
 		return nil, errors.New("el ID del rol es requerido")
 	}
 
 	ctx := context.Background()
 	var rol *models.Rol
-	key := fmt.Sprintf(cacheKeyRolID, id)
+	key := fmt.Sprintf(cacheKeyRolID, id.String())
 
 	// Intentar obtener del caché
 	err := s.cache.Get(ctx, key, &rol)
@@ -83,13 +84,11 @@ func (s *ServiceRol) CreateRol(rol models.Rol) (*models.Rol, error) {
 	if rol.RolNombre == "" {
 		return nil, errors.New("el nombre del rol es requerido")
 	}
-	if rol.IDSucursal == 0 {
+	if rol.IDSucursal == uuid.Nil {
 		return nil, errors.New("el ID de la sucursal es requerido")
 	}
-
-	// Establecer estado por defecto si no está definido
-	if rol.Estado == 0 {
-		rol.Estado = 1
+	if rol.IDStatus == uuid.Nil {
+		return nil, errors.New("el ID del estatus es requerido")
 	}
 
 	result, err := s.store.CreateRol(&rol)
@@ -104,14 +103,14 @@ func (s *ServiceRol) CreateRol(rol models.Rol) (*models.Rol, error) {
 }
 
 // UpdateRol actualiza un rol existente con validaciones
-func (s *ServiceRol) UpdateRol(id uint, rol models.Rol) (*models.Rol, error) {
-	if id == 0 {
+func (s *ServiceRol) UpdateRol(id uuid.UUID, rol models.Rol) (*models.Rol, error) {
+	if id == uuid.Nil {
 		return nil, errors.New("el ID del rol es requerido")
 	}
 	if rol.RolNombre == "" {
 		return nil, errors.New("el nombre del rol es requerido")
 	}
-	if rol.IDSucursal == 0 {
+	if rol.IDSucursal == uuid.Nil {
 		return nil, errors.New("el ID de la sucursal es requerido")
 	}
 
@@ -123,14 +122,14 @@ func (s *ServiceRol) UpdateRol(id uint, rol models.Rol) (*models.Rol, error) {
 	// Invalidar caché
 	ctx := context.Background()
 	_ = s.cache.Delete(ctx, cacheKeyRolesAll)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id))
+	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id.String()))
 
 	return result, nil
 }
 
 // DeleteRol elimina un rol (soft delete)
-func (s *ServiceRol) DeleteRol(id uint) error {
-	if id == 0 {
+func (s *ServiceRol) DeleteRol(id uuid.UUID) error {
+	if id == uuid.Nil {
 		return errors.New("el ID del rol es requerido")
 	}
 
@@ -142,7 +141,7 @@ func (s *ServiceRol) DeleteRol(id uint) error {
 	// Invalidar caché
 	ctx := context.Background()
 	_ = s.cache.Delete(ctx, cacheKeyRolesAll)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id))
+	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id.String()))
 
 	return nil
 }

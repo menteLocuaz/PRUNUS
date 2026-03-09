@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -19,7 +20,10 @@ func (s *ServiceProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 	return s.store.GetAllProveedores()
 }
 
-func (s *ServiceProveedor) GetProveedorByID(id uint) (*models.Proveedor, error) {
+func (s *ServiceProveedor) GetProveedorByID(id uuid.UUID) (*models.Proveedor, error) {
+	if id == uuid.Nil {
+		return nil, errors.New("el ID del proveedor es requerido")
+	}
 	return s.store.GetProveedorByID(id)
 }
 
@@ -27,22 +31,31 @@ func (s *ServiceProveedor) CreateProveedor(proveedor models.Proveedor) (*models.
 	if proveedor.Nombre == "" {
 		return nil, errors.New("falta el nombre del proveedor")
 	}
-	if proveedor.IDSucursal == 0 {
+	if proveedor.IDSucursal == uuid.Nil {
 		return nil, errors.New("falta el id de la sucursal")
 	}
-	if proveedor.IDEmpresa == 0 {
+	if proveedor.IDEmpresa == uuid.Nil {
 		return nil, errors.New("falta el id de la empresa")
+	}
+	if proveedor.IDStatus == uuid.Nil {
+		return nil, errors.New("falta el id de estatus")
 	}
 	return s.store.CreateProveedor(&proveedor)
 }
 
-func (s *ServiceProveedor) UpdateProveedor(id uint, proveedor models.Proveedor) (*models.Proveedor, error) {
+func (s *ServiceProveedor) UpdateProveedor(id uuid.UUID, proveedor models.Proveedor) (*models.Proveedor, error) {
+	if id == uuid.Nil {
+		return nil, errors.New("el ID del proveedor es requerido")
+	}
 	if proveedor.Nombre == "" {
 		return nil, errors.New("falta el nombre del proveedor")
 	}
 	return s.store.UpdateProveedor(id, &proveedor)
 }
 
-func (s *ServiceProveedor) DeleteProveedor(id uint) error {
+func (s *ServiceProveedor) DeleteProveedor(id uuid.UUID) error {
+	if id == uuid.Nil {
+		return errors.New("el ID del proveedor es requerido")
+	}
 	return s.store.DeleteProveedor(id)
 }

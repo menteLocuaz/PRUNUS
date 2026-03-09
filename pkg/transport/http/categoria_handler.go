@@ -3,9 +3,9 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
@@ -41,7 +41,7 @@ func (h *CategoriaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *CategoriaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	// Extrae el parámetro "id" de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -49,7 +49,7 @@ func (h *CategoriaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener la categoría por ID
-	resp, err := h.service.GetCategoriaByID(uint(id))
+	resp, err := h.service.GetCategoriaByID(id)
 	if err != nil {
 		// Si no se encuentra la categoría, responde con error 404
 		response.NotFound(w, "Categoría no encontrada")
@@ -98,7 +98,7 @@ func (h *CategoriaHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *CategoriaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -126,7 +126,7 @@ func (h *CategoriaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para actualizar la categoría
-	resp, err := h.service.UpdateCategoria(uint(id), categoria)
+	resp, err := h.service.UpdateCategoria(id, categoria)
 	if err != nil {
 		// En caso de error interno, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -141,7 +141,7 @@ func (h *CategoriaHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *CategoriaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -149,7 +149,7 @@ func (h *CategoriaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para eliminar la categoría
-	if err := h.service.DeleteCategoria(uint(id)); err != nil {
+	if err := h.service.DeleteCategoria(id); err != nil {
 		// Si no se encuentra la categoría, responde con error 404
 		response.NotFound(w, "Categoría no encontrada")
 		return

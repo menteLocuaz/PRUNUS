@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
@@ -57,7 +58,7 @@ func GenerateToken(usuario *models.Usuario) (string, int64, error) {
 
 	// Extraer nombre del rol (puede ser nil si no se cargó)
 	rolNombre := ""
-	idRol := uint(0)
+	idRol := uuid.Nil
 	if usuario.Rol != nil {
 		rolNombre = usuario.Rol.RolNombre
 		idRol = usuario.Rol.IDRol
@@ -66,7 +67,7 @@ func GenerateToken(usuario *models.Usuario) (string, int64, error) {
 	// Crear los claims
 	claims := &models.JWTClaims{
 		IDUsuario:  usuario.IDUsuario,
-		Email:      usuario.UsuEmail,
+		Email:      usuario.Email,
 		IDRol:      idRol,
 		RolNombre:  rolNombre,
 		IDSucursal: usuario.IDSucursal,
@@ -75,7 +76,7 @@ func GenerateToken(usuario *models.Usuario) (string, int64, error) {
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "prunus-api",
-			Subject:   fmt.Sprintf("%d", usuario.IDUsuario),
+			Subject:   usuario.IDUsuario.String(),
 		},
 	}
 
@@ -139,7 +140,7 @@ func RefreshToken(tokenString string) (string, int64, error) {
 	// Crear un usuario temporal con los datos del token
 	usuario := &models.Usuario{
 		IDUsuario:  claims.IDUsuario,
-		UsuEmail:   claims.Email,
+		Email:      claims.Email,
 		IDSucursal: claims.IDSucursal,
 		Rol: &models.Rol{
 			IDRol:     claims.IDRol,

@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 // StoreRol interfaz que define las operaciones de acceso a datos para rol
 type StoreRol interface {
 	GetAllRoles() ([]*models.Rol, error)
-	GetRolByID(id uint) (*models.Rol, error)
+	GetRolByID(id uuid.UUID) (*models.Rol, error)
 	CreateRol(rol *models.Rol) (*models.Rol, error)
-	UpdateRol(id uint, rol *models.Rol) (*models.Rol, error)
-	DeleteRol(id uint) error
+	UpdateRol(id uuid.UUID, rol *models.Rol) (*models.Rol, error)
+	DeleteRol(id uuid.UUID) error
 }
 
 // storeRol implementación de la interfaz StoreRol
@@ -34,15 +35,15 @@ func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
 		r.id_rol,
 		r.nombre_rol,
 		r.id_sucursal,
-		r.estado,
+		r.id_status,
 
-		s.id_sucursal,
-		s.nombre_sucursal,
-		s.estado
+		su.id_sucursal,
+		su.nombre_sucursal,
+		su.id_status
 	FROM rol r
-	JOIN sucursal s ON s.id_sucursal = r.id_sucursal
+	JOIN sucursal su ON su.id_sucursal = r.id_sucursal
 	WHERE r.deleted_at IS NULL
-	  AND s.deleted_at IS NULL
+	  AND su.deleted_at IS NULL
 	ORDER BY r.created_at DESC
 	`
 
@@ -63,11 +64,11 @@ func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
 			&rol.IDRol,
 			&rol.RolNombre,
 			&rol.IDSucursal,
-			&rol.Estado,
+			&rol.IDStatus,
 
 			&rol.Sucursal.IDSucursal,
 			&rol.Sucursal.NombreSucursal,
-			&rol.Sucursal.Estado,
+			&rol.Sucursal.IDStatus,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error al escanear rol: %w", err)
@@ -80,19 +81,19 @@ func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
 }
 
 // GetRolByID obtiene un rol por su ID
-func (s *storeRol) GetRolByID(id uint) (*models.Rol, error) {
+func (s *storeRol) GetRolByID(id uuid.UUID) (*models.Rol, error) {
 	query := `
 		SELECT
 			r.id_rol,
 			r.nombre_rol,
 			r.id_sucursal,
-			r.estado,
+			r.id_status,
 			
-			s.id_sucursal,
-    		s.nombre_sucursal,
-			s.estado
+			su.id_sucursal,
+    		su.nombre_sucursal,
+			su.id_status
 		FROM rol r
-		JOIN sucursal s ON s.id_sucursal = r.id_sucursal
+		JOIN sucursal su ON su.id_sucursal = r.id_sucursal
 		WHERE r.id_rol = $1 AND r.deleted_at IS NULL
 	`
 
@@ -103,15 +104,15 @@ func (s *storeRol) GetRolByID(id uint) (*models.Rol, error) {
 		&rol.IDRol,
 		&rol.RolNombre,
 		&rol.IDSucursal,
-		&rol.Estado,
+		&rol.IDStatus,
 
 		&rol.Sucursal.IDSucursal,
 		&rol.Sucursal.NombreSucursal,
-		&rol.Sucursal.Estado,
+		&rol.Sucursal.IDStatus,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("rol con ID %d no encontrado", id)
+		return nil, fmt.Errorf("rol con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener rol: %w", err)
@@ -123,7 +124,7 @@ func (s *storeRol) GetRolByID(id uint) (*models.Rol, error) {
 // CreateRol crea un nuevo rol en la base de datos
 func (s *storeRol) CreateRol(rol *models.Rol) (*models.Rol, error) {
 	query := `
-		INSERT INTO rol (nombre_rol, id_sucursal, estado)
+		INSERT INTO rol (nombre_rol, id_sucursal, id_status)
 		VALUES ($1, $2, $3)
 		RETURNING id_rol, created_at, updated_at
 	`
@@ -132,7 +133,7 @@ func (s *storeRol) CreateRol(rol *models.Rol) (*models.Rol, error) {
 		query,
 		rol.RolNombre,
 		rol.IDSucursal,
-		rol.Estado,
+		rol.IDStatus,
 	).Scan(&rol.IDRol, &rol.CreatedAt, &rol.UpdatedAt)
 
 	if err != nil {
@@ -143,31 +144,31 @@ func (s *storeRol) CreateRol(rol *models.Rol) (*models.Rol, error) {
 }
 
 // UpdateRol actualiza un rol existente en la base de datos
-func (s *storeRol) UpdateRol(id uint, rol *models.Rol) (*models.Rol, error) {
+func (s *storeRol) UpdateRol(id uuid.UUID, rol *models.Rol) (*models.Rol, error) {
 	query := `
 		UPDATE rol
-		SET nombre_rol = $1, id_sucursal = $2, estado = $3
+		SET nombre_rol = $1, id_sucursal = $2, id_status = $3, updated_at = CURRENT_TIMESTAMP
 		WHERE id_rol = $4 AND deleted_at IS NULL
-		RETURNING id_rol, nombre_rol, id_sucursal, estado, created_at, updated_at
+		RETURNING id_rol, nombre_rol, id_sucursal, id_status, created_at, updated_at
 	`
 
 	err := s.db.QueryRow(
 		query,
 		rol.RolNombre,
 		rol.IDSucursal,
-		rol.Estado,
+		rol.IDStatus,
 		id,
 	).Scan(
 		&rol.IDRol,
 		&rol.RolNombre,
 		&rol.IDSucursal,
-		&rol.Estado,
+		&rol.IDStatus,
 		&rol.CreatedAt,
 		&rol.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("rol con ID %d no encontrado", id)
+		return nil, fmt.Errorf("rol con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar rol: %w", err)
@@ -177,7 +178,7 @@ func (s *storeRol) UpdateRol(id uint, rol *models.Rol) (*models.Rol, error) {
 }
 
 // DeleteRol realiza un soft delete del rol (actualiza deleted_at)
-func (s *storeRol) DeleteRol(id uint) error {
+func (s *storeRol) DeleteRol(id uuid.UUID) error {
 	query := `
 		UPDATE rol
 		SET deleted_at = $1
@@ -195,7 +196,7 @@ func (s *storeRol) DeleteRol(id uint) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("rol con ID %d no encontrado", id)
+		return fmt.Errorf("rol con ID %s no encontrado", id)
 	}
 
 	return nil

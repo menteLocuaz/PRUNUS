@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -21,7 +22,7 @@ func (s *ServiceSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 }
 
 // obtien solo una sucursla
-func (s *ServiceSucursal) GetSucursalByID(id uint) (*models.Sucursal, error) {
+func (s *ServiceSucursal) GetSucursalByID(id uuid.UUID) (*models.Sucursal, error) {
 	return s.store.GetSucursalByID(id)
 }
 
@@ -30,12 +31,18 @@ func (s *ServiceSucursal) CreateSucursal(sucursal models.Sucursal) (*models.Sucu
 	if sucursal.NombreSucursal == "" {
 		return nil, errors.New("Falta el nombre de la sucursal")
 	}
+	if sucursal.IDEmpresa == uuid.Nil {
+		return nil, errors.New("Falta el id de la empresa")
+	}
+	if sucursal.IDStatus == uuid.Nil {
+		return nil, errors.New("Falta el id del estatus")
+	}
 
 	return s.store.CreateSucursal(&sucursal)
 }
 
 // actualizar empresa
-func (s *ServiceSucursal) UpdateSucursal(id uint, sucursal models.Sucursal) (*models.Sucursal, error) {
+func (s *ServiceSucursal) UpdateSucursal(id uuid.UUID, sucursal models.Sucursal) (*models.Sucursal, error) {
 	if sucursal.NombreSucursal == "" {
 		return nil, errors.New("Falta el nombre de la sucursal")
 	}
@@ -43,6 +50,6 @@ func (s *ServiceSucursal) UpdateSucursal(id uint, sucursal models.Sucursal) (*mo
 }
 
 // eliminar empresa
-func (s *ServiceSucursal) DeleteSucursal(id uint) error {
+func (s *ServiceSucursal) DeleteSucursal(id uuid.UUID) error {
 	return s.store.DeleteSucursal(id)
 }

@@ -6,6 +6,7 @@ package services
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -32,7 +33,10 @@ func (s *ServiceEmpresa) GetAllEmpresa() ([]*models.Empresa, error) {
 
 // GetByIDEmpresa busca una empresa por su ID único.
 // Retorna la empresa encontrada o un error si no existe.
-func (s *ServiceEmpresa) GetByIDEmpresa(id uint) (*models.Empresa, error) {
+func (s *ServiceEmpresa) GetByIDEmpresa(id uuid.UUID) (*models.Empresa, error) {
+	if id == uuid.Nil {
+		return nil, errors.New("el ID de la empresa es requerido")
+	}
 	return s.store.GetByIdEmpresa(id)
 }
 
@@ -43,13 +47,19 @@ func (s *ServiceEmpresa) CrearEmpresa(empresa models.Empresa) (*models.Empresa, 
 	if empresa.Nombre == "" {
 		return nil, errors.New("Falta el nombre de la empresa")
 	}
+	if empresa.IDStatus == uuid.Nil {
+		return nil, errors.New("Falta el ID de estatus")
+	}
 	return s.store.CreateEmpresa(&empresa)
 }
 
 // UpdateEmpresa valida y actualiza una empresa existente.
 // Si el nombre está vacío, retorna un error de validación.
 // En caso contrario, delega la actualización al Store.
-func (s *ServiceEmpresa) UpdateEmpresa(id uint, empresa models.Empresa) (*models.Empresa, error) {
+func (s *ServiceEmpresa) UpdateEmpresa(id uuid.UUID, empresa models.Empresa) (*models.Empresa, error) {
+	if id == uuid.Nil {
+		return nil, errors.New("el ID de la empresa es requerido")
+	}
 	if empresa.Nombre == "" {
 		return nil, errors.New("Falta el nombre de la empresa")
 	}
@@ -58,6 +68,9 @@ func (s *ServiceEmpresa) UpdateEmpresa(id uint, empresa models.Empresa) (*models
 
 // ElimminarEmpresa elimina una empresa por su ID.
 // Retorna un error si la operación falla.
-func (s *ServiceEmpresa) ElimminarEmpresa(id uint) error {
+func (s *ServiceEmpresa) ElimminarEmpresa(id uuid.UUID) error {
+	if id == uuid.Nil {
+		return errors.New("el ID de la empresa es requerido")
+	}
 	return s.store.DeleteEmpresa(id)
 }

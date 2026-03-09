@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreProveedor interface {
 	GetAllProveedores() ([]*models.Proveedor, error)
-	GetProveedorByID(id uint) (*models.Proveedor, error)
+	GetProveedorByID(id uuid.UUID) (*models.Proveedor, error)
 	CreateProveedor(proveedor *models.Proveedor) (*models.Proveedor, error)
-	UpdateProveedor(id uint, proveedor *models.Proveedor) (*models.Proveedor, error)
-	DeleteProveedor(id uint) error
+	UpdateProveedor(id uuid.UUID, proveedor *models.Proveedor) (*models.Proveedor, error)
+	DeleteProveedor(id uuid.UUID) error
 }
 
 type storeProveedor struct {
@@ -33,7 +34,7 @@ func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 		p.telefono,
 		p.direccion,
 		p.email,
-		p.estado,
+		p.id_status,
 		p.id_sucursal,
 		p.id_empresa,
 		p.created_at,
@@ -41,12 +42,12 @@ func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado,
+		su.id_status,
 
 		e.id_empresa,
 		e.nombre,
 		e.rut,
-		e.estado
+		e.id_status
 	FROM proveedor p
 	LEFT JOIN sucursal su ON su.id_sucursal = p.id_sucursal
 	LEFT JOIN empresa e ON e.id_empresa = p.id_empresa
@@ -75,7 +76,7 @@ func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 			&p.Telefono,
 			&p.Direccion,
 			&p.Email,
-			&p.Estado,
+			&p.IDStatus,
 			&p.IDSucursal,
 			&p.IDEmpresa,
 			&p.CreatedAt,
@@ -83,12 +84,12 @@ func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 
 			&p.Sucursal.IDSucursal,
 			&p.Sucursal.NombreSucursal,
-			&p.Sucursal.Estado,
+			&p.Sucursal.IDStatus,
 
 			&p.Empresa.IDEmpresa,
 			&p.Empresa.Nombre,
 			&p.Empresa.RUT,
-			&p.Empresa.Estado,
+			&p.Empresa.IDStatus,
 		); err != nil {
 			return nil, fmt.Errorf("error al escanear proveedor: %w", err)
 		}
@@ -99,7 +100,7 @@ func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 	return proveedores, nil
 }
 
-func (s *storeProveedor) GetProveedorByID(id uint) (*models.Proveedor, error) {
+func (s *storeProveedor) GetProveedorByID(id uuid.UUID) (*models.Proveedor, error) {
 	query := `
 	SELECT
 		p.id_proveedor,
@@ -108,7 +109,7 @@ func (s *storeProveedor) GetProveedorByID(id uint) (*models.Proveedor, error) {
 		p.telefono,
 		p.direccion,
 		p.email,
-		p.estado,
+		p.id_status,
 		p.id_sucursal,
 		p.id_empresa,
 		p.created_at,
@@ -116,12 +117,12 @@ func (s *storeProveedor) GetProveedorByID(id uint) (*models.Proveedor, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado,
+		su.id_status,
 
 		e.id_empresa,
 		e.nombre,
 		e.rut,
-		e.estado
+		e.id_status
 	FROM proveedor p
 	LEFT JOIN sucursal su ON su.id_sucursal = p.id_sucursal
 	LEFT JOIN empresa e ON e.id_empresa = p.id_empresa
@@ -141,7 +142,7 @@ func (s *storeProveedor) GetProveedorByID(id uint) (*models.Proveedor, error) {
 		&p.Telefono,
 		&p.Direccion,
 		&p.Email,
-		&p.Estado,
+		&p.IDStatus,
 		&p.IDSucursal,
 		&p.IDEmpresa,
 		&p.CreatedAt,
@@ -149,16 +150,16 @@ func (s *storeProveedor) GetProveedorByID(id uint) (*models.Proveedor, error) {
 
 		&p.Sucursal.IDSucursal,
 		&p.Sucursal.NombreSucursal,
-		&p.Sucursal.Estado,
+		&p.Sucursal.IDStatus,
 
 		&p.Empresa.IDEmpresa,
 		&p.Empresa.Nombre,
 		&p.Empresa.RUT,
-		&p.Empresa.Estado,
+		&p.Empresa.IDStatus,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("proveedor con ID %d no encontrado", id)
+		return nil, fmt.Errorf("proveedor con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener proveedor: %w", err)
@@ -169,19 +170,19 @@ func (s *storeProveedor) GetProveedorByID(id uint) (*models.Proveedor, error) {
 
 func (s *storeProveedor) CreateProveedor(proveedor *models.Proveedor) (*models.Proveedor, error) {
 	query := `
-		INSERT INTO proveedor (nombre, ruc, telefono, direccion, email, estado, id_sucursal, id_empresa)
+		INSERT INTO proveedor (nombre, ruc, telefono, direccion, email, id_status, id_sucursal, id_empresa)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id_proveedor
 	`
 
-	var id uint
+	var id uuid.UUID
 	err := s.db.QueryRow(query,
 		proveedor.Nombre,
 		proveedor.RUC,
 		proveedor.Telefono,
 		proveedor.Direccion,
 		proveedor.Email,
-		proveedor.Estado,
+		proveedor.IDStatus,
 		proveedor.IDSucursal,
 		proveedor.IDEmpresa,
 	).Scan(&id)
@@ -193,7 +194,7 @@ func (s *storeProveedor) CreateProveedor(proveedor *models.Proveedor) (*models.P
 	return proveedor, nil
 }
 
-func (s *storeProveedor) UpdateProveedor(id uint, proveedor *models.Proveedor) (*models.Proveedor, error) {
+func (s *storeProveedor) UpdateProveedor(id uuid.UUID, proveedor *models.Proveedor) (*models.Proveedor, error) {
 	query := `
 		UPDATE proveedor
 		SET
@@ -202,7 +203,7 @@ func (s *storeProveedor) UpdateProveedor(id uint, proveedor *models.Proveedor) (
 			telefono = $3,
 			direccion = $4,
 			email = $5,
-			estado = $6,
+			id_status = $6,
 			id_sucursal = $7,
 			id_empresa = $8,
 			updated_at = CURRENT_TIMESTAMP
@@ -215,7 +216,7 @@ func (s *storeProveedor) UpdateProveedor(id uint, proveedor *models.Proveedor) (
 			telefono,
 			direccion,
 			email,
-			estado,
+			id_status,
 			id_sucursal,
 			id_empresa,
 			created_at,
@@ -228,7 +229,7 @@ func (s *storeProveedor) UpdateProveedor(id uint, proveedor *models.Proveedor) (
 		proveedor.Telefono,
 		proveedor.Direccion,
 		proveedor.Email,
-		proveedor.Estado,
+		proveedor.IDStatus,
 		proveedor.IDSucursal,
 		proveedor.IDEmpresa,
 		id,
@@ -239,7 +240,7 @@ func (s *storeProveedor) UpdateProveedor(id uint, proveedor *models.Proveedor) (
 		&proveedor.Telefono,
 		&proveedor.Direccion,
 		&proveedor.Email,
-		&proveedor.Estado,
+		&proveedor.IDStatus,
 		&proveedor.IDSucursal,
 		&proveedor.IDEmpresa,
 		&proveedor.CreatedAt,
@@ -247,7 +248,7 @@ func (s *storeProveedor) UpdateProveedor(id uint, proveedor *models.Proveedor) (
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("proveedor con ID %d no encontrado", id)
+		return nil, fmt.Errorf("proveedor con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar proveedor: %w", err)
@@ -256,7 +257,7 @@ func (s *storeProveedor) UpdateProveedor(id uint, proveedor *models.Proveedor) (
 	return proveedor, nil
 }
 
-func (s *storeProveedor) DeleteProveedor(id uint) error {
+func (s *storeProveedor) DeleteProveedor(id uuid.UUID) error {
 	query := `UPDATE proveedor SET deleted_at = $1 WHERE id_proveedor = $2 AND deleted_at IS NULL`
 
 	result, err := s.db.Exec(query, time.Now(), id)

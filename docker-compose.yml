@@ -7,12 +7,14 @@ services:
     restart: always
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: Duarte.45
+      POSTGRES_PASSWORD: Duarte.45   # Usa variable de entorno para la contraseña ${DB_PASSWORD}
       POSTGRES_DB: maxpoint
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
 
   redis:
     image: redis:7-alpine
@@ -20,7 +22,15 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  app-network:
+    driver: bridge

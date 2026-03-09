@@ -3,9 +3,9 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
@@ -38,13 +38,13 @@ func (h *EmpresaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 // GetByID obtiene una empresa por ID
 func (h *EmpresaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		response.BadRequest(w, "ID inválido")
 		return
 	}
 
-	resp, err := h.service.GetByIDEmpresa(uint(id))
+	resp, err := h.service.GetByIDEmpresa(id)
 	if err != nil {
 		response.NotFound(w, "Empresa no encontrada")
 		return
@@ -68,9 +68,9 @@ func (h *EmpresaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	empresa := models.Empresa{
-		Nombre: req.Nombre,
-		RUT:    req.RUT,
-		Estado: req.Estado,
+		Nombre:   req.Nombre,
+		RUT:      req.RUT,
+		IDStatus: req.IDStatus,
 	}
 
 	resp, err := h.service.CrearEmpresa(empresa)
@@ -85,7 +85,7 @@ func (h *EmpresaHandler) Create(w http.ResponseWriter, r *http.Request) {
 // Update actualiza una empresa existente
 func (h *EmpresaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		response.BadRequest(w, "ID inválido")
 		return
@@ -104,12 +104,12 @@ func (h *EmpresaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	empresa := models.Empresa{
-		Nombre: req.Nombre,
-		RUT:    req.RUT,
-		Estado: req.Estado,
+		Nombre:   req.Nombre,
+		RUT:      req.RUT,
+		IDStatus: req.IDStatus,
 	}
 
-	resp, err := h.service.UpdateEmpresa(uint(id), empresa)
+	resp, err := h.service.UpdateEmpresa(id, empresa)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -121,13 +121,13 @@ func (h *EmpresaHandler) Update(w http.ResponseWriter, r *http.Request) {
 // Delete elimina una empresa
 func (h *EmpresaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		response.BadRequest(w, "ID inválido")
 		return
 	}
 
-	if err := h.service.ElimminarEmpresa(uint(id)); err != nil {
+	if err := h.service.ElimminarEmpresa(id); err != nil {
 		response.NotFound(w, "Empresa no encontrada")
 		return
 	}

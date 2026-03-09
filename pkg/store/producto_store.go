@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreProducto interface {
 	GetAllProductos() ([]*models.Producto, error)
-	GetProductoByID(id uint) (*models.Producto, error)
+	GetProductoByID(id uuid.UUID) (*models.Producto, error)
 	CreateProducto(producto *models.Producto) (*models.Producto, error)
-	UpdateProducto(id uint, producto *models.Producto) (*models.Producto, error)
-	DeleteProducto(id uint) error
+	UpdateProducto(id uuid.UUID, producto *models.Producto) (*models.Producto, error)
+	DeleteProducto(id uuid.UUID) error
 }
 
 type storeProducto struct {
@@ -35,7 +36,7 @@ func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
 		p.stock,
 		p.fecha_vencimiento,
 		p.imagen,
-		p.estado,
+		p.id_status,
 		p.id_sucursal,
 		p.id_categoria,
 		p.id_moneda,
@@ -45,14 +46,14 @@ func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado,
+		su.id_status,
 
 		c.id_categoria,
 		c.nombre,
 
 		m.id_moneda,
 		m.nombre,
-		m.estado,
+		m.id_status,
 
 		u.id_unidad,
 		u.nombre
@@ -90,7 +91,7 @@ func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
 			&p.Stock,
 			&p.FechaVencimiento,
 			&p.Imagen,
-			&p.Estado,
+			&p.IDStatus,
 			&p.IDSucursal,
 			&p.IDCategoria,
 			&p.IDMoneda,
@@ -100,14 +101,14 @@ func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
 
 			&p.Sucursal.IDSucursal,
 			&p.Sucursal.NombreSucursal,
-			&p.Sucursal.Estado,
+			&p.Sucursal.IDStatus,
 
 			&p.Categoria.IDCategoria,
 			&p.Categoria.Nombre,
 
 			&p.Moneda.IDMoneda,
 			&p.Moneda.Nombre,
-			&p.Moneda.Estado,
+			&p.Moneda.IDStatus,
 
 			&p.Unidad.IDUnidad,
 			&p.Unidad.Nombre,
@@ -121,7 +122,7 @@ func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
 	return productos, nil
 }
 
-func (s *storeProducto) GetProductoByID(id uint) (*models.Producto, error) {
+func (s *storeProducto) GetProductoByID(id uuid.UUID) (*models.Producto, error) {
 	query := `
 	SELECT
 		p.id_producto,
@@ -132,7 +133,7 @@ func (s *storeProducto) GetProductoByID(id uint) (*models.Producto, error) {
 		p.stock,
 		p.fecha_vencimiento,
 		p.imagen,
-		p.estado,
+		p.id_status,
 		p.id_sucursal,
 		p.id_categoria,
 		p.id_moneda,
@@ -142,14 +143,14 @@ func (s *storeProducto) GetProductoByID(id uint) (*models.Producto, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado,
+		su.id_status,
 
 		c.id_categoria,
 		c.nombre,
 
 		m.id_moneda,
 		m.nombre,
-		m.estado,
+		m.id_status,
 
 		u.id_unidad,
 		u.nombre
@@ -178,7 +179,7 @@ func (s *storeProducto) GetProductoByID(id uint) (*models.Producto, error) {
 		&p.Stock,
 		&p.FechaVencimiento,
 		&p.Imagen,
-		&p.Estado,
+		&p.IDStatus,
 		&p.IDSucursal,
 		&p.IDCategoria,
 		&p.IDMoneda,
@@ -188,21 +189,21 @@ func (s *storeProducto) GetProductoByID(id uint) (*models.Producto, error) {
 
 		&p.Sucursal.IDSucursal,
 		&p.Sucursal.NombreSucursal,
-		&p.Sucursal.Estado,
+		&p.Sucursal.IDStatus,
 
 		&p.Categoria.IDCategoria,
 		&p.Categoria.Nombre,
 
 		&p.Moneda.IDMoneda,
 		&p.Moneda.Nombre,
-		&p.Moneda.Estado,
+		&p.Moneda.IDStatus,
 
 		&p.Unidad.IDUnidad,
 		&p.Unidad.Nombre,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("producto con ID %d no encontrado", id)
+		return nil, fmt.Errorf("producto con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener producto: %w", err)
@@ -213,12 +214,12 @@ func (s *storeProducto) GetProductoByID(id uint) (*models.Producto, error) {
 
 func (s *storeProducto) CreateProducto(producto *models.Producto) (*models.Producto, error) {
 	query := `
-		INSERT INTO producto (nombre, descripcion, precio_compra, precio_venta, stock, fecha_vencimiento, imagen, estado, id_sucursal, id_categoria, id_moneda, id_unidad)
+		INSERT INTO producto (nombre, descripcion, precio_compra, precio_venta, stock, fecha_vencimiento, imagen, id_status, id_sucursal, id_categoria, id_moneda, id_unidad)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id_producto
 	`
 
-	var id uint
+	var id uuid.UUID
 	err := s.db.QueryRow(query,
 		producto.Nombre,
 		producto.Descripcion,
@@ -227,7 +228,7 @@ func (s *storeProducto) CreateProducto(producto *models.Producto) (*models.Produ
 		producto.Stock,
 		producto.FechaVencimiento,
 		producto.Imagen,
-		producto.Estado,
+		producto.IDStatus,
 		producto.IDSucursal,
 		producto.IDCategoria,
 		producto.IDMoneda,
@@ -241,7 +242,7 @@ func (s *storeProducto) CreateProducto(producto *models.Producto) (*models.Produ
 	return producto, nil
 }
 
-func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*models.Producto, error) {
+func (s *storeProducto) UpdateProducto(id uuid.UUID, producto *models.Producto) (*models.Producto, error) {
 	query := `
 		UPDATE producto
 		SET
@@ -252,7 +253,7 @@ func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*mod
 			stock = $5,
 			fecha_vencimiento = $6,
 			imagen = $7,
-			estado = $8,
+			id_status = $8,
 			id_sucursal = $9,
 			id_categoria = $10,
 			id_moneda = $11,
@@ -269,7 +270,7 @@ func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*mod
 			stock,
 			fecha_vencimiento,
 			imagen,
-			estado,
+			id_status,
 			id_sucursal,
 			id_categoria,
 			id_moneda,
@@ -286,7 +287,7 @@ func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*mod
 		producto.Stock,
 		producto.FechaVencimiento,
 		producto.Imagen,
-		producto.Estado,
+		producto.IDStatus,
 		producto.IDSucursal,
 		producto.IDCategoria,
 		producto.IDMoneda,
@@ -301,7 +302,7 @@ func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*mod
 		&producto.Stock,
 		&producto.FechaVencimiento,
 		&producto.Imagen,
-		&producto.Estado,
+		&producto.IDStatus,
 		&producto.IDSucursal,
 		&producto.IDCategoria,
 		&producto.IDMoneda,
@@ -311,7 +312,7 @@ func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*mod
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("producto con ID %d no encontrado", id)
+		return nil, fmt.Errorf("producto con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar producto: %w", err)
@@ -320,7 +321,7 @@ func (s *storeProducto) UpdateProducto(id uint, producto *models.Producto) (*mod
 	return producto, nil
 }
 
-func (s *storeProducto) DeleteProducto(id uint) error {
+func (s *storeProducto) DeleteProducto(id uuid.UUID) error {
 	query := `UPDATE producto SET deleted_at = $1 WHERE id_producto = $2 AND deleted_at IS NULL`
 
 	result, err := s.db.Exec(query, time.Now(), id)

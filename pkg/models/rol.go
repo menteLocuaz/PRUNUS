@@ -1,12 +1,16 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Rol struct {
-	IDRol      uint   `json:"id_rol"`
-	RolNombre  string `json:"nombre_rol"`
-	IDSucursal uint   `json:"id_sucursal"`
-	Estado     int    `json:"estado"`
+	IDRol      uuid.UUID `json:"id_rol"`
+	RolNombre  string    `json:"nombre_rol"`
+	IDSucursal uuid.UUID `json:"id_sucursal"`
+	IDStatus   uuid.UUID `json:"id_status"`
 
 	Sucursal *Sucursal `json:"sucursal,omitempty"`
 

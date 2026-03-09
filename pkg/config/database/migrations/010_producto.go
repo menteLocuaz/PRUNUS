@@ -5,29 +5,22 @@ import "database/sql"
 func migrateProducto(db *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS producto (
-		id_producto       SERIAL PRIMARY KEY,
+		id_producto       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		nombre            VARCHAR(150)   NOT NULL,
 		descripcion       TEXT,
-		precio_compra     NUMERIC(12,2)  NOT NULL DEFAULT 0,
-		precio_venta      NUMERIC(12,2)  NOT NULL DEFAULT 0,
-		stock             INTEGER        NOT NULL DEFAULT 0,
-		fecha_vencimiento DATE,
 		imagen            TEXT,
-		estado            INTEGER        NOT NULL DEFAULT 1,
-		id_sucursal       INTEGER        NOT NULL,
-		id_categoria      INTEGER        NOT NULL,
-		id_moneda         INTEGER        NOT NULL,
-		id_unidad         INTEGER        NOT NULL,
+		id_status         UUID           NOT NULL,
+		id_categoria      UUID           NOT NULL,
+		id_moneda         UUID           NOT NULL,
+		id_unidad         UUID           NOT NULL,
 
 		created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at        TIMESTAMP NULL,
 
-		CONSTRAINT fk_producto_sucursal
-			FOREIGN KEY (id_sucursal)
-			REFERENCES sucursal(id_sucursal)
-			ON UPDATE CASCADE
-			ON DELETE RESTRICT,
+		CONSTRAINT fk_producto_status
+			FOREIGN KEY (id_status)
+			REFERENCES estatus(id_status),
 
 		CONSTRAINT fk_producto_categoria
 			FOREIGN KEY (id_categoria)
@@ -48,17 +41,16 @@ func migrateProducto(db *sql.DB) error {
 			ON DELETE RESTRICT
 	);
 
-	CREATE INDEX IF NOT EXISTS idx_producto_id_sucursal  ON producto(id_sucursal);
 	CREATE INDEX IF NOT EXISTS idx_producto_id_categoria ON producto(id_categoria);
 	CREATE INDEX IF NOT EXISTS idx_producto_id_moneda    ON producto(id_moneda);
 	CREATE INDEX IF NOT EXISTS idx_producto_id_unidad    ON producto(id_unidad);
-	CREATE INDEX IF NOT EXISTS idx_producto_estado       ON producto(estado);
+	CREATE INDEX IF NOT EXISTS idx_producto_status       ON producto(id_status);
 	
 	-- Índice parcial para optimizar búsquedas de productos activos (Soft Delete)
 	CREATE INDEX IF NOT EXISTS idx_producto_active ON producto(id_producto) WHERE deleted_at IS NULL;
 	
 	-- Índice compuesto para filtros comunes
-	CREATE INDEX IF NOT EXISTS idx_producto_cat_suc_active ON producto(id_categoria, id_sucursal) WHERE deleted_at IS NULL;
+	CREATE INDEX IF NOT EXISTS idx_producto_cat_active ON producto(id_categoria) WHERE deleted_at IS NULL;
 	
 	-- Índice para búsquedas por nombre (B-Tree o GIN para ILIKE)
 	CREATE INDEX IF NOT EXISTS idx_producto_nombre ON producto(nombre);

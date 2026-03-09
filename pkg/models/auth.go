@@ -1,6 +1,9 @@
 package models
 
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
 
 // LoginRequest representa la petición de login
 type LoginRequest struct {
@@ -17,11 +20,11 @@ type LoginResponse struct {
 
 // JWTClaims representa los claims personalizados del JWT
 type JWTClaims struct {
-	IDUsuario  uint   `json:"id_usuario"`
-	Email      string `json:"email"`
-	IDRol      uint   `json:"id_rol"`
-	RolNombre  string `json:"rol_nombre"`
-	IDSucursal uint   `json:"id_sucursal"`
+	IDUsuario  uuid.UUID `json:"id_usuario"`
+	Email      string    `json:"email"`
+	IDRol      uuid.UUID `json:"id_rol"`
+	RolNombre  string    `json:"rol_nombre"`
+	IDSucursal uuid.UUID `json:"id_sucursal"`
 	jwt.RegisteredClaims
 }
 
@@ -29,7 +32,7 @@ type JWTClaims struct {
 func UsuarioFromClaims(claims *JWTClaims) *Usuario {
 	return &Usuario{
 		IDUsuario:  claims.IDUsuario,
-		UsuEmail:   claims.Email,
+		Email:      claims.Email,
 		IDSucursal: claims.IDSucursal,
 		Rol: &Rol{
 			IDRol:     claims.IDRol,

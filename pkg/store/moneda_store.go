@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreMoneda interface {
 	GetAllMonedas() ([]*models.Moneda, error)
-	GetMonedaByID(id uint) (*models.Moneda, error)
+	GetMonedaByID(id uuid.UUID) (*models.Moneda, error)
 	CreateMoneda(moneda *models.Moneda) (*models.Moneda, error)
-	UpdateMoneda(id uint, moneda *models.Moneda) (*models.Moneda, error)
-	DeleteMoneda(id uint) error
+	UpdateMoneda(id uuid.UUID, moneda *models.Moneda) (*models.Moneda, error)
+	DeleteMoneda(id uuid.UUID) error
 }
 
 type storeMoneda struct {
@@ -30,13 +31,13 @@ func (s *storeMoneda) GetAllMonedas() ([]*models.Moneda, error) {
 		m.id_moneda,
 		m.nombre,
 		m.id_sucursal,
-		m.estado,
+		m.id_status,
 		m.created_at,
 		m.updated_at,
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado
+		su.id_status
 	FROM moneda m
 	LEFT JOIN sucursal su ON su.id_sucursal = m.id_sucursal
 	WHERE m.deleted_at IS NULL
@@ -61,13 +62,13 @@ func (s *storeMoneda) GetAllMonedas() ([]*models.Moneda, error) {
 			&m.IDMoneda,
 			&m.Nombre,
 			&m.IDSucursal,
-			&m.Estado,
+			&m.IDStatus,
 			&m.CreatedAt,
 			&m.UpdatedAt,
 
 			&m.Sucursal.IDSucursal,
 			&m.Sucursal.NombreSucursal,
-			&m.Sucursal.Estado,
+			&m.Sucursal.IDStatus,
 		); err != nil {
 			return nil, fmt.Errorf("error al escanear moneda: %w", err)
 		}
@@ -78,19 +79,19 @@ func (s *storeMoneda) GetAllMonedas() ([]*models.Moneda, error) {
 	return monedas, nil
 }
 
-func (s *storeMoneda) GetMonedaByID(id uint) (*models.Moneda, error) {
+func (s *storeMoneda) GetMonedaByID(id uuid.UUID) (*models.Moneda, error) {
 	query := `
 	SELECT
 		m.id_moneda,
 		m.nombre,
 		m.id_sucursal,
-		m.estado,
+		m.id_status,
 		m.created_at,
 		m.updated_at,
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado
+		su.id_status
 	FROM moneda m
 	LEFT JOIN sucursal su ON su.id_sucursal = m.id_sucursal
 	WHERE m.id_moneda = $1
@@ -106,17 +107,17 @@ func (s *storeMoneda) GetMonedaByID(id uint) (*models.Moneda, error) {
 		&m.IDMoneda,
 		&m.Nombre,
 		&m.IDSucursal,
-		&m.Estado,
+		&m.IDStatus,
 		&m.CreatedAt,
 		&m.UpdatedAt,
 
 		&m.Sucursal.IDSucursal,
 		&m.Sucursal.NombreSucursal,
-		&m.Sucursal.Estado,
+		&m.Sucursal.IDStatus,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("moneda con ID %d no encontrada", id)
+		return nil, fmt.Errorf("moneda con ID %s no encontrada", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener moneda: %w", err)
@@ -126,10 +127,10 @@ func (s *storeMoneda) GetMonedaByID(id uint) (*models.Moneda, error) {
 }
 
 func (s *storeMoneda) CreateMoneda(moneda *models.Moneda) (*models.Moneda, error) {
-	query := `INSERT INTO moneda (nombre, id_sucursal, estado) VALUES ($1, $2, $3) RETURNING id_moneda`
+	query := `INSERT INTO moneda (nombre, id_sucursal, id_status) VALUES ($1, $2, $3) RETURNING id_moneda`
 
-	var id uint
-	err := s.db.QueryRow(query, moneda.Nombre, moneda.IDSucursal, moneda.Estado).Scan(&id)
+	var id uuid.UUID
+	err := s.db.QueryRow(query, moneda.Nombre, moneda.IDSucursal, moneda.IDStatus).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear moneda: %w", err)
 	}
@@ -138,13 +139,13 @@ func (s *storeMoneda) CreateMoneda(moneda *models.Moneda) (*models.Moneda, error
 	return moneda, nil
 }
 
-func (s *storeMoneda) UpdateMoneda(id uint, moneda *models.Moneda) (*models.Moneda, error) {
+func (s *storeMoneda) UpdateMoneda(id uuid.UUID, moneda *models.Moneda) (*models.Moneda, error) {
 	query := `
 		UPDATE moneda
 		SET
 			nombre = $1,
 			id_sucursal = $2,
-			estado = $3,
+			id_status = $3,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id_moneda = $4
 		  AND deleted_at IS NULL
@@ -152,22 +153,22 @@ func (s *storeMoneda) UpdateMoneda(id uint, moneda *models.Moneda) (*models.Mone
 			id_moneda,
 			nombre,
 			id_sucursal,
-			estado,
+			id_status,
 			created_at,
 			updated_at
 	`
 
-	err := s.db.QueryRow(query, moneda.Nombre, moneda.IDSucursal, moneda.Estado, id).Scan(
+	err := s.db.QueryRow(query, moneda.Nombre, moneda.IDSucursal, moneda.IDStatus, id).Scan(
 		&moneda.IDMoneda,
 		&moneda.Nombre,
 		&moneda.IDSucursal,
-		&moneda.Estado,
+		&moneda.IDStatus,
 		&moneda.CreatedAt,
 		&moneda.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("moneda con ID %d no encontrada", id)
+		return nil, fmt.Errorf("moneda con ID %s no encontrada", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar moneda: %w", err)
@@ -176,7 +177,7 @@ func (s *storeMoneda) UpdateMoneda(id uint, moneda *models.Moneda) (*models.Mone
 	return moneda, nil
 }
 
-func (s *storeMoneda) DeleteMoneda(id uint) error {
+func (s *storeMoneda) DeleteMoneda(id uuid.UUID) error {
 	query := `UPDATE moneda SET deleted_at = $1 WHERE id_moneda = $2 AND deleted_at IS NULL`
 
 	result, err := s.db.Exec(query, time.Now(), id)

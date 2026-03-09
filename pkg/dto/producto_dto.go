@@ -1,6 +1,10 @@
 package dto
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type ProductoCreateRequest struct {
 	Nombre           string    `json:"nombre" validate:"required,min=3,max=150"`
@@ -10,11 +14,11 @@ type ProductoCreateRequest struct {
 	Stock            uint      `json:"stock" validate:"required,gte=0"`
 	FechaVencimiento time.Time `json:"fecha_vencimiento" validate:"omitempty"`
 	Imagen           string    `json:"imagen" validate:"omitempty"`
-	Estado           int       `json:"estado" validate:"required,oneof=0 1"`
-	IDSucursal       uint      `json:"id_sucursal" validate:"required"`
-	IDCategoria      uint      `json:"id_categoria" validate:"required"`
-	IDMoneda         uint      `json:"id_moneda" validate:"required"`
-	IDUnidad         uint      `json:"id_unidad" validate:"required"`
+	IDStatus         uuid.UUID `json:"id_status" validate:"required"`
+	IDSucursal       uuid.UUID `json:"id_sucursal" validate:"required"`
+	IDCategoria      uuid.UUID `json:"id_categoria" validate:"required"`
+	IDMoneda         uuid.UUID `json:"id_moneda" validate:"required"`
+	IDUnidad         uuid.UUID `json:"id_unidad" validate:"required"`
 }
 
 type ProductoUpdateRequest struct {
@@ -25,9 +29,9 @@ type ProductoUpdateRequest struct {
 	Stock            uint      `json:"stock" validate:"required,gte=0"`
 	FechaVencimiento time.Time `json:"fecha_vencimiento" validate:"omitempty"`
 	Imagen           string    `json:"imagen" validate:"omitempty"`
-	Estado           int       `json:"estado" validate:"required,oneof=0 1"`
-	IDSucursal       uint      `json:"id_sucursal" validate:"required"`
-	IDCategoria      uint      `json:"id_categoria" validate:"required"`
-	IDMoneda         uint      `json:"id_moneda" validate:"required"`
-	IDUnidad         uint      `json:"id_unidad" validate:"required"`
+	IDStatus         uuid.UUID `json:"id_status" validate:"required"`
+	IDSucursal       uuid.UUID `json:"id_sucursal" validate:"required"`
+	IDCategoria      uuid.UUID `json:"id_categoria" validate:"required"`
+	IDMoneda         uuid.UUID `json:"id_moneda" validate:"required"`
+	IDUnidad         uuid.UUID `json:"id_unidad" validate:"required"`
 }
