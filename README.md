@@ -1,544 +1,144 @@
-# Prunus
+# Prunus - Sistema de Gestión Empresarial (ERP/POS API)
 
-API REST desarrollada en Go para la gestión empresarial. Permite administrar empresas, sucursales, usuarios, roles, productos, proveedores, clientes, categorías, monedas y unidades de medida.
+**Prunus** es una API RESTful robusta y escalable diseñada para la gestión integral de empresas, sucursales, inventarios y operaciones comerciales. Construida bajo los principios de **Clean Architecture**, ofrece una base sólida para aplicaciones de Punto de Venta (POS) y administración de recursos empresariales.
 
 ---
 
-## Tecnologías
+## 🚀 Características Principales
+
+- **Arquitectura Multi-tenant:** Gestión de múltiples empresas y sucursales con segregación estricta de datos.
+- **Control de Acceso (RBAC):** Sistema de roles y permisos dinámicos por sucursal.
+- **Gestión de Inventario:** Control de stock, precios de compra/venta, unidades de medida y vencimientos.
+- **Caché de Alto Rendimiento:** Integración con **Redis** para optimizar la consulta de catálogos frecuentes.
+- **Seguridad:** Autenticación basada en JWT (Stateless) y hashing de contraseñas con bcrypt.
+- **Integridad de Datos:** Implementación de **Soft Deletes** en todas las entidades críticas.
+- **Migraciones Automáticas:** Sistema de versionado de base de datos que se ejecuta al iniciar la aplicación.
+
+---
+
+## 🛠️ Tecnologías
 
 | Herramienta | Versión | Uso |
 |---|---|---|
-| Go | 1.25.4 | Lenguaje principal |
-| PostgreSQL | 15 | Base de datos relacional |
-| Chi Router | v5.2.3 | Enrutamiento HTTP |
-| pgx | v5.8.0 | Driver PostgreSQL |
-| golang-jwt | v5.3.0 | Autenticación JWT |
-| godotenv | v1.5.1 | Variables de entorno |
-| bcrypt | golang.org/x/crypto | Hash de contraseñas |
+| **Go (Golang)** | 1.25.4 | Lenguaje principal y lógica de negocio |
+| **PostgreSQL** | 15 | Base de datos relacional principal |
+| **Redis** | 7-alpine | Sistema de caché para optimización de lectura |
+| **Chi Router** | v5.2.3 | Enrutamiento HTTP ligero y rápido |
+| **pgx** | v5.8.0 | Driver de alto rendimiento para PostgreSQL |
+| **JWT (golang-jwt)** | v5.3.0 | Gestión de tokens de autenticación |
+| **Docker & Compose** | - | Contenerización y orquestación de servicios |
 
 ---
 
-## Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
-```
+```text
 prunus/
 ├── cmd/
-│   └── main.go                  # Punto de entrada, inyección de dependencias
+│   └── main.go                  # Punto de entrada e Inyección de Dependencias
+├── docs/                        # Documentación técnica, PRD y guías de implementación
 ├── pkg/
 │   ├── config/
 │   │   └── database/
-│   │       ├── database.go      # Conexión a PostgreSQL
-│   │       └── migrations/      # Migraciones automáticas de tablas
-│   ├── dto/                     # Data Transfer Objects (request/response)
-│   ├── helper/                  # Generación y validación de JWT
-│   ├── middleware/               # Logger y autenticación JWT
-│   ├── models/                  # Modelos de dominio
-│   ├── routers/                 # Definición de rutas por recurso
-│   ├── services/                # Lógica de negocio
-│   ├── store/                   # Capa de acceso a datos (SQL)
-│   ├── transport/
-│   │   └── http/                # Handlers HTTP
-│   └── utils/                   # Utilidades generales
-├── docker-compose.yml
-├── go.mod
-└── go.sum
+│   │       ├── connection.go    # Conexión a PostgreSQL
+│   │       ├── redis.go         # Conexión a Redis
+│   │       └── migrations/      # Scripts de migración de base de datos (001-031)
+│   ├── dto/                     # Data Transfer Objects (Request/Response)
+│   ├── helper/                  # Utilidades para JWT y hashing
+│   ├── middleware/              # Auth, Logging, CORS y Rate Limiting
+│   ├── models/                  # Entidades de dominio e interfaces de persistencia
+│   ├── routers/                 # Definición de rutas por módulo
+│   ├── services/                # Lógica de negocio y coordinación
+│   ├── store/                   # Implementación de persistencia (SQL & Redis)
+│   ├── transport/http/          # Handlers de la capa de transporte
+│   └── utils/                   # Validadores y respuestas estandarizadas
+├── docker-compose.yml           # Orquestación de Postgres y Redis
+└── .env.example                 # Plantilla de variables de entorno
 ```
 
 ---
 
-## Configuración
+## ⚙️ Configuración y Despliegue
 
-### 1. Clonar el repositorio
+### 1. Requisitos Previos
+- Go 1.25+
+- Docker y Docker Compose
 
-```bash
-git clone https://github.com/tu-usuario/prunus.git
-cd prunus
-```
-
-### 2. Variables de entorno
-
-Copia el archivo de ejemplo y edítalo con tus valores:
-
+### 2. Preparar el Entorno
+Copia el archivo de ejemplo y configura tus credenciales:
 ```bash
 cp .env.example .env
 ```
 
-```env
-DB_HOST=localhost
-DB_USER=admin
-DB_PASSWORD=tu_contraseña
-DB_NAME=maxpoint
-DB_PORT=5432
-DB_SSLMODE=disable
-JWT_SECRET=tu_clave_secreta_jwt
-```
-
-### 3. Instalar dependencias
-
-```bash
-go mod download
-```
-
----
-
-## Ejecución
-
-### Con Docker Compose (PostgreSQL)
-
-Levanta solo la base de datos:
-
+### 3. Levantar Infraestructura (Postgres & Redis)
 ```bash
 docker-compose up -d
 ```
 
-### Servidor local
-
+### 4. Ejecutar la Aplicación
+Las migraciones se ejecutarán automáticamente al iniciar:
 ```bash
 go run cmd/main.go
 ```
-
-El servidor corre por defecto en `http://localhost:8080`.
-
----
-
-## Autenticación
-
-Todos los endpoints **excepto** `POST /api/v1/login` requieren un JWT válido en el header:
-
-```
-Authorization: Bearer <token>
-```
-
-### Flujo de autenticación
-
-```
-1. POST /api/v1/login        → obtener token
-2. Usar token en header      → acceder a recursos protegidos
-3. POST /api/v1/refresh-token → renovar token antes de que expire
-4. POST /api/v1/logout       → cerrar sesión
-```
+El servidor estará disponible en `http://localhost:9090` (por defecto).
 
 ---
 
-## Endpoints
+## 🔐 Autenticación
 
-### Autenticación
+El sistema utiliza **JWT (JSON Web Tokens)**. Excepto por el endpoint de login, todos los demás requieren el header:
+`Authorization: Bearer <tu_token>`
 
-#### `POST /api/v1/login`
-
-Autentica un usuario y retorna un JWT.
-
-**No requiere token.**
-
-**Body:**
-```json
-{
-  "email": "admin@empresa.com",
-  "password": "MiClave123"
-}
-```
-
-**Respuesta exitosa `200`:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "usuario": {
-    "id_usuario": 1,
-    "email": "admin@empresa.com",
-    "usu_nombre": "Juan Pérez",
-    "id_sucursal": 1,
-    "id_rol": 1
-  },
-  "expires_at": 1780000000
-}
-```
-
-**Casos límite:**
-| Caso | Código | Respuesta |
-|---|---|---|
-| Email o password vacíos | `400` | `Formato de petición inválido` |
-| Credenciales incorrectas | `401` | `Credenciales inválidas` |
-| Usuario con estado `0` (inactivo) | `401` | `Usuario inactivo` |
+### Flujo Principal:
+1. `POST /api/v1/login` -> Obtiene Access Token.
+2. `GET /api/v1/me` -> Valida identidad y contexto (Sucursal/Rol).
+3. `POST /api/v1/refresh-token` -> Renueva la sesión.
 
 ---
 
-#### `GET /api/v1/me`
+## 📦 Módulos y Endpoints
 
-Retorna los datos del usuario autenticado según el JWT.
+El sistema cuenta con una amplia gama de módulos para la gestión empresarial:
 
-**Respuesta `200`:**
-```json
-{
-  "id_usuario": 1,
-  "email": "admin@empresa.com",
-  "id_sucursal": 1,
-  "id_rol": 1
-}
-```
+### Organización
+- **Empresas:** `/api/v1/empresas`
+- **Sucursales:** `/api/v1/sucursal`
+- **Roles:** `/api/v1/rol`
+- **Usuarios:** `/api/v1/usuario`
 
----
+### Catálogos e Inventario
+- **Categorías:** `/api/v1/categoria` (Con caché en Redis)
+- **Productos:** `/api/v1/producto`
+- **Proveedores:** `/api/v1/proveedor`
+- **Clientes:** `/api/v1/cliente`
+- **Monedas:** `/api/v1/moneda`
+- **Unidades:** `/api/v1/medida`
 
-#### `POST /api/v1/logout`
-
-Confirma el cierre de sesión. El cliente debe eliminar el token localmente.
-
-**Respuesta `200`:**
-```json
-{
-  "message": "Sesión cerrada exitosamente"
-}
-```
+### Operaciones POS (En Desarrollo/Implementados)
+- **Estatus:** `/api/v1/estatus`
+- **Estaciones POS:** Gestión de puntos de venta físicos.
+- **Caja y Retiros:** Control de flujo de efectivo.
+- **Facturación:** Emisión de comprobantes y detalles de venta.
+- **Inventario:** Movimientos y ajustes de stock.
 
 ---
 
-#### `POST /api/v1/refresh-token`
+## ⚡ Optimización con Redis
 
-Renueva el token JWT activo.
-
-**Respuesta `200`:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_at": 1780003600
-}
-```
+Se ha implementado una capa de caché para los catálogos de alta frecuencia (Roles y Categorías) siguiendo el patrón de **Invalidación por Escritura**:
+- **Lectura:** Se consulta primero Redis; ante un *miss*, se lee de DB y se puebla la caché (TTL 1h).
+- **Escritura (Create/Update/Delete):** Se invalida automáticamente la entrada en Redis para garantizar consistencia.
 
 ---
 
-### Empresas `/api/v1/empresas`
+## 🛡️ Estándares de Desarrollo
 
-#### `GET /api/v1/empresas`
-
-Retorna todas las empresas activas (sin `deleted_at`).
-
-```bash
-curl -X GET http://localhost:8080/api/v1/empresas \
-  -H "Authorization: Bearer <token>"
-```
-
-**Respuesta `200`:**
-```json
-[
-  {
-    "id": 1,
-    "nombre": "Corporación Andina S.A.",
-    "rut": "20.123.456-7",
-    "estado": 1
-  }
-]
-```
+- **Idiomática:** Mensajes de error y comentarios en **Español**.
+- **Seguridad:** Uso estricto de consultas parametrizadas para evitar Inyección SQL.
+- **Calidad:** Validaciones robustas en la capa de servicios antes de la persistencia.
+- **Auditoría:** Todas las tablas incluyen `created_at`, `updated_at` y `deleted_at`.
 
 ---
 
-#### `POST /api/v1/empresas`
-
-Crea una nueva empresa.
-
-**Body:**
-```json
-{
-  "nombre": "Corporación Andina S.A.",
-  "rut": "20.123.456-7",
-  "estado": 1
-}
-```
-
-**Casos límite:**
-| Caso | Código |
-|---|---|
-| `nombre` vacío | `400` |
-| `rut` duplicado | `400` |
-| `estado` distinto de `0` o `1` | `400` |
-
----
-
-#### `GET /api/v1/empresas/{id}`
-
-Retorna una empresa por su ID.
-
-```bash
-curl -X GET http://localhost:8080/api/v1/empresas/1 \
-  -H "Authorization: Bearer <token>"
-```
-
-**Casos límite:**
-| Caso | Código |
-|---|---|
-| ID no numérico (ej: `/empresas/abc`) | `400` |
-| ID inexistente | `404` |
-| Empresa eliminada (soft delete) | `404` |
-
----
-
-#### `PUT /api/v1/empresas/{id}`
-
-Actualiza todos los campos de una empresa.
-
-**Body:**
-```json
-{
-  "nombre": "Corporación Andina S.A. Actualizada",
-  "rut": "20.123.456-7",
-  "estado": 1
-}
-```
-
----
-
-#### `DELETE /api/v1/empresas/{id}`
-
-Realiza un **soft delete**: actualiza `deleted_at`, el registro no se elimina físicamente.
-
-```bash
-curl -X DELETE http://localhost:8080/api/v1/empresas/1 \
-  -H "Authorization: Bearer <token>"
-```
-
----
-
-### Sucursales `/api/v1/sucursal`
-
-Cada sucursal pertenece a una empresa (`id_empresa`).
-
-#### `POST /api/v1/sucursal`
-
-```json
-{
-  "id_empresa": 1,
-  "nombre_sucursal": "Sede Central Lima",
-  "estado": 1
-}
-```
-
-**Casos límite:**
-| Caso | Código |
-|---|---|
-| `id_empresa` inexistente | `400` |
-| `nombre_sucursal` vacío | `400` |
-
----
-
-### Roles `/api/v1/rol`
-
-Los roles están vinculados a una sucursal.
-
-#### `POST /api/v1/rol`
-
-```json
-{
-  "nombre_rol": "Administrador",
-  "id_sucursal": 1,
-  "estado": 1
-}
-```
-
----
-
-### Usuarios `/api/v1/usuario`
-
-#### `POST /api/v1/usuario`
-
-La contraseña se almacena con hash bcrypt. El usuario requiere un rol y una sucursal válidos.
-
-```json
-{
-  "id_sucursal": 1,
-  "id_rol": 1,
-  "email": "juan.perez@empresa.com",
-  "usu_nombre": "Juan Pérez",
-  "usu_dni": "12345678",
-  "usu_telefono": "+51 987654321",
-  "password": "MiClaveSegura123",
-  "estado": 1
-}
-```
-
-**Respuesta `201`:**
-```json
-{
-  "id_usuario": 3,
-  "id_sucursal": 1,
-  "id_rol": 1,
-  "email": "juan.perez@empresa.com",
-  "usu_nombre": "Juan Pérez",
-  "usu_dni": "12345678",
-  "usu_telefono": "+51 987654321",
-  "estado": 1
-}
-```
-
-**Casos límite:**
-| Caso | Código |
-|---|---|
-| `email` con formato inválido | `400` |
-| `email` ya registrado | `400` |
-| `password` vacío | `400` |
-| `id_rol` o `id_sucursal` inexistentes | `400` |
-| `estado` = `0` impide el login | `401` en `/login` |
-
----
-
-### Categorías `/api/v1/categoria`
-
-Clasifican productos dentro de una sucursal.
-
-#### `POST /api/v1/categoria`
-
-```json
-{
-  "nombre": "Electrónica",
-  "id_sucursal": 1
-}
-```
-
----
-
-### Monedas `/api/v1/moneda`
-
-Define las monedas disponibles por sucursal.
-
-#### `POST /api/v1/moneda`
-
-```json
-{
-  "nombre": "Sol Peruano",
-  "id_sucursal": 1,
-  "estado": 1
-}
-```
-
----
-
-### Unidades de Medida `/api/v1/medida`
-
-#### `POST /api/v1/medida`
-
-```json
-{
-  "nombre": "Kilogramo",
-  "id_sucursal": 1
-}
-```
-
----
-
-### Productos `/api/v1/producto`
-
-#### `POST /api/v1/producto`
-
-Requiere que `id_sucursal`, `id_categoria`, `id_moneda` e `id_unidad` existan previamente.
-
-```json
-{
-  "nombre": "Laptop HP 15",
-  "descripcion": "Procesador Intel i5, 8GB RAM, 512GB SSD",
-  "precio_compra": 1800.00,
-  "precio_venta": 2500.00,
-  "stock": 10,
-  "fecha_vencimiento": "2027-12-31T00:00:00Z",
-  "imagen": "https://cdn.empresa.com/productos/laptop-hp.jpg",
-  "estado": 1,
-  "id_sucursal": 1,
-  "id_categoria": 2,
-  "id_moneda": 1,
-  "id_unidad": 3
-}
-```
-
-**Casos límite:**
-| Caso | Código |
-|---|---|
-| `precio_venta` o `precio_compra` negativos | `400` |
-| `stock` negativo | `400` |
-| `fecha_vencimiento` con formato incorrecto | `400` |
-| Alguna FK inexistente | `400` |
-
----
-
-### Proveedores `/api/v1/proveedor`
-
-#### `POST /api/v1/proveedor`
-
-Vinculado a una empresa y una sucursal.
-
-```json
-{
-  "nombre": "Distribuidora Tech S.A.C.",
-  "ruc": "20456789012",
-  "telefono": "+51 012345678",
-  "direccion": "Av. Industrial 456, Lima",
-  "email": "ventas@disttech.com",
-  "estado": 1,
-  "id_sucursal": 1,
-  "id_empresa": 1
-}
-```
-
-**Casos límite:**
-| Caso | Código |
-|---|---|
-| `email` con formato inválido | `400` |
-| `ruc` duplicado | `400` |
-| `id_empresa` o `id_sucursal` inexistentes | `400` |
-
----
-
-### Clientes `/api/v1/cliente`
-
-#### `POST /api/v1/cliente`
-
-```json
-{
-  "empresa_cliente": "Retail Norte S.A.",
-  "nombre": "Carlos Mendoza",
-  "ruc": "20987654321",
-  "direccion": "Jr. Comercio 789, Trujillo",
-  "telefono": "+51 987123456",
-  "email": "carlos@retailnorte.com",
-  "estado": 1
-}
-```
-
----
-
-## Resumen de Endpoints
-
-| Recurso | Ruta base | Auth requerida |
-|---|---|---|
-| Login | `POST /api/v1/login` | No |
-| Perfil | `GET /api/v1/me` | Sí |
-| Logout | `POST /api/v1/logout` | Sí |
-| Refresh token | `POST /api/v1/refresh-token` | Sí |
-| Empresas | `/api/v1/empresas` | Sí |
-| Sucursales | `/api/v1/sucursal` | Sí |
-| Roles | `/api/v1/rol` | Sí |
-| Usuarios | `/api/v1/usuario` | Sí |
-| Categorías | `/api/v1/categoria` | Sí |
-| Monedas | `/api/v1/moneda` | Sí |
-| Medidas | `/api/v1/medida` | Sí |
-| Productos | `/api/v1/producto` | Sí |
-| Proveedores | `/api/v1/proveedor` | Sí |
-| Clientes | `/api/v1/cliente` | Sí |
-
-Todos los recursos protegidos soportan: `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
-
----
-
-## Características Técnicas
-
-- **Soft Delete** — Los `DELETE` actualizan `deleted_at` en lugar de eliminar el registro físicamente. Las consultas `GET` filtran automáticamente los registros eliminados.
-- **Migraciones automáticas** — Al iniciar la aplicación se ejecutan las migraciones de la base de datos definidas en `pkg/config/database/migrations/`.
-- **JWT stateless** — Los tokens incluyen `id_usuario`, `email`, `id_rol`, `rol_nombre` e `id_sucursal` en sus claims.
-- **Hash de contraseñas** — Se usa `bcrypt` para almacenar contraseñas. Nunca se guarda texto plano.
-- **Logger HTTP** — Middleware configurable que registra método, ruta, estado y duración de cada petición.
-- **Clean Architecture** — Separación en capas: `store` (datos) → `services` (lógica) → `transport` (HTTP).
-
----
-
-## Contribuir
-
-Las contribuciones son bienvenidas. Por favor, abre un issue o un pull request para sugerencias o mejoras.
-
-## Licencia
-
-Este proyecto es de código abierto y está disponible bajo la licencia MIT.
+## 📄 Licencia
+Este proyecto es de código abierto bajo la licencia MIT.

@@ -13,7 +13,7 @@ func TestMainRouter_PluralRoutes(t *testing.T) {
 	// (la respuesta será 401 Unauthorized por el middleware o pánico si llega al handler nil,
 	// pero lo que nos importa es si el router reconoce la ruta pluralizada).
 
-	router := routers.NewMainRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	router := routers.NewMainRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		method string
