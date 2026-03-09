@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/helper"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
@@ -25,8 +26,8 @@ func (s *ServiceUsuario) GetAllUsuarios() ([]*models.Usuario, error) {
 }
 
 // GetUsuarioByID obtiene un usuario por su ID
-func (s *ServiceUsuario) GetUsuarioByID(id uint) (*models.Usuario, error) {
-	if id == 0 {
+func (s *ServiceUsuario) GetUsuarioByID(id uuid.UUID) (*models.Usuario, error) {
+	if id == uuid.Nil {
 		return nil, errors.New("el ID del usuario es requerido")
 	}
 	return s.store.GetUsuarioByID(id)
@@ -35,85 +36,80 @@ func (s *ServiceUsuario) GetUsuarioByID(id uint) (*models.Usuario, error) {
 // CreateUsuario crea un nuevo usuario con validaciones de negocio
 func (s *ServiceUsuario) CreateUsuario(usuario models.Usuario) (*models.Usuario, error) {
 	// Validar campos obligatorios
-	if usuario.UsuEmail == "" {
+	if usuario.Email == "" {
 		return nil, errors.New("el email del usuario es requerido")
 	}
 	if usuario.UsuNombre == "" {
 		return nil, errors.New("el nombre del usuario es requerido")
 	}
-	if usuario.UsuDni == "" {
+	if usuario.UsuDNI == "" {
 		return nil, errors.New("el DNI del usuario es requerido")
 	}
-	if usuario.UsuPassword == "" {
+	if usuario.Password == "" {
 		return nil, errors.New("la contraseña del usuario es requerida")
 	}
-	if usuario.IDSucursal == 0 {
+	if usuario.IDSucursal == uuid.Nil {
 		return nil, errors.New("el ID de la sucursal es requerido")
+	}
+	if usuario.IDRol == uuid.Nil {
+		return nil, errors.New("el ID del rol es requerido")
 	}
 
 	// Validar formato de email
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	if !emailRegex.MatchString(usuario.UsuEmail) {
+	if !emailRegex.MatchString(usuario.Email) {
 		return nil, errors.New("el formato del email es inválido")
 	}
 
-	// Establecer estado por defecto si no está definido
-	if usuario.Estado == 0 {
-		usuario.Estado = 1
-	}
-
 	// Aqui se hashea la contraseña
-	hashearPassword, err := helper.HashPassword(usuario.UsuPassword)
+	hashearPassword, err := helper.HashPassword(usuario.Password)
 	if err != nil {
 		return nil, errors.New("error al generar hash de la contraseña")
 	}
-	usuario.UsuPassword = hashearPassword
+	usuario.Password = hashearPassword
 
 	return s.store.CreateUsuario(&usuario)
 }
 
 // UpdateUsuario actualiza un usuario existente con validaciones
-func (s *ServiceUsuario) UpdateUsuario(id uint, usuario models.Usuario) (*models.Usuario, error) {
-	if id == 0 {
+func (s *ServiceUsuario) UpdateUsuario(id uuid.UUID, usuario models.Usuario) (*models.Usuario, error) {
+	if id == uuid.Nil {
 		return nil, errors.New("el ID del usuario es requerido")
 	}
-	if usuario.UsuEmail == "" {
+	if usuario.Email == "" {
 		return nil, errors.New("el email del usuario es requerido")
 	}
 	if usuario.UsuNombre == "" {
 		return nil, errors.New("el nombre del usuario es requerido")
 	}
-	if usuario.UsuDni == "" {
+	if usuario.UsuDNI == "" {
 		return nil, errors.New("el DNI del usuario es requerido")
 	}
-	if usuario.IDSucursal == 0 {
+	if usuario.IDSucursal == uuid.Nil {
 		return nil, errors.New("el ID de la sucursal es requerido")
 	}
 
 	// Validar formato de email
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	if !emailRegex.MatchString(usuario.UsuEmail) {
+	if !emailRegex.MatchString(usuario.Email) {
 		return nil, errors.New("el formato del email es inválido")
 	}
 
 	// SOLO si viene contraseña nueva → hashear
-	if usuario.UsuPassword != "" {
-		hashearPasword, err := helper.HashPassword(usuario.UsuPassword)
+	if usuario.Password != "" {
+		hashearPasword, err := helper.HashPassword(usuario.Password)
 		if err != nil {
 			return nil, errors.New("error al hashear la contraseña")
 		}
-		usuario.UsuPassword = hashearPasword
-	} else {
-		// Evita sobreescribir contraseña en DB
-		usuario.UsuPassword = ""
+		usuario.Password = hashearPasword
 	}
 
 	return s.store.UpdateUsuario(id, &usuario)
 }
 
 // DeleteUsuario elimina un usuario (soft delete)
-func (s *ServiceUsuario) DeleteUsuario(id uint) error {
-	if id == 0 {
+func (s *ServiceUsuario) DeleteUsuario(id uuid.UUID) error {
+	if id == uuid.Nil {
 		return errors.New("el ID del usuario es requerido")
 	}
 	return s.store.DeleteUsuario(id)
@@ -142,25 +138,15 @@ func (s *ServiceUsuario) AuthenticateUsuario(email, password string) (*models.Us
 		return nil, errors.New("credenciales inválidas")
 	}
 
-	// Verificar que el usuario esté activo
-	if usuario.Estado != 1 {
-		return nil, errors.New("usuario inactivo")
-	}
-
-	// Verificar que el rol esté activo (si existe)
-	if usuario.Rol != nil && usuario.Rol.Estado != 1 {
-		return nil, errors.New("el rol del usuario está inactivo")
-	}
-
 	// Verificar la contraseña usando bcrypt
-	err = helper.CheckPassword(password, usuario.UsuPassword)
+	err = helper.CheckPassword(password, usuario.Password)
 	if err != nil {
 		// Password incorrecta
 		return nil, errors.New("credenciales inválidas")
 	}
 
 	// Limpiar el password del objeto antes de retornarlo
-	usuario.UsuPassword = ""
+	usuario.Password = ""
 
 	return usuario, nil
 }

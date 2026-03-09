@@ -3,9 +3,9 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
@@ -43,7 +43,7 @@ func (h *SucursalHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *SucursalHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	// Extrae el parámetro "id" de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -51,7 +51,7 @@ func (h *SucursalHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener la sucursal por ID
-	resp, err := h.service.GetSucursalByID(uint(id))
+	resp, err := h.service.GetSucursalByID(id)
 	if err != nil {
 		// Si no se encuentra la sucursal, responde con error 404
 		response.NotFound(w, "Sucursal no encontrada")
@@ -82,7 +82,7 @@ func (h *SucursalHandler) Create(w http.ResponseWriter, r *http.Request) {
 	sucursal := models.Sucursal{
 		IDEmpresa:      req.IDEmpresa,
 		NombreSucursal: req.NombreSucursal,
-		Estado:         req.Estado,
+		IDStatus:       req.IDStatus,
 	}
 
 	// Llama al servicio para crear la sucursal
@@ -101,7 +101,7 @@ func (h *SucursalHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *SucursalHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -126,11 +126,11 @@ func (h *SucursalHandler) Update(w http.ResponseWriter, r *http.Request) {
 	sucursal := models.Sucursal{
 		IDEmpresa:      req.IDEmpresa,
 		NombreSucursal: req.NombreSucursal,
-		Estado:         req.Estado,
+		IDStatus:       req.IDStatus,
 	}
 
 	// Llama al servicio para actualizar la sucursal
-	resp, err := h.service.UpdateSucursal(uint(id), sucursal)
+	resp, err := h.service.UpdateSucursal(id, sucursal)
 	if err != nil {
 		// En caso de error interno, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -145,7 +145,7 @@ func (h *SucursalHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *SucursalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -153,7 +153,7 @@ func (h *SucursalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para eliminar la sucursal
-	if err := h.service.DeleteSucursal(uint(id)); err != nil {
+	if err := h.service.DeleteSucursal(id); err != nil {
 		// Si no se encuentra la sucursal, responde con error 404
 		response.NotFound(w, "Sucursal no encontrada")
 		return

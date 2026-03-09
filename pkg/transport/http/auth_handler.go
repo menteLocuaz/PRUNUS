@@ -106,7 +106,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Limpiar password antes de enviar
-	usuario.UsuPassword = ""
+	usuario.Password = ""
 
 	// Retornar usuario autenticado
 	response.Success(w, "Información de usuario obtenida correctamente", usuario)

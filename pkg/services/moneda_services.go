@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -19,7 +20,10 @@ func (s *ServiceMoneda) GetAllMonedas() ([]*models.Moneda, error) {
 	return s.store.GetAllMonedas()
 }
 
-func (s *ServiceMoneda) GetMonedaByID(id uint) (*models.Moneda, error) {
+func (s *ServiceMoneda) GetMonedaByID(id uuid.UUID) (*models.Moneda, error) {
+	if id == uuid.Nil {
+		return nil, errors.New("el ID de la moneda es requerido")
+	}
 	return s.store.GetMonedaByID(id)
 }
 
@@ -27,19 +31,28 @@ func (s *ServiceMoneda) CreateMoneda(moneda models.Moneda) (*models.Moneda, erro
 	if moneda.Nombre == "" {
 		return nil, errors.New("falta el nombre de la moneda")
 	}
-	if moneda.IDSucursal == 0 {
+	if moneda.IDSucursal == uuid.Nil {
 		return nil, errors.New("falta el id de la sucursal")
+	}
+	if moneda.IDStatus == uuid.Nil {
+		return nil, errors.New("falta el id del estatus")
 	}
 	return s.store.CreateMoneda(&moneda)
 }
 
-func (s *ServiceMoneda) UpdateMoneda(id uint, moneda models.Moneda) (*models.Moneda, error) {
+func (s *ServiceMoneda) UpdateMoneda(id uuid.UUID, moneda models.Moneda) (*models.Moneda, error) {
+	if id == uuid.Nil {
+		return nil, errors.New("el ID de la moneda es requerido")
+	}
 	if moneda.Nombre == "" {
 		return nil, errors.New("falta el nombre de la moneda")
 	}
 	return s.store.UpdateMoneda(id, &moneda)
 }
 
-func (s *ServiceMoneda) DeleteMoneda(id uint) error {
+func (s *ServiceMoneda) DeleteMoneda(id uuid.UUID) error {
+	if id == uuid.Nil {
+		return errors.New("el ID de la moneda es requerido")
+	}
 	return s.store.DeleteMoneda(id)
 }

@@ -3,9 +3,9 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
@@ -41,15 +41,15 @@ func (h *ProveedorHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *ProveedorHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	// Extrae el parámetro "id" de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
 		return
 	}
 
-	// Llama al servicio para obtener el proveedor por ID
-	resp, err := h.service.GetProveedorByID(uint(id))
+	// Llama al servicio para obtener the proveedor por ID
+	resp, err := h.service.GetProveedorByID(id)
 	if err != nil {
 		// Si no se encuentra el proveedor, responde con error 404
 		response.NotFound(w, "Proveedor no encontrado")
@@ -83,7 +83,7 @@ func (h *ProveedorHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Telefono:   req.Telefono,
 		Direccion:  req.Direccion,
 		Email:      req.Email,
-		Estado:     req.Estado,
+		IDStatus:   req.IDStatus,
 		IDSucursal: req.IDSucursal,
 		IDEmpresa:  req.IDEmpresa,
 	}
@@ -104,8 +104,9 @@ func (h *ProveedorHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ProveedorHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
+		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
 		return
 	}
@@ -113,6 +114,7 @@ func (h *ProveedorHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Decodifica el JSON de actualización
 	var req dto.ProveedorUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Si el JSON es inválido, responde con error 400
 		response.BadRequest(w, "JSON inválido")
 		return
 	}
@@ -130,13 +132,13 @@ func (h *ProveedorHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Telefono:   req.Telefono,
 		Direccion:  req.Direccion,
 		Email:      req.Email,
-		Estado:     req.Estado,
+		IDStatus:   req.IDStatus,
 		IDSucursal: req.IDSucursal,
 		IDEmpresa:  req.IDEmpresa,
 	}
 
 	// Llama al servicio para actualizar the proveedor
-	resp, err := h.service.UpdateProveedor(uint(id), proveedor)
+	resp, err := h.service.UpdateProveedor(id, proveedor)
 	if err != nil {
 		// En caso de error interno, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -151,14 +153,15 @@ func (h *ProveedorHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *ProveedorHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
+		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
 		return
 	}
 
-	// Llama al servicio para eliminar el proveedor
-	if err := h.service.DeleteProveedor(uint(id)); err != nil {
+	// Llama al servicio para eliminar the proveedor
+	if err := h.service.DeleteProveedor(id); err != nil {
 		// Si no se encuentra el proveedor, responde con error 404
 		response.NotFound(w, "Proveedor no encontrado")
 		return

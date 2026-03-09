@@ -5,9 +5,9 @@ import "database/sql"
 func migrateCategoria(db *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS categoria (
-		id_categoria  SERIAL PRIMARY KEY,
+		id_categoria  UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- Cambio: SERIAL -> UUID
 		nombre        VARCHAR(150) NOT NULL,
-		id_sucursal   INTEGER      NOT NULL,
+		id_sucursal   UUID         NOT NULL,
 
 		created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -1,13 +1,17 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Moneda representa una moneda asociada a una sucursal.
 type Moneda struct {
-	IDMoneda   uint   `json:"id_moneda"`
-	Nombre     string `json:"nombre"`
-	IDSucursal uint   `json:"id_sucursal"`
-	Estado     int    `json:"estado"`
+	IDMoneda   uuid.UUID `json:"id_moneda"`
+	Nombre     string    `json:"nombre"`
+	IDSucursal uuid.UUID `json:"id_sucursal"`
+	IDStatus   uuid.UUID `json:"id_status"`
 
 	// Relación de navegación (no se persiste directamente en la tabla)
 	Sucursal *Sucursal `json:"sucursal,omitempty"`

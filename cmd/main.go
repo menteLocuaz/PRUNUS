@@ -33,7 +33,7 @@ func main() {
 	if err := migrations.RunMigrations(db); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("✅ Iniciado migracion de la base de datos")
+	fmt.Println("✅ Iniciando migracion de la base de datos")
 
 	// inyetar depedencia emmpresa
 	empresaStore := store.NewEmpresa(db)

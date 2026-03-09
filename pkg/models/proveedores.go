@@ -1,20 +1,24 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Proveedor representa un proveedor asociado a una sucursal y empresa.
 type Proveedor struct {
-	IDProveedor uint   `json:"id_proveedor"`
-	Nombre      string `json:"nombre"`
-	RUC         string `json:"ruc"`
-	Telefono    string `json:"telefono"`
-	Direccion   string `json:"direccion"`
-	Email       string `json:"email"`
-	Estado      int    `json:"estado"`
+	IDProveedor uuid.UUID `json:"id_proveedor"`
+	Nombre      string    `json:"nombre"`
+	RUC         string    `json:"ruc"`
+	Telefono    string    `json:"telefono"`
+	Direccion   string    `json:"direccion"`
+	Email       string    `json:"email"`
+	IDStatus    uuid.UUID `json:"id_status"`
 
 	// Claves foráneas
-	IDSucursal uint `json:"id_sucursal"`
-	IDEmpresa  uint `json:"id_empresa"`
+	IDSucursal uuid.UUID `json:"id_sucursal"`
+	IDEmpresa  uuid.UUID `json:"id_empresa"`
 
 	// Relaciones de navegación (no se persisten directamente en la tabla)
 	Sucursal *Sucursal `json:"sucursal,omitempty"`

@@ -1,13 +1,15 @@
 package dto
 
+import "github.com/google/uuid"
+
 type MonedaCreateRequest struct {
-	Nombre     string `json:"nombre" validate:"required,min=1,max=100"`
-	IDSucursal uint   `json:"id_sucursal" validate:"required"`
-	Estado     int    `json:"estado" validate:"required,oneof=0 1"`
+	Nombre     string    `json:"nombre" validate:"required,min=1,max=100"`
+	IDSucursal uuid.UUID `json:"id_sucursal" validate:"required"`
+	IDStatus   uuid.UUID `json:"id_status" validate:"required"`
 }
 
 type MonedaUpdateRequest struct {
-	Nombre     string `json:"nombre" validate:"required,min=1,max=100"`
-	IDSucursal uint   `json:"id_sucursal" validate:"required"`
-	Estado     int    `json:"estado" validate:"required,oneof=0 1"`
+	Nombre     string    `json:"nombre" validate:"required,min=1,max=100"`
+	IDSucursal uuid.UUID `json:"id_sucursal" validate:"required"`
+	IDStatus   uuid.UUID `json:"id_status" validate:"required"`
 }

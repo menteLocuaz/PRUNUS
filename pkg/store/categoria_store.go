@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreCategoria interface {
 	GetAllCategorias() ([]*models.Categoria, error)
-	GetCategoriaByID(id uint) (*models.Categoria, error)
+	GetCategoriaByID(id uuid.UUID) (*models.Categoria, error)
 	CreateCategoria(categoria *models.Categoria) (*models.Categoria, error)
-	UpdateCategoria(id uint, categoria *models.Categoria) (*models.Categoria, error)
-	DeleteCategoria(id uint) error
+	UpdateCategoria(id uuid.UUID, categoria *models.Categoria) (*models.Categoria, error)
+	DeleteCategoria(id uuid.UUID) error
 }
 
 type storeCategoria struct {
@@ -35,7 +36,7 @@ func (s *storeCategoria) GetAllCategorias() ([]*models.Categoria, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado
+		su.id_status
 	FROM categoria c
 	LEFT JOIN sucursal su ON su.id_sucursal = c.id_sucursal
 	WHERE c.deleted_at IS NULL
@@ -65,7 +66,7 @@ func (s *storeCategoria) GetAllCategorias() ([]*models.Categoria, error) {
 
 			&c.Sucursal.IDSucursal,
 			&c.Sucursal.NombreSucursal,
-			&c.Sucursal.Estado,
+			&c.Sucursal.IDStatus,
 		); err != nil {
 			return nil, fmt.Errorf("error al escanear categoria: %w", err)
 		}
@@ -76,7 +77,7 @@ func (s *storeCategoria) GetAllCategorias() ([]*models.Categoria, error) {
 	return categorias, nil
 }
 
-func (s *storeCategoria) GetCategoriaByID(id uint) (*models.Categoria, error) {
+func (s *storeCategoria) GetCategoriaByID(id uuid.UUID) (*models.Categoria, error) {
 	query := `
 	SELECT
 		c.id_categoria,
@@ -87,7 +88,7 @@ func (s *storeCategoria) GetCategoriaByID(id uint) (*models.Categoria, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado
+		su.id_status
 	FROM categoria c
 	LEFT JOIN sucursal su ON su.id_sucursal = c.id_sucursal
 	WHERE c.id_categoria = $1
@@ -108,11 +109,11 @@ func (s *storeCategoria) GetCategoriaByID(id uint) (*models.Categoria, error) {
 
 		&c.Sucursal.IDSucursal,
 		&c.Sucursal.NombreSucursal,
-		&c.Sucursal.Estado,
+		&c.Sucursal.IDStatus,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("categoria con ID %d no encontrada", id)
+		return nil, fmt.Errorf("categoria con ID %s no encontrada", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener categoria: %w", err)
@@ -124,7 +125,7 @@ func (s *storeCategoria) GetCategoriaByID(id uint) (*models.Categoria, error) {
 func (s *storeCategoria) CreateCategoria(categoria *models.Categoria) (*models.Categoria, error) {
 	query := `INSERT INTO categoria (nombre, id_sucursal) VALUES ($1, $2) RETURNING id_categoria`
 
-	var id uint
+	var id uuid.UUID
 	err := s.db.QueryRow(query, categoria.Nombre, categoria.IDSucursal).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear categoria: %w", err)
@@ -134,7 +135,7 @@ func (s *storeCategoria) CreateCategoria(categoria *models.Categoria) (*models.C
 	return categoria, nil
 }
 
-func (s *storeCategoria) UpdateCategoria(id uint, categoria *models.Categoria) (*models.Categoria, error) {
+func (s *storeCategoria) UpdateCategoria(id uuid.UUID, categoria *models.Categoria) (*models.Categoria, error) {
 	query := `
 		UPDATE categoria
 		SET
@@ -160,7 +161,7 @@ func (s *storeCategoria) UpdateCategoria(id uint, categoria *models.Categoria) (
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("categoria con ID %d no encontrada", id)
+		return nil, fmt.Errorf("categoria con ID %s no encontrada", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar categoria: %w", err)
@@ -169,7 +170,7 @@ func (s *storeCategoria) UpdateCategoria(id uint, categoria *models.Categoria) (
 	return categoria, nil
 }
 
-func (s *storeCategoria) DeleteCategoria(id uint) error {
+func (s *storeCategoria) DeleteCategoria(id uuid.UUID) error {
 	query := `UPDATE categoria SET deleted_at = $1 WHERE id_categoria = $2 AND deleted_at IS NULL`
 
 	result, err := s.db.Exec(query, time.Now(), id)

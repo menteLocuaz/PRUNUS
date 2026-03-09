@@ -1,12 +1,16 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Unidad representa una unidad operativa asociada a una sucursal.
 type Unidad struct {
-	IDUnidad   uint   `json:"id_unidad"`
-	Nombre     string `json:"nombre"`
-	IDSucursal uint   `json:"id_sucursal"`
+	IDUnidad   uuid.UUID `json:"id_unidad"`
+	Nombre     string    `json:"nombre"`
+	IDSucursal uuid.UUID `json:"id_sucursal"`
 
 	// Relación de navegación (no se persiste directamente en la tabla)
 	Sucursal *Sucursal `json:"sucursal,omitempty"`

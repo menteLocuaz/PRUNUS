@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -21,7 +22,7 @@ func NewServiceCategoria(s store.StoreCategoria, c models.CacheStore) *ServiceCa
 
 const (
 	cacheKeyCategoriasAll = "categorias:all"
-	cacheKeyCategoriaID   = "categorias:id:%d"
+	cacheKeyCategoriaID   = "categorias:id:%s"
 	cacheExpiration       = 1 * time.Hour
 )
 
@@ -47,10 +48,10 @@ func (s *ServiceCategoria) GetAllCategorias() ([]*models.Categoria, error) {
 	return categorias, nil
 }
 
-func (s *ServiceCategoria) GetCategoriaByID(id uint) (*models.Categoria, error) {
+func (s *ServiceCategoria) GetCategoriaByID(id uuid.UUID) (*models.Categoria, error) {
 	ctx := context.Background()
 	var categoria *models.Categoria
-	key := fmt.Sprintf(cacheKeyCategoriaID, id)
+	key := fmt.Sprintf(cacheKeyCategoriaID, id.String())
 
 	// Intentar obtener del caché
 	err := s.cache.Get(ctx, key, &categoria)
@@ -74,7 +75,7 @@ func (s *ServiceCategoria) CreateCategoria(categoria models.Categoria) (*models.
 	if categoria.Nombre == "" {
 		return nil, errors.New("falta el nombre de la categoria")
 	}
-	if categoria.IDSucursal == 0 {
+	if categoria.IDSucursal == uuid.Nil {
 		return nil, errors.New("falta el id de la sucursal")
 	}
 
@@ -89,7 +90,7 @@ func (s *ServiceCategoria) CreateCategoria(categoria models.Categoria) (*models.
 	return result, nil
 }
 
-func (s *ServiceCategoria) UpdateCategoria(id uint, categoria models.Categoria) (*models.Categoria, error) {
+func (s *ServiceCategoria) UpdateCategoria(id uuid.UUID, categoria models.Categoria) (*models.Categoria, error) {
 	if categoria.Nombre == "" {
 		return nil, errors.New("falta el nombre de la categoria")
 	}
@@ -102,12 +103,12 @@ func (s *ServiceCategoria) UpdateCategoria(id uint, categoria models.Categoria) 
 	// Invalidar caché
 	ctx := context.Background()
 	_ = s.cache.Delete(ctx, cacheKeyCategoriasAll)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyCategoriaID, id))
+	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyCategoriaID, id.String()))
 
 	return result, nil
 }
 
-func (s *ServiceCategoria) DeleteCategoria(id uint) error {
+func (s *ServiceCategoria) DeleteCategoria(id uuid.UUID) error {
 	err := s.store.DeleteCategoria(id)
 	if err != nil {
 		return err
@@ -116,7 +117,7 @@ func (s *ServiceCategoria) DeleteCategoria(id uint) error {
 	// Invalidar caché
 	ctx := context.Background()
 	_ = s.cache.Delete(ctx, cacheKeyCategoriasAll)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyCategoriaID, id))
+	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyCategoriaID, id.String()))
 
 	return nil
 }

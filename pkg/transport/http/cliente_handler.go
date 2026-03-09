@@ -3,9 +3,9 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
@@ -41,7 +41,7 @@ func (h *ClienteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *ClienteHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	// Extrae el parámetro "id" de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -49,7 +49,7 @@ func (h *ClienteHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener el cliente por ID
-	resp, err := h.service.GetClienteByID(uint(id))
+	resp, err := h.service.GetClienteByID(id)
 	if err != nil {
 		// Si no se encuentra el cliente, responde con error 404
 		response.NotFound(w, "Cliente no encontrado")
@@ -84,10 +84,10 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Direccion:      req.Direccion,
 		Telefono:       req.Telefono,
 		Email:          req.Email,
-		Estado:         req.Estado,
+		IDStatus:       req.IDStatus,
 	}
 
-	// Llama al servicio para crear el cliente
+	// Llama al servicio para crear the client
 	resp, err := h.service.CreateCliente(cliente)
 	if err != nil {
 		// Si hay error en la creación, responde con error 400
@@ -103,7 +103,7 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -132,11 +132,11 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Direccion:      req.Direccion,
 		Telefono:       req.Telefono,
 		Email:          req.Email,
-		Estado:         req.Estado,
+		IDStatus:       req.IDStatus,
 	}
 
 	// Llama al servicio para actualizar el cliente
-	resp, err := h.service.UpdateCliente(uint(id), cliente)
+	resp, err := h.service.UpdateCliente(id, cliente)
 	if err != nil {
 		// En caso de error interno, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -151,7 +151,7 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	// Extrae y valida el ID de la URL
 	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		// Si el ID no es válido, responde con error 400
 		response.BadRequest(w, "ID inválido")
@@ -159,7 +159,7 @@ func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para eliminar el cliente
-	if err := h.service.DeleteCliente(uint(id)); err != nil {
+	if err := h.service.DeleteCliente(id); err != nil {
 		// Si no se encuentra el cliente, responde con error 404
 		response.NotFound(w, "Cliente no encontrado")
 		return

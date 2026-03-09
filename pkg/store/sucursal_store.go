@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreSucursal interface {
 	GetAllSucursales() ([]*models.Sucursal, error)
-	GetSucursalByID(id uint) (*models.Sucursal, error)
+	GetSucursalByID(id uuid.UUID) (*models.Sucursal, error)
 	CreateSucursal(sucursal *models.Sucursal) (*models.Sucursal, error)
-	UpdateSucursal(id uint, sucursal *models.Sucursal) (*models.Sucursal, error)
-	DeleteSucursal(id uint) error
+	UpdateSucursal(id uuid.UUID, sucursal *models.Sucursal) (*models.Sucursal, error)
+	DeleteSucursal(id uuid.UUID) error
 }
 
 type storeSucursal struct {
@@ -31,12 +32,12 @@ func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 		s.id_sucursal,
 		s.id_empresa,
 		s.nombre_sucursal,
-		s.estado,
+		s.id_status,
 
 		e.id_empresa,
 		e.nombre,
 		e.rut,
-		e.estado
+		e.id_status
 	FROM sucursal s
 	LEFT JOIN empresa e ON e.id_empresa = s.id_empresa
 	WHERE s.deleted_at IS NULL
@@ -46,7 +47,7 @@ func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 
 	rows, err := s.db.Query(query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error al obtener sucursales: %w", err)
 	}
 	defer rows.Close()
 
@@ -61,14 +62,14 @@ func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 			&s.IDSucursal,
 			&s.IDEmpresa,
 			&s.NombreSucursal,
-			&s.Estado,
+			&s.IDStatus,
 
 			&s.Empresa.IDEmpresa,
 			&s.Empresa.Nombre,
 			&s.Empresa.RUT,
-			&s.Empresa.Estado,
+			&s.Empresa.IDStatus,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error al escanear sucursal: %w", err)
 		}
 
 		sucursales = append(sucursales, s)
@@ -78,18 +79,18 @@ func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 }
 
 // OBTIENE UNA SOLA SUCURSAL
-func (s *storeSucursal) GetSucursalByID(id uint) (*models.Sucursal, error) {
+func (s *storeSucursal) GetSucursalByID(id uuid.UUID) (*models.Sucursal, error) {
 	query := `
 	SELECT 
 		s.id_sucursal,
 		s.id_empresa,
 		s.nombre_sucursal,
-		s.estado,
+		s.id_status,
 
 		e.id_empresa,
 		e.nombre,
 		e.rut,
-		e.estado
+		e.id_status
 	FROM sucursal s
 	LEFT JOIN empresa e ON e.id_empresa = s.id_empresa
 	WHERE s.id_sucursal = $1
@@ -103,16 +104,19 @@ func (s *storeSucursal) GetSucursalByID(id uint) (*models.Sucursal, error) {
 		&sucursal.IDSucursal,
 		&sucursal.IDEmpresa,
 		&sucursal.NombreSucursal,
-		&sucursal.Estado,
+		&sucursal.IDStatus,
 
 		&sucursal.Empresa.IDEmpresa,
 		&sucursal.Empresa.Nombre,
 		&sucursal.Empresa.RUT,
-		&sucursal.Empresa.Estado,
+		&sucursal.Empresa.IDStatus,
 	)
 
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("sucursal con ID %s no encontrada", id)
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error al obtener sucursal: %w", err)
 	}
 
 	return sucursal, nil
@@ -120,12 +124,12 @@ func (s *storeSucursal) GetSucursalByID(id uint) (*models.Sucursal, error) {
 
 // CREAR SUCURSAL
 func (s *storeSucursal) CreateSucursal(sucursal *models.Sucursal) (*models.Sucursal, error) {
-	query := `INSERT INTO sucursal (id_empresa, nombre_sucursal, estado) VALUES ($1, $2, $3) RETURNING id_sucursal`
+	query := `INSERT INTO sucursal (id_empresa, nombre_sucursal, id_status) VALUES ($1, $2, $3) RETURNING id_sucursal`
 
-	var id uint
-	err := s.db.QueryRow(query, sucursal.IDEmpresa, sucursal.NombreSucursal, sucursal.Estado).Scan(&id)
+	var id uuid.UUID
+	err := s.db.QueryRow(query, sucursal.IDEmpresa, sucursal.NombreSucursal, sucursal.IDStatus).Scan(&id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error al crear sucursal: %w", err)
 	}
 
 	sucursal.IDSucursal = id
@@ -133,14 +137,13 @@ func (s *storeSucursal) CreateSucursal(sucursal *models.Sucursal) (*models.Sucur
 }
 
 // ACTUALIZAR LA SUCURSAL
-
-func (s *storeSucursal) UpdateSucursal(id uint, sucursal *models.Sucursal) (*models.Sucursal, error) {
+func (s *storeSucursal) UpdateSucursal(id uuid.UUID, sucursal *models.Sucursal) (*models.Sucursal, error) {
 	query := `
 		UPDATE sucursal
 		SET
 			id_empresa = $1,
 			nombre_sucursal = $2,
-			estado = $3,
+			id_status = $3,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id_sucursal = $4
 		  AND deleted_at IS NULL
@@ -148,7 +151,7 @@ func (s *storeSucursal) UpdateSucursal(id uint, sucursal *models.Sucursal) (*mod
 			id_sucursal,
 			id_empresa,
 			nombre_sucursal,
-			estado,
+			id_status,
 			created_at,
 			updated_at
 	`
@@ -157,19 +160,19 @@ func (s *storeSucursal) UpdateSucursal(id uint, sucursal *models.Sucursal) (*mod
 		query,
 		sucursal.IDEmpresa,
 		sucursal.NombreSucursal,
-		sucursal.Estado,
+		sucursal.IDStatus,
 		id,
 	).Scan(
 		&sucursal.IDSucursal,
 		&sucursal.IDEmpresa,
 		&sucursal.NombreSucursal,
-		&sucursal.Estado,
+		&sucursal.IDStatus,
 		&sucursal.CreatedAt,
 		&sucursal.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("sucursal con ID %d no encontrada", id)
+		return nil, fmt.Errorf("sucursal con ID %s no encontrada", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar sucursal: %w", err)
@@ -179,14 +182,14 @@ func (s *storeSucursal) UpdateSucursal(id uint, sucursal *models.Sucursal) (*mod
 }
 
 // ELIMINAR
-func (s *storeSucursal) DeleteSucursal(id uint) error {
+func (s *storeSucursal) DeleteSucursal(id uuid.UUID) error {
 	query := `UPDATE sucursal
 	          SET deleted_at = $1
 	          WHERE id_sucursal = $2 AND deleted_at IS NULL`
 
 	result, err := s.db.Exec(query, time.Now(), id)
 	if err != nil {
-		return err
+		return fmt.Errorf("error al eliminar sucursal: %w", err)
 	}
 
 	rows, err := result.RowsAffected()

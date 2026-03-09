@@ -5,9 +5,9 @@ import "database/sql"
 func migrateUnidad(db *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS unidad (
-		id_unidad    SERIAL PRIMARY KEY,
+		id_unidad    UUID PRIMARY KEY DEFAULT gen_random_uuid(), 
 		nombre       VARCHAR(100) NOT NULL,
-		id_sucursal  INTEGER      NOT NULL,
+		id_sucursal  UUID         NOT NULL,
 
 		created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

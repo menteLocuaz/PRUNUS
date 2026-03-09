@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreUnidad interface {
 	GetAllUnidades() ([]*models.Unidad, error)
-	GetUnidadByID(id uint) (*models.Unidad, error)
+	GetUnidadByID(id uuid.UUID) (*models.Unidad, error)
 	CreateUnidad(unidad *models.Unidad) (*models.Unidad, error)
-	UpdateUnidad(id uint, unidad *models.Unidad) (*models.Unidad, error)
-	DeleteUnidad(id uint) error
+	UpdateUnidad(id uuid.UUID, unidad *models.Unidad) (*models.Unidad, error)
+	DeleteUnidad(id uuid.UUID) error
 }
 
 type storeUnidad struct {
@@ -35,7 +36,7 @@ func (s *storeUnidad) GetAllUnidades() ([]*models.Unidad, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado
+		su.id_status
 	FROM unidad u
 	LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 	WHERE u.deleted_at IS NULL
@@ -65,7 +66,7 @@ func (s *storeUnidad) GetAllUnidades() ([]*models.Unidad, error) {
 
 			&u.Sucursal.IDSucursal,
 			&u.Sucursal.NombreSucursal,
-			&u.Sucursal.Estado,
+			&u.Sucursal.IDStatus,
 		); err != nil {
 			return nil, fmt.Errorf("error al escanear unidad: %w", err)
 		}
@@ -76,7 +77,7 @@ func (s *storeUnidad) GetAllUnidades() ([]*models.Unidad, error) {
 	return unidades, nil
 }
 
-func (s *storeUnidad) GetUnidadByID(id uint) (*models.Unidad, error) {
+func (s *storeUnidad) GetUnidadByID(id uuid.UUID) (*models.Unidad, error) {
 	query := `
 	SELECT
 		u.id_unidad,
@@ -87,7 +88,7 @@ func (s *storeUnidad) GetUnidadByID(id uint) (*models.Unidad, error) {
 
 		su.id_sucursal,
 		su.nombre_sucursal,
-		su.estado
+		su.id_status
 	FROM unidad u
 	LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 	WHERE u.id_unidad = $1
@@ -108,11 +109,11 @@ func (s *storeUnidad) GetUnidadByID(id uint) (*models.Unidad, error) {
 
 		&u.Sucursal.IDSucursal,
 		&u.Sucursal.NombreSucursal,
-		&u.Sucursal.Estado,
+		&u.Sucursal.IDStatus,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("unidad con ID %d no encontrada", id)
+		return nil, fmt.Errorf("unidad con ID %s no encontrada", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener unidad: %w", err)
@@ -124,7 +125,7 @@ func (s *storeUnidad) GetUnidadByID(id uint) (*models.Unidad, error) {
 func (s *storeUnidad) CreateUnidad(unidad *models.Unidad) (*models.Unidad, error) {
 	query := `INSERT INTO unidad (nombre, id_sucursal) VALUES ($1, $2) RETURNING id_unidad`
 
-	var id uint
+	var id uuid.UUID
 	err := s.db.QueryRow(query, unidad.Nombre, unidad.IDSucursal).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear unidad: %w", err)
@@ -134,7 +135,7 @@ func (s *storeUnidad) CreateUnidad(unidad *models.Unidad) (*models.Unidad, error
 	return unidad, nil
 }
 
-func (s *storeUnidad) UpdateUnidad(id uint, unidad *models.Unidad) (*models.Unidad, error) {
+func (s *storeUnidad) UpdateUnidad(id uuid.UUID, unidad *models.Unidad) (*models.Unidad, error) {
 	query := `
 		UPDATE unidad
 		SET
@@ -160,7 +161,7 @@ func (s *storeUnidad) UpdateUnidad(id uint, unidad *models.Unidad) (*models.Unid
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("unidad con ID %d no encontrada", id)
+		return nil, fmt.Errorf("unidad con ID %s no encontrada", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar unidad: %w", err)
@@ -169,7 +170,7 @@ func (s *storeUnidad) UpdateUnidad(id uint, unidad *models.Unidad) (*models.Unid
 	return unidad, nil
 }
 
-func (s *storeUnidad) DeleteUnidad(id uint) error {
+func (s *storeUnidad) DeleteUnidad(id uuid.UUID) error {
 	query := `UPDATE unidad SET deleted_at = $1 WHERE id_unidad = $2 AND deleted_at IS NULL`
 
 	result, err := s.db.Exec(query, time.Now(), id)

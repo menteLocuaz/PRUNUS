@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreCliente interface {
 	GetAllClientes() ([]*models.Cliente, error)
-	GetClienteByID(id uint) (*models.Cliente, error)
+	GetClienteByID(id uuid.UUID) (*models.Cliente, error)
 	CreateCliente(cliente *models.Cliente) (*models.Cliente, error)
-	UpdateCliente(id uint, cliente *models.Cliente) (*models.Cliente, error)
-	DeleteCliente(id uint) error
+	UpdateCliente(id uuid.UUID, cliente *models.Cliente) (*models.Cliente, error)
+	DeleteCliente(id uuid.UUID) error
 }
 
 type storeCliente struct {
@@ -34,7 +35,7 @@ func (s *storeCliente) GetAllClientes() ([]*models.Cliente, error) {
 		direccion,
 		telefono,
 		email,
-		estado,
+		id_status,
 		created_at,
 		updated_at
 	FROM cliente
@@ -61,7 +62,7 @@ func (s *storeCliente) GetAllClientes() ([]*models.Cliente, error) {
 			&c.Direccion,
 			&c.Telefono,
 			&c.Email,
-			&c.Estado,
+			&c.IDStatus,
 			&c.CreatedAt,
 			&c.UpdatedAt,
 		); err != nil {
@@ -74,7 +75,7 @@ func (s *storeCliente) GetAllClientes() ([]*models.Cliente, error) {
 	return clientes, nil
 }
 
-func (s *storeCliente) GetClienteByID(id uint) (*models.Cliente, error) {
+func (s *storeCliente) GetClienteByID(id uuid.UUID) (*models.Cliente, error) {
 	query := `
 	SELECT
 		id_cliente,
@@ -84,7 +85,7 @@ func (s *storeCliente) GetClienteByID(id uint) (*models.Cliente, error) {
 		direccion,
 		telefono,
 		email,
-		estado,
+		id_status,
 		created_at,
 		updated_at
 	FROM cliente
@@ -102,13 +103,13 @@ func (s *storeCliente) GetClienteByID(id uint) (*models.Cliente, error) {
 		&c.Direccion,
 		&c.Telefono,
 		&c.Email,
-		&c.Estado,
+		&c.IDStatus,
 		&c.CreatedAt,
 		&c.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("cliente con ID %d no encontrado", id)
+		return nil, fmt.Errorf("cliente con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener cliente: %w", err)
@@ -119,12 +120,12 @@ func (s *storeCliente) GetClienteByID(id uint) (*models.Cliente, error) {
 
 func (s *storeCliente) CreateCliente(cliente *models.Cliente) (*models.Cliente, error) {
 	query := `
-		INSERT INTO cliente (empresa_cliente, nombre, ruc, direccion, telefono, email, estado)
+		INSERT INTO cliente (empresa_cliente, nombre, ruc, direccion, telefono, email, id_status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id_cliente
 	`
 
-	var id uint
+	var id uuid.UUID
 	err := s.db.QueryRow(query,
 		cliente.EmpresaCliente,
 		cliente.Nombre,
@@ -132,7 +133,7 @@ func (s *storeCliente) CreateCliente(cliente *models.Cliente) (*models.Cliente, 
 		cliente.Direccion,
 		cliente.Telefono,
 		cliente.Email,
-		cliente.Estado,
+		cliente.IDStatus,
 	).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear cliente: %w", err)
@@ -142,7 +143,7 @@ func (s *storeCliente) CreateCliente(cliente *models.Cliente) (*models.Cliente, 
 	return cliente, nil
 }
 
-func (s *storeCliente) UpdateCliente(id uint, cliente *models.Cliente) (*models.Cliente, error) {
+func (s *storeCliente) UpdateCliente(id uuid.UUID, cliente *models.Cliente) (*models.Cliente, error) {
 	query := `
 		UPDATE cliente
 		SET
@@ -152,7 +153,7 @@ func (s *storeCliente) UpdateCliente(id uint, cliente *models.Cliente) (*models.
 			direccion = $4,
 			telefono = $5,
 			email = $6,
-			estado = $7,
+			id_status = $7,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id_cliente = $8
 		  AND deleted_at IS NULL
@@ -164,7 +165,7 @@ func (s *storeCliente) UpdateCliente(id uint, cliente *models.Cliente) (*models.
 			direccion,
 			telefono,
 			email,
-			estado,
+			id_status,
 			created_at,
 			updated_at
 	`
@@ -176,7 +177,7 @@ func (s *storeCliente) UpdateCliente(id uint, cliente *models.Cliente) (*models.
 		cliente.Direccion,
 		cliente.Telefono,
 		cliente.Email,
-		cliente.Estado,
+		cliente.IDStatus,
 		id,
 	).Scan(
 		&cliente.IDCliente,
@@ -186,13 +187,13 @@ func (s *storeCliente) UpdateCliente(id uint, cliente *models.Cliente) (*models.
 		&cliente.Direccion,
 		&cliente.Telefono,
 		&cliente.Email,
-		&cliente.Estado,
+		&cliente.IDStatus,
 		&cliente.CreatedAt,
 		&cliente.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("cliente con ID %d no encontrado", id)
+		return nil, fmt.Errorf("cliente con ID %s no encontrado", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar cliente: %w", err)
@@ -201,7 +202,7 @@ func (s *storeCliente) UpdateCliente(id uint, cliente *models.Cliente) (*models.
 	return cliente, nil
 }
 
-func (s *storeCliente) DeleteCliente(id uint) error {
+func (s *storeCliente) DeleteCliente(id uuid.UUID) error {
 	query := `UPDATE cliente SET deleted_at = $1 WHERE id_cliente = $2 AND deleted_at IS NULL`
 
 	result, err := s.db.Exec(query, time.Now(), id)
