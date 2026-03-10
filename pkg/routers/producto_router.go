@@ -1,20 +1,22 @@
 package routers
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func RouterProducto(productoHandler *transport.ProductoHandler) http.Handler {
+func ProductoRouter(h *transport.ProductoHandler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/producto", productoHandler.GetAll)
-	r.Post("/producto", productoHandler.Create)
-	r.Get("/producto/{id}", productoHandler.GetByID)
-	r.Put("/producto/{id}", productoHandler.Update)
-	r.Delete("/producto/{id}", productoHandler.Delete)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth())
+		r.Get("/", h.GetAll)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.GetByID)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
+	})
 
 	return r
 }

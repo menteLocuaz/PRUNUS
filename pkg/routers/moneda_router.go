@@ -1,20 +1,22 @@
 package routers
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func RouterMoneda(monedaHandler *transport.MonedaHandler) http.Handler {
+func MonedaRouter(h *transport.MonedaHandler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/moneda", monedaHandler.GetAll)
-	r.Post("/moneda", monedaHandler.Create)
-	r.Get("/moneda/{id}", monedaHandler.GetByID)
-	r.Put("/moneda/{id}", monedaHandler.Update)
-	r.Delete("/moneda/{id}", monedaHandler.Delete)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth())
+		r.Get("/", h.GetAll)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.GetByID)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
+	})
 
 	return r
 }

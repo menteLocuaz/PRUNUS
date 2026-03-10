@@ -9,21 +9,25 @@ import (
 	transport "github.com/prunus/pkg/transport/http"
 )
 
+// Handlers agrupa todos los handlers de la aplicación
+type Handlers struct {
+	Empresa   *transport.EmpresaHandler
+	Sucursal  *transport.SucursalHandler
+	Rol       *transport.RolHandler
+	Usuario   *transport.UsuarioHandler
+	Auth      *transport.AuthHandler
+	Categoria *transport.CategoriaHandler
+	Cliente   *transport.ClienteHandler
+	Medida    *transport.MedidaHandler
+	Moneda    *transport.MonedaHandler
+	Producto  *transport.ProductoHandler
+	Proveedor *transport.ProveedorHandler
+	Estatus   *transport.EstatusHandler
+	POS       *transport.POSHandler
+}
+
 // NewMainRouter crea el router principal que combina todos los recursos
-func NewMainRouter(
-	empresaHandler *transport.EmpresaHandler,
-	sucursalHandler *transport.SucursalHandler,
-	rolHandler *transport.RolHandler,
-	usuarioHandler *transport.UsuarioHandler,
-	authHandler *transport.AuthHandler,
-	categoriaHandler *transport.CategoriaHandler,
-	clienteHandler *transport.ClienteHandler,
-	medidaHandler *transport.MedidaHandler,
-	monedaHandler *transport.MonedaHandler,
-	productoHandler *transport.ProductoHandler,
-	proveedorHandler *transport.ProveedorHandler,
-	estatusHandler *transport.EstatusHandler,
-) http.Handler {
+func NewMainRouter(h *Handlers) http.Handler {
 	r := chi.NewRouter()
 
 	// Middleware Global
@@ -35,84 +39,25 @@ func NewMainRouter(
 		r.Use(middleware.RateLimit(100, 1*time.Minute))
 
 		r.Route("/v1", func(r chi.Router) {
-			r.Post("/login", authHandler.Login)
+			// Auth Routes
+			// r.Mount("/auth", AuthRouter(h.Auth))
 
-			r.Group(func(r chi.Router) {
-				// r.Use(middleware.RequireAuth())
+			// Mantener login en /v1/login por compatibilidad
+			r.Post("/login", h.Auth.Login)
 
-				r.Get("/me", authHandler.GetMe)
-				r.Post("/logout", authHandler.Logout)
-				r.Post("/refresh-token", authHandler.RefreshToken)
-
-				r.Get("/empresas", empresaHandler.GetAll)
-				r.Post("/empresas", empresaHandler.Create)
-				r.Get("/empresas/{id}", empresaHandler.GetByID)
-				r.Put("/empresas/{id}", empresaHandler.Update)
-				r.Delete("/empresas/{id}", empresaHandler.Delete)
-
-				r.Get("/sucursales", sucursalHandler.GetAll)
-				r.Post("/sucursales", sucursalHandler.Create)
-				r.Get("/sucursales/{id}", sucursalHandler.GetByID)
-				r.Put("/sucursales/{id}", sucursalHandler.Update)
-				r.Delete("/sucursales/{id}", sucursalHandler.Delete)
-
-				r.Get("/roles", rolHandler.GetAll)
-				r.Post("/roles", rolHandler.Create)
-				r.Get("/roles/{id}", rolHandler.GetByID)
-				r.Put("/roles/{id}", rolHandler.Update)
-				r.Delete("/roles/{id}", rolHandler.Delete)
-
-				r.Get("/usuarios", usuarioHandler.GetAll)
-				r.Post("/usuarios", usuarioHandler.Create)
-				r.Get("/usuarios/{id}", usuarioHandler.GetByID)
-				r.Put("/usuarios/{id}", usuarioHandler.Update)
-				r.Delete("/usuarios/{id}", usuarioHandler.Delete)
-
-				r.Get("/categorias", categoriaHandler.GetAll)
-				r.Post("/categorias", categoriaHandler.Create)
-				r.Get("/categorias/{id}", categoriaHandler.GetByID)
-				r.Put("/categorias/{id}", categoriaHandler.Update)
-				r.Delete("/categorias/{id}", categoriaHandler.Delete)
-
-				r.Get("/clientes", clienteHandler.GetAll)
-				r.Post("/clientes", clienteHandler.Create)
-				r.Get("/clientes/{id}", clienteHandler.GetByID)
-				r.Put("/clientes/{id}", clienteHandler.Update)
-				r.Delete("/clientes/{id}", clienteHandler.Delete)
-
-				r.Get("/medidas", medidaHandler.GetAll)
-				r.Post("/medidas", medidaHandler.Create)
-				r.Get("/medidas/{id}", medidaHandler.GetByID)
-				r.Put("/medidas/{id}", medidaHandler.Update)
-				r.Delete("/medidas/{id}", medidaHandler.Delete)
-
-				r.Get("/monedas", monedaHandler.GetAll)
-				r.Post("/monedas", monedaHandler.Create)
-				r.Get("/monedas/{id}", monedaHandler.GetByID)
-				r.Put("/monedas/{id}", monedaHandler.Update)
-				r.Delete("/monedas/{id}", monedaHandler.Delete)
-
-				r.Get("/productos", productoHandler.GetAll)
-				r.Post("/productos", productoHandler.Create)
-				r.Get("/productos/{id}", productoHandler.GetByID)
-				r.Put("/productos/{id}", productoHandler.Update)
-				r.Delete("/productos/{id}", productoHandler.Delete)
-
-				r.Get("/proveedores", proveedorHandler.GetAll)
-				r.Post("/proveedores", proveedorHandler.Create)
-				r.Get("/proveedores/{id}", proveedorHandler.GetByID)
-				r.Put("/proveedores/{id}", proveedorHandler.Update)
-				r.Delete("/proveedores/{id}", proveedorHandler.Delete)
-
-				r.Get("/estatus", estatusHandler.GetAll)
-				r.Get("/estatus/catalogo", estatusHandler.GetMasterCatalog)
-				r.Post("/estatus", estatusHandler.Create)
-				r.Get("/estatus/{id}", estatusHandler.GetByID)
-				r.Put("/estatus/{id}", estatusHandler.Update)
-				r.Delete("/estatus/{id}", estatusHandler.Delete)
-				r.Get("/estatus/tipo/{tipo}", estatusHandler.GetByTipo)
-				r.Get("/estatus/modulo/{moduloID}", estatusHandler.GetByModulo)
-			})
+			// Resource Routes
+			r.Mount("/empresas", EmpresaRouter(h.Empresa))
+			r.Mount("/sucursales", SucursalRouter(h.Sucursal))
+			r.Mount("/roles", RolRouter(h.Rol))
+			r.Mount("/usuarios", UsuarioRouter(h.Usuario))
+			r.Mount("/categorias", CategoriaRouter(h.Categoria))
+			r.Mount("/clientes", ClienteRouter(h.Cliente))
+			r.Mount("/medidas", MedidaRouter(h.Medida))
+			r.Mount("/monedas", MonedaRouter(h.Moneda))
+			r.Mount("/productos", ProductoRouter(h.Producto))
+			r.Mount("/proveedores", ProveedorRouter(h.Proveedor))
+			r.Mount("/estatus", EstatusRouter(h.Estatus))
+			r.Mount("/pos", POSRouter(h.POS))
 		})
 	})
 

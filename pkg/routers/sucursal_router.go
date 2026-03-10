@@ -1,20 +1,22 @@
 package routers
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func RouterSucursal(sucursalHandler *transport.SucursalHandler) http.Handler {
+func SucursalRouter(h *transport.SucursalHandler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/sucursal", sucursalHandler.GetAll)
-	r.Post("/sucursal", sucursalHandler.Create)
-	r.Get("/sucursal/{id}", sucursalHandler.GetByID)
-	r.Put("/sucursal/{id}", sucursalHandler.Update)
-	r.Delete("/sucursal/{id}", sucursalHandler.Delete)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth())
+		r.Get("/", h.GetAll)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.GetByID)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
+	})
 
 	return r
 }

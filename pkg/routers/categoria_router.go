@@ -1,20 +1,22 @@
 package routers
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func RouterCategoria(categoriaHandler *transport.CategoriaHandler) http.Handler {
+func CategoriaRouter(h *transport.CategoriaHandler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/categoria", categoriaHandler.GetAll)
-	r.Post("/categoria", categoriaHandler.Create)
-	r.Get("/categoria/{id}", categoriaHandler.GetByID)
-	r.Put("/categoria/{id}", categoriaHandler.Update)
-	r.Delete("/categoria/{id}", categoriaHandler.Delete)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth())
+		r.Get("/", h.GetAll)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.GetByID)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
+	})
 
 	return r
 }
