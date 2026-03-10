@@ -1,20 +1,22 @@
 package routers
 
 import (
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
+	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func RouterMedida(medidaHandler *transport.MedidaHandler) http.Handler {
+func MedidaRouter(h *transport.MedidaHandler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/medida", medidaHandler.GetAll)
-	r.Post("/medida", medidaHandler.Create)
-	r.Get("/medida/{id}", medidaHandler.GetByID)
-	r.Put("/medida/{id}", medidaHandler.Update)
-	r.Delete("/medida/{id}", medidaHandler.Delete)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth())
+		r.Get("/", h.GetAll)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.GetByID)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
+	})
 
 	return r
 }

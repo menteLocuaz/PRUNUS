@@ -1,11 +1,16 @@
 package dto
 
-import "time"
+import (
+	"time"
 
-// AbrirCajaDTO entrada para iniciar una sesión de caja
+	"github.com/google/uuid"
+)
+
+// AbrirCajaDTO entrada para iniciar una sesión de caja (Control Estación)
 type AbrirCajaDTO struct {
-	IDCaja        uint    `json:"id_caja" validate:"required"`
-	MontoApertura float64 `json:"monto_apertura" validate:"required,min=0"`
+	IDEstacion uuid.UUID `json:"id_estacion" validate:"required"`
+	FondoBase  float64   `json:"fondo_base" validate:"required,min=0"`
+	IDUserPos  uuid.UUID `json:"id_user_pos" validate:"required"`
 }
 
 // MovimientoCajaDTO entrada para registrar un retiro o ingreso
@@ -16,16 +21,15 @@ type MovimientoCajaDTO struct {
 
 // CierreCajaDTO entrada para finalizar el turno
 type CierreCajaDTO struct {
-	MontoCierre float64 `json:"monto_cierre" validate:"required,min=0"`
+	FondoRetirado float64 `json:"fondo_retirado" validate:"required,min=0"`
 }
 
 // EstadoCajaDTO respuesta con el resumen actual de la caja
 type EstadoCajaDTO struct {
-	IDSesion      uint      `json:"id_sesion"`
-	NombreCaja    string    `json:"nombre_caja"`
-	MontoApertura float64   `json:"monto_apertura"`
-	TotalIngresos float64   `json:"total_ingresos"`
-	TotalEgresos  float64   `json:"total_egresos"`
-	SaldoActual   float64   `json:"saldo_actual"`
-	FechaApertura time.Time `json:"fecha_apertura"`
+	IDControlEstacion uuid.UUID `json:"id_control_estacion"`
+	NombreEstacion    string    `json:"nombre_estacion"`
+	FondoBase         float64   `json:"fondo_base"`
+	IDStatus          uuid.UUID `json:"id_status"`
+	StatusDescripcion string    `json:"status_descripcion"`
+	FechaInicio       time.Time `json:"fecha_inicio"`
 }

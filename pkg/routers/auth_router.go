@@ -6,16 +6,16 @@ import (
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func UsuarioRouter(h *transport.UsuarioHandler) chi.Router {
+func AuthRouter(h *transport.AuthHandler) chi.Router {
 	r := chi.NewRouter()
+
+	r.Post("/login", h.Login)
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth())
-		r.Get("/", h.GetAll)
-		r.Post("/", h.Create)
-		r.Get("/{id}", h.GetByID)
-		r.Put("/{id}", h.Update)
-		r.Delete("/{id}", h.Delete)
+		r.Get("/me", h.GetMe)
+		r.Post("/logout", h.Logout)
+		r.Post("/refresh-token", h.RefreshToken)
 	})
 
 	return r
