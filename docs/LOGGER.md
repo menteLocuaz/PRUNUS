@@ -1,19 +1,20 @@
 # Middleware de Logging para Prunus API
 
-Middleware modular de logging para registrar todas las peticiones HTTP en tu aplicación Go con Chi router.
+Middleware modular de logging basado en **log/slog** (estándar de Go 1.21+) para registrar todas las peticiones HTTP en tu aplicación Go con Chi router.
 
 ## Características
 
+✅ **Estándar** - Utiliza la librería oficial `log/slog` de Go
+✅ **Estructurado** - Logs consistentes y fáciles de parsear
 ✅ **Modular** - Se activa/desactiva con una sola línea
 ✅ **Configurable** - Múltiples opciones de personalización
-✅ **Cero Breaking Changes** - No modifica código existente
-✅ **Performante** - Overhead mínimo
-✅ **Flexible** - Salida JSON o texto plano
+✅ **Cero Breaking Changes** - Mantiene compatibilidad con la API anterior
+✅ **Flexible** - Salida JSON o texto plano nativa de slog
 ✅ **Información Completa** - Método, ruta, estado, latencia, IP, etc.
 
 ## Instalación
 
-El middleware ya está incluido en el proyecto. No requiere instalación adicional.
+El middleware ya está incluido en el proyecto. Utiliza las capacidades nativas de Go.
 
 ## Uso Rápido
 
@@ -26,7 +27,7 @@ func NewMainRouter(...) http.Handler {
     r := chi.NewRouter()
 
     // Middleware de logging - YA ACTIVADO
-    r.Use(middleware.Logger(middleware.DefaultLogConfig()))
+    r.Use(middleware.Logger(middleware.ProductionLogConfig()))
 
     // ... tus rutas
     return r
@@ -42,7 +43,7 @@ func NewMainRouter(...) http.Handler {
     r := chi.NewRouter()
 
     // Simplemente comenta o elimina esta línea
-    // r.Use(middleware.Logger(middleware.DefaultLogConfig()))
+    // r.Use(middleware.Logger(middleware.ProductionLogConfig()))
 
     // ... tus rutas
     return r
@@ -53,33 +54,45 @@ func NewMainRouter(...) http.Handler {
 
 ### Configuración por Defecto (Recomendada)
 
-Logs estructurados en JSON con información completa:
+Logs estructurados en JSON con información completa usando `slog.JSONHandler`:
 
 ```go
 r.Use(middleware.Logger(middleware.DefaultLogConfig()))
 ```
 
-**Salida JSON:**
+**Salida JSON (slog):**
 ```json
-{"time":"2025-12-30T10:30:45-05:00","method":"POST","path":"/api/v1/usuario","query":"","status":201,"latency_ms":45,"client_ip":"192.168.1.100","user_agent":"PostmanRuntime/7.26.8","bytes_out":234}
+{
+  "time": "2026-03-11T10:30:45Z",
+  "level": "INFO",
+  "msg": "Petición HTTP completada",
+  "method": "POST",
+  "path": "/api/v1/usuario",
+  "status": 201,
+  "latency": 45000000,
+  "latency_ms": 45,
+  "client_ip": "192.168.1.100",
+  "user_agent": "PostmanRuntime/7.26.8",
+  "bytes_out": 234
+}
 ```
 
 ### Configuración Simple (Desarrollo)
 
-Logs en texto plano con colores:
+Logs en texto plano usando `slog.TextHandler`:
 
 ```go
 r.Use(middleware.Logger(middleware.SimpleLogConfig()))
 ```
 
-**Salida con colores:**
+**Salida Text (slog):**
 ```
-[2025-12-30 10:30:45] POST   201 /api/v1/usuario                                    45ms 192.168.1.100
+time=2026-03-11T10:30:45.000Z level=INFO msg="Petición HTTP completada" method=POST path=/api/v1/usuario status=201 latency=45ms latency_ms=45 client_ip=192.168.1.100
 ```
 
 ### Configuración de Producción
 
-Optimizada para ambientes de producción (ignora health checks):
+Optimizada para ambientes de producción (ignora health checks y usa JSON):
 
 ```go
 r.Use(middleware.Logger(middleware.ProductionLogConfig()))
@@ -95,10 +108,8 @@ customConfig := &middleware.LogConfig{
     LogHeaders:     true,                              // Incluir headers
     LogQueryParams: true,                              // Incluir query params
     LogUserAgent:   true,                              // Incluir User-Agent
-    TimeFormat:     time.RFC3339,                      // Formato de tiempo
     Output:         os.Stdout,                         // Donde escribir
     UseJSON:        true,                              // Formato JSON
-    ColorOutput:    false,                             // Sin colores
 }
 
 r.Use(middleware.Logger(customConfig))
@@ -109,94 +120,13 @@ r.Use(middleware.Logger(customConfig))
 | Campo | Tipo | Descripción | Default |
 |-------|------|-------------|---------|
 | `SkipPaths` | `[]string` | Rutas que no se loguearán | `[]` |
-| `LogHeaders` | `bool` | Incluir headers HTTP | `false` |
+| `LogHeaders` | `bool` | Incluir headers HTTP (agrupados) | `false` |
 | `LogQueryParams` | `bool` | Incluir query parameters | `true` |
 | `LogUserAgent` | `bool` | Incluir User-Agent | `true` |
-| `TimeFormat` | `string` | Formato de timestamp | `time.RFC3339` |
 | `Output` | `io.Writer` | Destino de los logs | `os.Stdout` |
-| `UseJSON` | `bool` | Usar formato JSON | `true` |
-| `ColorOutput` | `bool` | Colorear salida de texto | `false` |
+| `UseJSON` | `bool` | Usar `JSONHandler` vs `TextHandler` | `true` |
 
-## Ejemplos Avanzados
-
-### Logging a Archivo
-
-```go
-import (
-    "io"
-    "log"
-    "os"
-)
-
-// Abrir archivo de logs
-logFile, err := os.OpenFile("logs/api.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-if err != nil {
-    log.Fatal("Error abriendo archivo de logs:", err)
-}
-
-// Configurar logging a archivo
-fileConfig := &middleware.LogConfig{
-    Output:  logFile,
-    UseJSON: true,
-}
-
-r.Use(middleware.Logger(fileConfig))
-```
-
-### Logging a Consola + Archivo Simultáneamente
-
-```go
-import "io"
-
-// Abrir archivo
-logFile, _ := os.OpenFile("logs/api.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-
-// Crear MultiWriter
-multiWriter := io.MultiWriter(os.Stdout, logFile)
-
-config := &middleware.LogConfig{
-    Output:  multiWriter,
-    UseJSON: true,
-}
-
-r.Use(middleware.Logger(config))
-```
-
-### Logging Solo para Rutas Específicas
-
-```go
-r.Route("/api/v1", func(r chi.Router) {
-    // Logging SOLO para /usuario
-    r.Route("/usuario", func(r chi.Router) {
-        r.Use(middleware.Logger(middleware.DefaultLogConfig()))
-
-        r.Get("/", usuarioHandler.GetAll)
-        r.Post("/", usuarioHandler.Create)
-    })
-
-    // SIN logging para /empresas
-    r.Route("/empresas", func(r chi.Router) {
-        r.Get("/", empresaHandler.GetAll)
-        r.Post("/", empresaHandler.Create)
-    })
-})
-```
-
-### Ignorar Health Checks
-
-```go
-config := &middleware.LogConfig{
-    SkipPaths: []string{
-        "/health",
-        "/healthz",
-        "/metrics",
-        "/ping",
-    },
-    UseJSON: true,
-}
-
-r.Use(middleware.Logger(config))
-```
+> **Nota sobre Compatibilidad:** Los campos `TimeFormat` y `ColorOutput` se mantienen en la estructura para evitar errores de compilación, pero son ignorados ya que `slog` gestiona el formato de tiempo automáticamente y no soporta colores nativamente en su `TextHandler` estándar.
 
 ## Información Capturada
 
@@ -204,154 +134,37 @@ El middleware registra la siguiente información por cada petición:
 
 | Campo | Descripción | JSON Key |
 |-------|-------------|----------|
-| Timestamp | Fecha y hora de la petición | `time` |
+| Timestamp | Fecha y hora (ISO8601) | `time` |
+| Nivel | INFO, WARN (4xx), ERROR (5xx) | `level` |
+| Mensaje | "Petición HTTP completada" | `msg` |
 | Método HTTP | GET, POST, PUT, DELETE, etc. | `method` |
 | Ruta | Path de la URL | `path` |
 | Query Parameters | Parámetros de consulta (opcional) | `query` |
 | Código de Estado | 200, 404, 500, etc. | `status` |
-| Latencia | Tiempo de respuesta en ms | `latency_ms` |
-| IP del Cliente | Dirección IP (con soporte X-Forwarded-For) | `client_ip` |
+| Latencia | Duración legible y en ms | `latency`, `latency_ms` |
+| IP del Cliente | Dirección IP real | `client_ip` |
 | User-Agent | Navegador/cliente (opcional) | `user_agent` |
 | Bytes Enviados | Tamaño de la respuesta | `bytes_out` |
-| Headers HTTP | Headers de la petición (opcional) | `headers` |
+| Headers HTTP | Headers agrupados (opcional) | `headers` |
 
-## Extracción de IP del Cliente
+## Niveles de Log Automáticos
 
-El middleware detecta automáticamente la IP real del cliente, incluso detrás de proxies:
+El middleware ajusta el nivel de log según el resultado de la petición:
+- **INFO**: Códigos 1xx, 2xx, 3xx
+- **WARN**: Códigos 4xx (Errores del cliente)
+- **ERROR**: Códigos 5xx (Errores del servidor)
 
-1. `X-Forwarded-For` header
-2. `X-Real-IP` header
-3. `RemoteAddr` (fallback)
+## Ventajas de log/slog
 
-## Formato de Salida
-
-### JSON (Recomendado para Producción)
-
-```json
-{
-  "time": "2025-12-30T10:30:45-05:00",
-  "method": "POST",
-  "path": "/api/v1/usuario",
-  "query": "page=1&limit=10",
-  "status": 201,
-  "latency_ms": 45,
-  "client_ip": "192.168.1.100",
-  "user_agent": "PostmanRuntime/7.26.8",
-  "bytes_out": 234
-}
-```
-
-### Texto Plano (Desarrollo)
-
-```
-[2025-12-30 10:30:45] POST   201 /api/v1/usuario                                    45ms 192.168.1.100
-[2025-12-30 10:30:46] GET    200 /api/v1/empresas                                   12ms 192.168.1.101
-[2025-12-30 10:30:47] PUT    200 /api/v1/usuario/123                                78ms 192.168.1.100
-[2025-12-30 10:30:48] DELETE 204 /api/v1/empresas/456                               23ms 192.168.1.102
-```
-
-Con colores activados, el código de estado se colorea:
-- **Verde**: 2xx (éxito)
-- **Amarillo**: 4xx (error del cliente)
-- **Rojo**: 5xx (error del servidor)
-
-## Rendimiento
-
-El middleware tiene un overhead mínimo:
-
-- **Sin headers**: ~10-20μs por petición
-- **Con headers**: ~30-50μs por petición
-- **JSON encoding**: ~100-200μs por petición
-
-Para aplicaciones de alta carga, se recomienda:
-- Desactivar `LogHeaders` si no es necesario
-- Usar `SkipPaths` para rutas de health check
-- Considerar logging asíncrono para volúmenes muy altos
-
-## Troubleshooting
-
-### Los logs no aparecen
-
-1. Verifica que el middleware esté activado en [main_router.go](../routers/main_router.go)
-2. Asegúrate de que `Output` no sea `nil`
-3. Si usas archivo, verifica los permisos de escritura
-
-### Los códigos de estado siempre son 200
-
-Esto puede ocurrir si tus handlers no llaman a `w.WriteHeader()`. El middleware captura el código correctamente si se envía explícitamente.
-
-### Colores no se muestran
-
-1. Verifica que `ColorOutput: true` esté configurado
-2. Algunos terminales/consolas no soportan colores ANSI
-3. En Windows, usa Windows Terminal o ConEmu para mejor soporte
-
-## Integración con Otros Sistemas
-
-### Enviar a Servicio de Logging Externo
-
-Puedes crear un `io.Writer` personalizado que envíe logs a servicios como:
-- ELK Stack (Elasticsearch, Logstash, Kibana)
-- Splunk
-- CloudWatch (AWS)
-- Stackdriver (GCP)
-- Application Insights (Azure)
-
-```go
-type ExternalLogWriter struct {
-    // Tu implementación
-}
-
-func (w *ExternalLogWriter) Write(p []byte) (n int, err error) {
-    // Enviar a servicio externo
-    return len(p), nil
-}
-
-config := &middleware.LogConfig{
-    Output: &ExternalLogWriter{},
-}
-```
-
-### Integración con Logrus/Zap
-
-```go
-import "github.com/sirupsen/logrus"
-
-// Crear logger de logrus
-logger := logrus.New()
-
-config := &middleware.LogConfig{
-    Output: logger.Writer(),
-}
-```
-
-## Comparación con Otros Frameworks
-
-| Acción | Gin | Echo | Chi (este middleware) |
-|--------|-----|------|----------------------|
-| **Activar** | `r.Use(gin.Logger())` | `e.Use(middleware.Logger())` | `r.Use(middleware.Logger(nil))` |
-| **Desactivar** | Comentar línea | Comentar línea | Comentar línea |
-| **Configurar** | No disponible en default | Config struct | `LogConfig` struct |
-| **JSON Output** | No por defecto | No por defecto | ✅ Sí por defecto |
+1. **Eficiencia**: `slog` está altamente optimizado y es parte del core de Go.
+2. **Estandarización**: Todos tus logs seguirán el mismo formato estructurado.
+3. **Interoperabilidad**: Fácil integración con cualquier sistema de agregación de logs (ELK, Datadog, CloudWatch).
+4. **Agrupación**: Los headers se guardan como un grupo de atributos, facilitando su visualización en herramientas como Kibana.
 
 ## Mantenimiento
 
-### Actualizar Configuración
+### Actualizar a log/slog
 
-Para cambiar la configuración en producción sin reiniciar:
+Si tienes código antiguo que usaba `LogEntry`, simplemente elíminalo. `slog` maneja los atributos de forma dinámica, lo que hace el código mucho más limpio y fácil de mantener.
 
-1. Modifica [main_router.go](../routers/main_router.go)
-2. Reinicia el servidor
-3. Los nuevos logs usarán la nueva configuración
-
-### Ver Ejemplos Completos
-
-Consulta [examples.go](examples.go) para ver 9 ejemplos completos de configuraciones diferentes.
-
-## Licencia
-
-Este middleware es parte del proyecto Prunus y sigue la misma licencia del proyecto principal.
-
-## Soporte
-
-Para reportar bugs o sugerir mejoras, contacta al equipo de desarrollo.
+Consulta [examples.go](examples.go) para ver ejemplos actualizados.

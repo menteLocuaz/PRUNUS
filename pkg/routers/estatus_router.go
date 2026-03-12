@@ -2,6 +2,7 @@ package routers
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
 )
 
@@ -9,7 +10,7 @@ func EstatusRouter(h *transport.EstatusHandler) chi.Router {
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {
-		// r.Use(middleware.RequireAuth())
+		r.Use(middleware.RequireAuth())
 		r.Get("/", h.GetAll)
 		r.Get("/catalogo", h.GetMasterCatalog)
 		r.Post("/", h.Create)
