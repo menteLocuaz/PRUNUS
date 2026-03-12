@@ -40,7 +40,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Autenticar al usuario
-	usuario, err := h.usuarioService.AuthenticateUsuario(loginReq.Email, loginReq.Password)
+	usuario, err := h.usuarioService.AuthenticateUsuario(r.Context(), loginReq.Email, loginReq.Password)
 	if err != nil {
 		// Retornar 401 para errores de autenticación
 		response.Unauthorized(w, err.Error())
@@ -98,7 +98,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Obtener información completa del usuario desde la BD
-	usuario, err := h.usuarioService.GetUsuarioByID(claims.IDUsuario)
+	usuario, err := h.usuarioService.GetUsuarioByID(r.Context(), claims.IDUsuario)
 	if err != nil {
 		// Si no se encuentra el usuario, responde con error 404
 		response.NotFound(w, "Usuario no encontrado")

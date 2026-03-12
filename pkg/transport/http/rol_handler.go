@@ -26,7 +26,7 @@ func NewRolHandler(s *services.ServiceRol) *RolHandler {
 // GetAll maneja la petición GET para obtener todos los roles
 func (h *RolHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	// Llama al servicio para obtener todos los roles
-	roles, err := h.service.GetAllRoles()
+	roles, err := h.service.GetAllRoles(r.Context())
 	if err != nil {
 		// En caso de error, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -49,7 +49,7 @@ func (h *RolHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener el rol por ID
-	rol, err := h.service.GetRolByID(id)
+	rol, err := h.service.GetRolByID(r.Context(), id)
 	if err != nil {
 		// Si no se encuentra el rol, responde con error 404
 		response.NotFound(w, err.Error())
@@ -84,7 +84,7 @@ func (h *RolHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Crear el rol usando el servicio
-	resp, err := h.service.CreateRol(rol)
+	resp, err := h.service.CreateRol(r.Context(), rol)
 	if err != nil {
 		// Si hay error en la creación, responde con error 400
 		response.BadRequest(w, err.Error())
@@ -128,7 +128,7 @@ func (h *RolHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Actualizar el rol usando el servicio
-	resp, err := h.service.UpdateRol(id, rol)
+	resp, err := h.service.UpdateRol(r.Context(), id, rol)
 	if err != nil {
 		// Si hay error en la actualización, responde con error 400
 		response.BadRequest(w, err.Error())
@@ -151,7 +151,7 @@ func (h *RolHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Eliminar el rol usando el servicio
-	if err := h.service.DeleteRol(id); err != nil {
+	if err := h.service.DeleteRol(r.Context(), id); err != nil {
 		// Si hay error en la eliminación, responde con error 400
 		response.BadRequest(w, err.Error())
 		return

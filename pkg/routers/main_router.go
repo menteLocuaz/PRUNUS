@@ -32,6 +32,7 @@ func NewMainRouter(h *Handlers) http.Handler {
 
 	// Middleware Global
 	r.Use(middleware.CORS())
+	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger(middleware.ProductionLogConfig()))
 
 	r.Route("/api", func(r chi.Router) {

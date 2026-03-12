@@ -28,20 +28,18 @@ func (h *POSHandler) AbrirCajaHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validar la estructura usando la instancia global Validate
 	if err := validator.Validate.Struct(input); err != nil {
 		response.ValidationError(w, validator.FormatErrors(err))
 		return
 	}
 
-	// Obtener ID del usuario autenticado desde el contexto (puesto por el middleware de auth)
 	idUsuario, ok := r.Context().Value("user_id").(uuid.UUID)
 	if !ok {
 		response.Unauthorized(w, "Usuario no autenticado o ID inválido")
 		return
 	}
 
-	result, err := h.service.AbrirCaja(input, idUsuario)
+	result, err := h.service.AbrirCaja(r.Context(), input, idUsuario)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -59,7 +57,7 @@ func (h *POSHandler) GetEstadoCajaHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	result, err := h.service.GetEstadoCaja(idEstacion)
+	result, err := h.service.GetEstadoCaja(r.Context(), idEstacion)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return

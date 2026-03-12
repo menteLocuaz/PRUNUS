@@ -23,7 +23,7 @@ func NewEstatusHandler(s *services.ServiceEstatus) *EstatusHandler {
 }
 
 func (h *EstatusHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllEstatus()
+	resp, err := h.service.GetAllEstatus(r.Context())
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -32,7 +32,7 @@ func (h *EstatusHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EstatusHandler) GetMasterCatalog(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetMasterCatalog()
+	resp, err := h.service.GetMasterCatalog(r.Context())
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -48,7 +48,7 @@ func (h *EstatusHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetEstatusByID(id)
+	resp, err := h.service.GetEstatusByID(r.Context(), id)
 	if err != nil {
 		response.NotFound(w, "Estatus no encontrado")
 		return
@@ -64,7 +64,7 @@ func (h *EstatusHandler) GetByTipo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetEstatusByTipo(tipo)
+	resp, err := h.service.GetEstatusByTipo(r.Context(), tipo)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -81,7 +81,7 @@ func (h *EstatusHandler) GetByModulo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetEstatusByModulo(moduloID)
+	resp, err := h.service.GetEstatusByModulo(r.Context(), moduloID)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -108,7 +108,7 @@ func (h *EstatusHandler) Create(w http.ResponseWriter, r *http.Request) {
 		MdlID:          req.MdlID,
 	}
 
-	resp, err := h.service.CreateEstatus(estatus)
+	resp, err := h.service.CreateEstatus(r.Context(), estatus)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -142,7 +142,7 @@ func (h *EstatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 		MdlID:          req.MdlID,
 	}
 
-	resp, err := h.service.UpdateEstatus(id, estatus)
+	resp, err := h.service.UpdateEstatus(r.Context(), id, estatus)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -159,7 +159,7 @@ func (h *EstatusHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteEstatus(id); err != nil {
+	if err := h.service.DeleteEstatus(r.Context(), id); err != nil {
 		response.NotFound(w, "Estatus no encontrado")
 		return
 	}

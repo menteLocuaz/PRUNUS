@@ -1,8 +1,10 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
@@ -11,33 +13,40 @@ import (
 )
 
 type ServicePOS struct {
-	store store.StorePOS
+	store  store.StorePOS
+	logger *slog.Logger
 }
 
-func NewServicePOS(s store.StorePOS) *ServicePOS {
-	return &ServicePOS{store: s}
+func NewServicePOS(s store.StorePOS, logger *slog.Logger) *ServicePOS {
+	return &ServicePOS{
+		store:  s,
+		logger: logger,
+	}
 }
 
 // AbrirCaja realiza la apertura de una estación de POS
-func (s *ServicePOS) AbrirCaja(input dto.AbrirCajaDTO, idUsuario uuid.UUID) (*models.ControlEstacion, error) {
+func (s *ServicePOS) AbrirCaja(ctx context.Context, input dto.AbrirCajaDTO, idUsuario uuid.UUID) (*models.ControlEstacion, error) {
 	// 1. Validar que la estación existe
-	_, err := s.store.GetEstacionByID(input.IDEstacion)
+	_, err := s.store.GetEstacionByID(ctx, input.IDEstacion)
 	if err != nil {
+		s.logger.WarnContext(ctx, "Intento de abrir caja en estación inexistente", slog.String("id_estacion", input.IDEstacion.String()))
 		return nil, fmt.Errorf("estación no encontrada: %w", err)
 	}
 
 	// 2. Validar que no haya una sesión activa en esta estación
-	activo, err := s.store.GetActiveControlByEstacion(input.IDEstacion)
+	activo, err := s.store.GetActiveControlByEstacion(ctx, input.IDEstacion)
 	if err != nil {
 		return nil, err
 	}
 	if activo != nil {
+		s.logger.WarnContext(ctx, "Intento de abrir caja en estación con sesión activa", slog.String("id_estacion", input.IDEstacion.String()))
 		return nil, errors.New("la estación ya tiene una sesión abierta")
 	}
 
 	// 3. Validar que exista un periodo activo
-	periodo, err := s.store.GetActivePeriodo()
+	periodo, err := s.store.GetActivePeriodo(ctx)
 	if err != nil {
+		s.logger.WarnContext(ctx, "Intento de abrir caja sin periodo activo")
 		return nil, fmt.Errorf("error al validar periodo: %w", err)
 	}
 
@@ -45,36 +54,34 @@ func (s *ServicePOS) AbrirCaja(input dto.AbrirCajaDTO, idUsuario uuid.UUID) (*mo
 	control := &models.ControlEstacion{
 		IDEstacion:      input.IDEstacion,
 		FondoBase:       input.FondoBase,
-		UsuarioAsignado: idUsuario, // Usuario que realiza la apertura (ej. Admin o Gerente)
+		UsuarioAsignado: idUsuario,
 		IDStatus:        models.EstatusFondoAsignado,
-		IDUserPos:       input.IDUserPos, // Usuario que operará el POS
+		IDUserPos:       input.IDUserPos,
 		IDPeriodo:       periodo.IDPeriodo,
 	}
 
-	result, err := s.store.CreateControlEstacion(control)
+	result, err := s.store.CreateControlEstacion(ctx, control)
 	if err != nil {
 		return nil, err
 	}
 
-	// 5. Actualizar estatus de la estación a 'Fondo Asignado' o similar si aplica
-	err = s.store.UpdateEstacionStatus(input.IDEstacion, models.EstatusFondoAsignado)
+	// 5. Actualizar estatus de la estación
+	err = s.store.UpdateEstacionStatus(ctx, input.IDEstacion, models.EstatusFondoAsignado)
 	if err != nil {
-		// Log error but don't fail the whole operation?
-		// In a production app, we might want to use a transaction.
-		fmt.Printf("Error al actualizar estatus de estación: %v\n", err)
+		s.logger.ErrorContext(ctx, "Error al actualizar estatus de estación", slog.Any("error", err))
 	}
 
 	return result, nil
 }
 
 // GetEstadoCaja obtiene el estado actual de una estación
-func (s *ServicePOS) GetEstadoCaja(idEstacion uuid.UUID) (*dto.EstadoCajaDTO, error) {
-	estacion, err := s.store.GetEstacionByID(idEstacion)
+func (s *ServicePOS) GetEstadoCaja(ctx context.Context, idEstacion uuid.UUID) (*dto.EstadoCajaDTO, error) {
+	estacion, err := s.store.GetEstacionByID(ctx, idEstacion)
 	if err != nil {
 		return nil, err
 	}
 
-	control, err := s.store.GetActiveControlByEstacion(idEstacion)
+	control, err := s.store.GetActiveControlByEstacion(ctx, idEstacion)
 	if err != nil {
 		return nil, err
 	}

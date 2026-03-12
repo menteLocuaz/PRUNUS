@@ -25,7 +25,7 @@ func NewMonedaHandler(s *services.ServiceMoneda) *MonedaHandler {
 
 // GetAll obtiene todas las monedas y responde con JSON
 func (h *MonedaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllMonedas()
+	resp, err := h.service.GetAllMonedas(r.Context())
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -42,7 +42,7 @@ func (h *MonedaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetMonedaByID(id)
+	resp, err := h.service.GetMonedaByID(r.Context(), id)
 	if err != nil {
 		response.NotFound(w, "Moneda no encontrada")
 		return
@@ -69,7 +69,7 @@ func (h *MonedaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		IDStatus:   req.IDStatus,
 	}
 
-	resp, err := h.service.CreateMoneda(moneda)
+	resp, err := h.service.CreateMoneda(r.Context(), moneda)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -103,7 +103,7 @@ func (h *MonedaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IDStatus:   req.IDStatus,
 	}
 
-	resp, err := h.service.UpdateMoneda(id, moneda)
+	resp, err := h.service.UpdateMoneda(r.Context(), id, moneda)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -120,7 +120,7 @@ func (h *MonedaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteMoneda(id); err != nil {
+	if err := h.service.DeleteMoneda(r.Context(), id); err != nil {
 		response.NotFound(w, "Moneda no encontrada")
 		return
 	}

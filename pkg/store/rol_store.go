@@ -1,21 +1,23 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 // StoreRol interfaz que define las operaciones de acceso a datos para rol
 type StoreRol interface {
-	GetAllRoles() ([]*models.Rol, error)
-	GetRolByID(id uuid.UUID) (*models.Rol, error)
-	CreateRol(rol *models.Rol) (*models.Rol, error)
-	UpdateRol(id uuid.UUID, rol *models.Rol) (*models.Rol, error)
-	DeleteRol(id uuid.UUID) error
+	GetAllRoles(ctx context.Context) ([]*models.Rol, error)
+	GetRolByID(ctx context.Context, id uuid.UUID) (*models.Rol, error)
+	CreateRol(ctx context.Context, rol *models.Rol) (*models.Rol, error)
+	UpdateRol(ctx context.Context, id uuid.UUID, rol *models.Rol) (*models.Rol, error)
+	DeleteRol(ctx context.Context, id uuid.UUID) error
 }
 
 // storeRol implementación de la interfaz StoreRol
@@ -29,7 +31,8 @@ func NewRol(db *sql.DB) StoreRol {
 }
 
 // GetAllRoles obtiene todos los roles activos (no eliminados) de la base de datos
-func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
+func (s *storeRol) GetAllRoles(ctx context.Context) ([]*models.Rol, error) {
+	defer performance.Trace(ctx, "store", "GetAllRoles", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		r.id_rol,
@@ -47,7 +50,7 @@ func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
 	ORDER BY r.created_at DESC
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener roles: %w", err)
 	}
@@ -81,7 +84,8 @@ func (s *storeRol) GetAllRoles() ([]*models.Rol, error) {
 }
 
 // GetRolByID obtiene un rol por su ID
-func (s *storeRol) GetRolByID(id uuid.UUID) (*models.Rol, error) {
+func (s *storeRol) GetRolByID(ctx context.Context, id uuid.UUID) (*models.Rol, error) {
+	defer performance.Trace(ctx, "store", "GetRolByID", performance.DbThreshold, time.Now())
 	query := `
 		SELECT
 			r.id_rol,
@@ -100,7 +104,7 @@ func (s *storeRol) GetRolByID(id uuid.UUID) (*models.Rol, error) {
 	rol := models.Rol{
 		Sucursal: &models.Sucursal{},
 	}
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&rol.IDRol,
 		&rol.RolNombre,
 		&rol.IDSucursal,
@@ -122,14 +126,16 @@ func (s *storeRol) GetRolByID(id uuid.UUID) (*models.Rol, error) {
 }
 
 // CreateRol crea un nuevo rol en la base de datos
-func (s *storeRol) CreateRol(rol *models.Rol) (*models.Rol, error) {
+func (s *storeRol) CreateRol(ctx context.Context, rol *models.Rol) (*models.Rol, error) {
+	defer performance.Trace(ctx, "store", "CreateRol", performance.DbThreshold, time.Now())
 	query := `
 		INSERT INTO rol (nombre_rol, id_sucursal, id_status)
 		VALUES ($1, $2, $3)
 		RETURNING id_rol, created_at, updated_at
 	`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(
+		ctx,
 		query,
 		rol.RolNombre,
 		rol.IDSucursal,
@@ -144,7 +150,8 @@ func (s *storeRol) CreateRol(rol *models.Rol) (*models.Rol, error) {
 }
 
 // UpdateRol actualiza un rol existente en la base de datos
-func (s *storeRol) UpdateRol(id uuid.UUID, rol *models.Rol) (*models.Rol, error) {
+func (s *storeRol) UpdateRol(ctx context.Context, id uuid.UUID, rol *models.Rol) (*models.Rol, error) {
+	defer performance.Trace(ctx, "store", "UpdateRol", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE rol
 		SET nombre_rol = $1, id_sucursal = $2, id_status = $3, updated_at = CURRENT_TIMESTAMP
@@ -152,7 +159,8 @@ func (s *storeRol) UpdateRol(id uuid.UUID, rol *models.Rol) (*models.Rol, error)
 		RETURNING id_rol, nombre_rol, id_sucursal, id_status, created_at, updated_at
 	`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(
+		ctx,
 		query,
 		rol.RolNombre,
 		rol.IDSucursal,
@@ -178,14 +186,15 @@ func (s *storeRol) UpdateRol(id uuid.UUID, rol *models.Rol) (*models.Rol, error)
 }
 
 // DeleteRol realiza un soft delete del rol (actualiza deleted_at)
-func (s *storeRol) DeleteRol(id uuid.UUID) error {
+func (s *storeRol) DeleteRol(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteRol", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE rol
 		SET deleted_at = $1
 		WHERE id_rol = $2 AND deleted_at IS NULL
 	`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar rol: %w", err)
 	}
@@ -201,3 +210,4 @@ func (s *storeRol) DeleteRol(id uuid.UUID) error {
 
 	return nil
 }
+

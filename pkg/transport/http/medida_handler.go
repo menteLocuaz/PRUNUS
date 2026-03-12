@@ -22,7 +22,7 @@ func NewMedidaHandler(s *services.ServiceUnidad) *MedidaHandler {
 }
 
 func (h *MedidaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllUnidades()
+	resp, err := h.service.GetAllUnidades(r.Context())
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -39,7 +39,7 @@ func (h *MedidaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetUnidadByID(id)
+	resp, err := h.service.GetUnidadByID(r.Context(), id)
 	if err != nil {
 		response.NotFound(w, "Medida no encontrada")
 		return
@@ -66,7 +66,7 @@ func (h *MedidaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		IDSucursal: req.IDSucursal,
 	}
 
-	resp, err := h.service.CreateUnidad(unidad)
+	resp, err := h.service.CreateUnidad(r.Context(), unidad)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -100,7 +100,7 @@ func (h *MedidaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IDSucursal: req.IDSucursal,
 	}
 
-	resp, err := h.service.UpdateUnidad(id, unidad)
+	resp, err := h.service.UpdateUnidad(r.Context(), id, unidad)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -117,7 +117,7 @@ func (h *MedidaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteUnidad(id); err != nil {
+	if err := h.service.DeleteUnidad(r.Context(), id); err != nil {
 		response.NotFound(w, "Medida no encontrada")
 		return
 	}

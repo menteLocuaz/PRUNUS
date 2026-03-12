@@ -1,20 +1,22 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreProveedor interface {
-	GetAllProveedores() ([]*models.Proveedor, error)
-	GetProveedorByID(id uuid.UUID) (*models.Proveedor, error)
-	CreateProveedor(proveedor *models.Proveedor) (*models.Proveedor, error)
-	UpdateProveedor(id uuid.UUID, proveedor *models.Proveedor) (*models.Proveedor, error)
-	DeleteProveedor(id uuid.UUID) error
+	GetAllProveedores(ctx context.Context) ([]*models.Proveedor, error)
+	GetProveedorByID(ctx context.Context, id uuid.UUID) (*models.Proveedor, error)
+	CreateProveedor(ctx context.Context, proveedor *models.Proveedor) (*models.Proveedor, error)
+	UpdateProveedor(ctx context.Context, id uuid.UUID, proveedor *models.Proveedor) (*models.Proveedor, error)
+	DeleteProveedor(ctx context.Context, id uuid.UUID) error
 }
 
 type storeProveedor struct {
@@ -25,7 +27,8 @@ func NewProveedor(db *sql.DB) StoreProveedor {
 	return &storeProveedor{db: db}
 }
 
-func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
+func (s *storeProveedor) GetAllProveedores(ctx context.Context) ([]*models.Proveedor, error) {
+	defer performance.Trace(ctx, "store", "GetAllProveedores", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		p.id_proveedor,
@@ -55,7 +58,7 @@ func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 	ORDER BY p.id_proveedor
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener proveedores: %w", err)
 	}
@@ -100,7 +103,8 @@ func (s *storeProveedor) GetAllProveedores() ([]*models.Proveedor, error) {
 	return proveedores, nil
 }
 
-func (s *storeProveedor) GetProveedorByID(id uuid.UUID) (*models.Proveedor, error) {
+func (s *storeProveedor) GetProveedorByID(ctx context.Context, id uuid.UUID) (*models.Proveedor, error) {
+	defer performance.Trace(ctx, "store", "GetProveedorByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		p.id_proveedor,
@@ -135,7 +139,7 @@ func (s *storeProveedor) GetProveedorByID(id uuid.UUID) (*models.Proveedor, erro
 		Empresa:  &models.Empresa{},
 	}
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&p.IDProveedor,
 		&p.Nombre,
 		&p.RUC,
@@ -168,7 +172,8 @@ func (s *storeProveedor) GetProveedorByID(id uuid.UUID) (*models.Proveedor, erro
 	return p, nil
 }
 
-func (s *storeProveedor) CreateProveedor(proveedor *models.Proveedor) (*models.Proveedor, error) {
+func (s *storeProveedor) CreateProveedor(ctx context.Context, proveedor *models.Proveedor) (*models.Proveedor, error) {
+	defer performance.Trace(ctx, "store", "CreateProveedor", performance.DbThreshold, time.Now())
 	query := `
 		INSERT INTO proveedor (nombre, ruc, telefono, direccion, email, id_status, id_sucursal, id_empresa)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -176,7 +181,7 @@ func (s *storeProveedor) CreateProveedor(proveedor *models.Proveedor) (*models.P
 	`
 
 	var id uuid.UUID
-	err := s.db.QueryRow(query,
+	err := s.db.QueryRowContext(ctx, query,
 		proveedor.Nombre,
 		proveedor.RUC,
 		proveedor.Telefono,
@@ -194,7 +199,8 @@ func (s *storeProveedor) CreateProveedor(proveedor *models.Proveedor) (*models.P
 	return proveedor, nil
 }
 
-func (s *storeProveedor) UpdateProveedor(id uuid.UUID, proveedor *models.Proveedor) (*models.Proveedor, error) {
+func (s *storeProveedor) UpdateProveedor(ctx context.Context, id uuid.UUID, proveedor *models.Proveedor) (*models.Proveedor, error) {
+	defer performance.Trace(ctx, "store", "UpdateProveedor", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE proveedor
 		SET
@@ -223,7 +229,7 @@ func (s *storeProveedor) UpdateProveedor(id uuid.UUID, proveedor *models.Proveed
 			updated_at
 	`
 
-	err := s.db.QueryRow(query,
+	err := s.db.QueryRowContext(ctx, query,
 		proveedor.Nombre,
 		proveedor.RUC,
 		proveedor.Telefono,
@@ -257,10 +263,11 @@ func (s *storeProveedor) UpdateProveedor(id uuid.UUID, proveedor *models.Proveed
 	return proveedor, nil
 }
 
-func (s *storeProveedor) DeleteProveedor(id uuid.UUID) error {
+func (s *storeProveedor) DeleteProveedor(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteProveedor", performance.DbThreshold, time.Now())
 	query := `UPDATE proveedor SET deleted_at = $1 WHERE id_proveedor = $2 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar proveedor: %w", err)
 	}
@@ -276,3 +283,4 @@ func (s *storeProveedor) DeleteProveedor(id uuid.UUID) error {
 
 	return nil
 }
+

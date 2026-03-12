@@ -1,20 +1,22 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreUnidad interface {
-	GetAllUnidades() ([]*models.Unidad, error)
-	GetUnidadByID(id uuid.UUID) (*models.Unidad, error)
-	CreateUnidad(unidad *models.Unidad) (*models.Unidad, error)
-	UpdateUnidad(id uuid.UUID, unidad *models.Unidad) (*models.Unidad, error)
-	DeleteUnidad(id uuid.UUID) error
+	GetAllUnidades(ctx context.Context) ([]*models.Unidad, error)
+	GetUnidadByID(ctx context.Context, id uuid.UUID) (*models.Unidad, error)
+	CreateUnidad(ctx context.Context, unidad *models.Unidad) (*models.Unidad, error)
+	UpdateUnidad(ctx context.Context, id uuid.UUID, unidad *models.Unidad) (*models.Unidad, error)
+	DeleteUnidad(ctx context.Context, id uuid.UUID) error
 }
 
 type storeUnidad struct {
@@ -25,7 +27,8 @@ func NewUnidad(db *sql.DB) StoreUnidad {
 	return &storeUnidad{db: db}
 }
 
-func (s *storeUnidad) GetAllUnidades() ([]*models.Unidad, error) {
+func (s *storeUnidad) GetAllUnidades(ctx context.Context) ([]*models.Unidad, error) {
+	defer performance.Trace(ctx, "store", "GetAllUnidades", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		u.id_unidad,
@@ -44,7 +47,7 @@ func (s *storeUnidad) GetAllUnidades() ([]*models.Unidad, error) {
 	ORDER BY u.id_unidad
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener unidades: %w", err)
 	}
@@ -77,7 +80,8 @@ func (s *storeUnidad) GetAllUnidades() ([]*models.Unidad, error) {
 	return unidades, nil
 }
 
-func (s *storeUnidad) GetUnidadByID(id uuid.UUID) (*models.Unidad, error) {
+func (s *storeUnidad) GetUnidadByID(ctx context.Context, id uuid.UUID) (*models.Unidad, error) {
+	defer performance.Trace(ctx, "store", "GetUnidadByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		u.id_unidad,
@@ -100,7 +104,7 @@ func (s *storeUnidad) GetUnidadByID(id uuid.UUID) (*models.Unidad, error) {
 		Sucursal: &models.Sucursal{},
 	}
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&u.IDUnidad,
 		&u.Nombre,
 		&u.IDSucursal,
@@ -122,11 +126,12 @@ func (s *storeUnidad) GetUnidadByID(id uuid.UUID) (*models.Unidad, error) {
 	return u, nil
 }
 
-func (s *storeUnidad) CreateUnidad(unidad *models.Unidad) (*models.Unidad, error) {
+func (s *storeUnidad) CreateUnidad(ctx context.Context, unidad *models.Unidad) (*models.Unidad, error) {
+	defer performance.Trace(ctx, "store", "CreateUnidad", performance.DbThreshold, time.Now())
 	query := `INSERT INTO unidad (nombre, id_sucursal) VALUES ($1, $2) RETURNING id_unidad`
 
 	var id uuid.UUID
-	err := s.db.QueryRow(query, unidad.Nombre, unidad.IDSucursal).Scan(&id)
+	err := s.db.QueryRowContext(ctx, query, unidad.Nombre, unidad.IDSucursal).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear unidad: %w", err)
 	}
@@ -135,7 +140,8 @@ func (s *storeUnidad) CreateUnidad(unidad *models.Unidad) (*models.Unidad, error
 	return unidad, nil
 }
 
-func (s *storeUnidad) UpdateUnidad(id uuid.UUID, unidad *models.Unidad) (*models.Unidad, error) {
+func (s *storeUnidad) UpdateUnidad(ctx context.Context, id uuid.UUID, unidad *models.Unidad) (*models.Unidad, error) {
+	defer performance.Trace(ctx, "store", "UpdateUnidad", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE unidad
 		SET
@@ -152,7 +158,7 @@ func (s *storeUnidad) UpdateUnidad(id uuid.UUID, unidad *models.Unidad) (*models
 			updated_at
 	`
 
-	err := s.db.QueryRow(query, unidad.Nombre, unidad.IDSucursal, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, unidad.Nombre, unidad.IDSucursal, id).Scan(
 		&unidad.IDUnidad,
 		&unidad.Nombre,
 		&unidad.IDSucursal,
@@ -170,10 +176,11 @@ func (s *storeUnidad) UpdateUnidad(id uuid.UUID, unidad *models.Unidad) (*models
 	return unidad, nil
 }
 
-func (s *storeUnidad) DeleteUnidad(id uuid.UUID) error {
+func (s *storeUnidad) DeleteUnidad(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteUnidad", performance.DbThreshold, time.Now())
 	query := `UPDATE unidad SET deleted_at = $1 WHERE id_unidad = $2 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar unidad: %w", err)
 	}

@@ -1,22 +1,24 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 // StoreUsuario interfaz que define las operaciones de acceso a datos para usuario
 type StoreUsuario interface {
-	GetAllUsuarios() ([]*models.Usuario, error)
-	GetUsuarioByID(id uuid.UUID) (*models.Usuario, error)
-	GetUsuarioByEmail(email string) (*models.Usuario, error)
-	CreateUsuario(usuario *models.Usuario) (*models.Usuario, error)
-	UpdateUsuario(id uuid.UUID, usuario *models.Usuario) (*models.Usuario, error)
-	DeleteUsuario(id uuid.UUID) error
+	GetAllUsuarios(ctx context.Context) ([]*models.Usuario, error)
+	GetUsuarioByID(ctx context.Context, id uuid.UUID) (*models.Usuario, error)
+	GetUsuarioByEmail(ctx context.Context, email string) (*models.Usuario, error)
+	CreateUsuario(ctx context.Context, usuario *models.Usuario) (*models.Usuario, error)
+	UpdateUsuario(ctx context.Context, id uuid.UUID, usuario *models.Usuario) (*models.Usuario, error)
+	DeleteUsuario(ctx context.Context, id uuid.UUID) error
 }
 
 // storeUsuario implementación de la interfaz StoreUsuario
@@ -30,7 +32,8 @@ func NewUsuario(db *sql.DB) StoreUsuario {
 }
 
 // GetAllUsuarios obtiene todos los usuarios activos (no eliminados) con su rol
-func (s *storeUsuario) GetAllUsuarios() ([]*models.Usuario, error) {
+func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, error) {
+	defer performance.Trace(ctx, "store", "GetAllUsuarios", performance.DbThreshold, time.Now())
 	query := `
 		SELECT
 			u.id_usuario,
@@ -60,7 +63,7 @@ func (s *storeUsuario) GetAllUsuarios() ([]*models.Usuario, error) {
 		ORDER BY u.created_at DESC
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener usuarios: %w", err)
 	}
@@ -109,7 +112,8 @@ func (s *storeUsuario) GetAllUsuarios() ([]*models.Usuario, error) {
 }
 
 // GetUsuarioByID obtiene un usuario por su ID con su rol
-func (s *storeUsuario) GetUsuarioByID(id uuid.UUID) (*models.Usuario, error) {
+func (s *storeUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*models.Usuario, error) {
+	defer performance.Trace(ctx, "store", "GetUsuarioByID", performance.DbThreshold, time.Now())
 	query := `
 		SELECT
 			u.id_usuario,
@@ -143,7 +147,7 @@ func (s *storeUsuario) GetUsuarioByID(id uuid.UUID) (*models.Usuario, error) {
 		Sucursal: &models.Sucursal{},
 	}
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		// Usuario
 		&usuario.IDUsuario,
 		&usuario.IDSucursal,
@@ -181,7 +185,8 @@ func (s *storeUsuario) GetUsuarioByID(id uuid.UUID) (*models.Usuario, error) {
 
 // GetUsuarioByEmail obtiene un usuario por su email con su rol
 // Este método incluye el password hasheado para validación de autenticación
-func (s *storeUsuario) GetUsuarioByEmail(email string) (*models.Usuario, error) {
+func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*models.Usuario, error) {
+	defer performance.Trace(ctx, "store", "GetUsuarioByEmail", performance.DbThreshold, time.Now())
 	query := `
 		SELECT
 			u.id_usuario,
@@ -215,7 +220,7 @@ func (s *storeUsuario) GetUsuarioByEmail(email string) (*models.Usuario, error) 
 		Sucursal: &models.Sucursal{},
 	}
 
-	err := s.db.QueryRow(query, email).Scan(
+	err := s.db.QueryRowContext(ctx, query, email).Scan(
 		// Usuario
 		&usuario.IDUsuario,
 		&usuario.IDSucursal,
@@ -252,14 +257,16 @@ func (s *storeUsuario) GetUsuarioByEmail(email string) (*models.Usuario, error) 
 }
 
 // CreateUsuario crea un nuevo usuario en la base de datos
-func (s *storeUsuario) CreateUsuario(usuario *models.Usuario) (*models.Usuario, error) {
+func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuario) (*models.Usuario, error) {
+	defer performance.Trace(ctx, "store", "CreateUsuario", performance.DbThreshold, time.Now())
 	query := `
 		INSERT INTO usuario (id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, password, id_status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id_usuario, created_at, updated_at
 	`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(
+		ctx,
 		query,
 		usuario.IDSucursal,
 		usuario.IDRol,
@@ -279,7 +286,8 @@ func (s *storeUsuario) CreateUsuario(usuario *models.Usuario) (*models.Usuario, 
 }
 
 // UpdateUsuario actualiza un usuario existente en la base de datos
-func (s *storeUsuario) UpdateUsuario(id uuid.UUID, usuario *models.Usuario) (*models.Usuario, error) {
+func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario *models.Usuario) (*models.Usuario, error) {
+	defer performance.Trace(ctx, "store", "UpdateUsuario", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE usuario
 		SET
@@ -307,7 +315,8 @@ func (s *storeUsuario) UpdateUsuario(id uuid.UUID, usuario *models.Usuario) (*mo
 			updated_at
 	`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(
+		ctx,
 		query,
 		usuario.IDSucursal,
 		usuario.IDRol,
@@ -343,14 +352,15 @@ func (s *storeUsuario) UpdateUsuario(id uuid.UUID, usuario *models.Usuario) (*mo
 }
 
 // DeleteUsuario realiza un soft delete del usuario (actualiza deleted_at)
-func (s *storeUsuario) DeleteUsuario(id uuid.UUID) error {
+func (s *storeUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteUsuario", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE usuario
 		SET deleted_at = $1
 		WHERE id_usuario = $2 AND deleted_at IS NULL
 	`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar usuario: %w", err)
 	}
@@ -366,3 +376,4 @@ func (s *storeUsuario) DeleteUsuario(id uuid.UUID) error {
 
 	return nil
 }
+
