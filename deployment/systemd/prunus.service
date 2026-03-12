@@ -1,0 +1,23 @@
+[Unit]
+Description=Prunus Business Management API
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+# Se recomienda crear un usuario dedicado para ejecutar el servicio
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/prunus
+ExecStart=/opt/prunus/prunus serve
+Restart=always
+RestartSec=5
+
+# Logs (asegúrese de que el usuario tenga permisos de escritura en /var/log/prunus)
+StandardOutput=append:/var/log/prunus/output.log
+StandardError=append:/var/log/prunus/error.log
+
+# Variables de entorno adicionales si no se usa .env
+Environment=GO_ENV=production
+
+[Install]
+WantedBy=multi-user.target
