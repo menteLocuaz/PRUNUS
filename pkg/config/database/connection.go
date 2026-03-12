@@ -1,60 +1,75 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"os"
-	"time" // Importado para configurar el tiempo de vida de las conexiones
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
+	"github.com/spf13/viper"
 )
 
-// Conexion establece y configura la conexión a la base de datos PostgreSQL
-func Conexion() (*sql.DB, error) {
-	// Cargar variables de entorno desde el archivo .env
-	if err := godotenv.Load(); err != nil {
-		// No retornamos error aquí por si las variables ya están en el sistema (ej. Docker/Heroku)
-		fmt.Println("Aviso: No se pudo cargar el archivo .env, usando variables de entorno del sistema")
+// InitDB abre la conexión a la base de datos usando la configuración de Viper.
+func InitDB() (*sql.DB, error) {
+	host := viper.GetString("DB_HOST")
+	user := viper.GetString("DB_USER")
+	password := viper.GetString("DB_PASSWORD")
+	dbname := viper.GetString("DB_NAME")
+	port := viper.GetString("DB_PORT")
+	sslmode := viper.GetString("DB_SSLMODE")
+
+	if port == "" {
+		port = "5432"
+	}
+	if sslmode == "" {
+		sslmode = "disable"
 	}
 
-	// Leer variables de configuración
-	host := os.Getenv("DB_HOST")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
-	port := os.Getenv("DB_PORT")
-	sslmode := os.Getenv("DB_SSLMODE")
-
-	// Construir la cadena de conexión (DSN)
 	connStr := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		host, user, password, dbname, port, sslmode,
 	)
 
-	// Abrir la conexión usando el driver pgx
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error al abrir la base de datos: %w", err)
 	}
 
-	// --- Configuración del Pool de Conexiones ---
-
-	// SetMaxOpenConns establece el número máximo de conexiones abiertas a la base de datos.
 	db.SetMaxOpenConns(25)
-
-	// SetMaxIdleConns establece el número máximo de conexiones en el pool de conexiones inactivas.
 	db.SetMaxIdleConns(25)
-
-	// SetConnMaxLifetime establece el tiempo máximo que una conexión puede ser reutilizada.
-	// Esto ayuda a evitar problemas con conexiones que se vuelven inestables con el tiempo.
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	// Verificar que la conexión sea válida
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("error al conectar (ping) a PostgreSQL: %w", err)
 	}
 
-	fmt.Println("✅ Conectado a PostgreSQL y Pool configurado")
 	return db, nil
+}
+
+// InitRedis abre la conexión a Redis usando la configuración de Viper.
+func InitRedis() (*redis.Client, error) {
+	host := viper.GetString("REDIS_HOST")
+	port := viper.GetString("REDIS_PORT")
+	password := viper.GetString("REDIS_PASSWORD")
+	db := viper.GetInt("REDIS_DB")
+
+	if host == "" {
+		host = "localhost"
+	}
+	if port == "" {
+		port = "6379"
+	}
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", host, port),
+		Password: password,
+		DB:       db,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return rdb, rdb.Ping(ctx).Err()
 }
