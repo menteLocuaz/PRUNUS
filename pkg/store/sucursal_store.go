@@ -1,20 +1,22 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreSucursal interface {
-	GetAllSucursales() ([]*models.Sucursal, error)
-	GetSucursalByID(id uuid.UUID) (*models.Sucursal, error)
-	CreateSucursal(sucursal *models.Sucursal) (*models.Sucursal, error)
-	UpdateSucursal(id uuid.UUID, sucursal *models.Sucursal) (*models.Sucursal, error)
-	DeleteSucursal(id uuid.UUID) error
+	GetAllSucursales(ctx context.Context) ([]*models.Sucursal, error)
+	GetSucursalByID(ctx context.Context, id uuid.UUID) (*models.Sucursal, error)
+	CreateSucursal(ctx context.Context, sucursal *models.Sucursal) (*models.Sucursal, error)
+	UpdateSucursal(ctx context.Context, id uuid.UUID, sucursal *models.Sucursal) (*models.Sucursal, error)
+	DeleteSucursal(ctx context.Context, id uuid.UUID) error
 }
 
 type storeSucursal struct {
@@ -26,7 +28,8 @@ func NewSucursal(db *sql.DB) StoreSucursal {
 }
 
 // OBTIENE TODAS LAS SUCURSALES
-func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
+func (s *storeSucursal) GetAllSucursales(ctx context.Context) ([]*models.Sucursal, error) {
+	defer performance.Trace(ctx, "store", "GetAllSucursales", performance.DbThreshold, time.Now())
 	query := `
 	SELECT 
 		s.id_sucursal,
@@ -45,7 +48,7 @@ func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 	ORDER BY s.id_sucursal
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener sucursales: %w", err)
 	}
@@ -79,7 +82,8 @@ func (s *storeSucursal) GetAllSucursales() ([]*models.Sucursal, error) {
 }
 
 // OBTIENE UNA SOLA SUCURSAL
-func (s *storeSucursal) GetSucursalByID(id uuid.UUID) (*models.Sucursal, error) {
+func (s *storeSucursal) GetSucursalByID(ctx context.Context, id uuid.UUID) (*models.Sucursal, error) {
+	defer performance.Trace(ctx, "store", "GetSucursalByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT 
 		s.id_sucursal,
@@ -100,7 +104,7 @@ func (s *storeSucursal) GetSucursalByID(id uuid.UUID) (*models.Sucursal, error) 
 	sucursal := &models.Sucursal{
 		Empresa: &models.Empresa{},
 	}
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&sucursal.IDSucursal,
 		&sucursal.IDEmpresa,
 		&sucursal.NombreSucursal,
@@ -123,11 +127,12 @@ func (s *storeSucursal) GetSucursalByID(id uuid.UUID) (*models.Sucursal, error) 
 }
 
 // CREAR SUCURSAL
-func (s *storeSucursal) CreateSucursal(sucursal *models.Sucursal) (*models.Sucursal, error) {
+func (s *storeSucursal) CreateSucursal(ctx context.Context, sucursal *models.Sucursal) (*models.Sucursal, error) {
+	defer performance.Trace(ctx, "store", "CreateSucursal", performance.DbThreshold, time.Now())
 	query := `INSERT INTO sucursal (id_empresa, nombre_sucursal, id_status) VALUES ($1, $2, $3) RETURNING id_sucursal`
 
 	var id uuid.UUID
-	err := s.db.QueryRow(query, sucursal.IDEmpresa, sucursal.NombreSucursal, sucursal.IDStatus).Scan(&id)
+	err := s.db.QueryRowContext(ctx, query, sucursal.IDEmpresa, sucursal.NombreSucursal, sucursal.IDStatus).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear sucursal: %w", err)
 	}
@@ -137,7 +142,8 @@ func (s *storeSucursal) CreateSucursal(sucursal *models.Sucursal) (*models.Sucur
 }
 
 // ACTUALIZAR LA SUCURSAL
-func (s *storeSucursal) UpdateSucursal(id uuid.UUID, sucursal *models.Sucursal) (*models.Sucursal, error) {
+func (s *storeSucursal) UpdateSucursal(ctx context.Context, id uuid.UUID, sucursal *models.Sucursal) (*models.Sucursal, error) {
+	defer performance.Trace(ctx, "store", "UpdateSucursal", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE sucursal
 		SET
@@ -156,7 +162,8 @@ func (s *storeSucursal) UpdateSucursal(id uuid.UUID, sucursal *models.Sucursal) 
 			updated_at
 	`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(
+		ctx,
 		query,
 		sucursal.IDEmpresa,
 		sucursal.NombreSucursal,
@@ -182,12 +189,13 @@ func (s *storeSucursal) UpdateSucursal(id uuid.UUID, sucursal *models.Sucursal) 
 }
 
 // ELIMINAR
-func (s *storeSucursal) DeleteSucursal(id uuid.UUID) error {
+func (s *storeSucursal) DeleteSucursal(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteSucursal", performance.DbThreshold, time.Now())
 	query := `UPDATE sucursal
 	          SET deleted_at = $1
 	          WHERE id_sucursal = $2 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar sucursal: %w", err)
 	}
@@ -203,3 +211,4 @@ func (s *storeSucursal) DeleteSucursal(id uuid.UUID) error {
 
 	return nil
 }
+

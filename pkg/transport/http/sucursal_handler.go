@@ -28,7 +28,7 @@ func NewSucursalHandler(s *services.ServiceSucursal) *SucursalHandler {
 // GetAll obtiene todas las sucursales
 func (h *SucursalHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	// Llama al servicio para obtener todas las sucursales
-	resp, err := h.service.GetAllSucursales()
+	resp, err := h.service.GetAllSucursales(r.Context())
 	if err != nil {
 		// En caso de error, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -51,7 +51,7 @@ func (h *SucursalHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener la sucursal por ID
-	resp, err := h.service.GetSucursalByID(id)
+	resp, err := h.service.GetSucursalByID(r.Context(), id)
 	if err != nil {
 		// Si no se encuentra la sucursal, responde con error 404
 		response.NotFound(w, "Sucursal no encontrada")
@@ -86,7 +86,7 @@ func (h *SucursalHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para crear la sucursal
-	resp, err := h.service.CreateSucursal(sucursal)
+	resp, err := h.service.CreateSucursal(r.Context(), sucursal)
 	if err != nil {
 		// Si hay error en la creación, responde con error 400
 		response.BadRequest(w, err.Error())
@@ -130,7 +130,7 @@ func (h *SucursalHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para actualizar la sucursal
-	resp, err := h.service.UpdateSucursal(id, sucursal)
+	resp, err := h.service.UpdateSucursal(r.Context(), id, sucursal)
 	if err != nil {
 		// En caso de error interno, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -153,7 +153,7 @@ func (h *SucursalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para eliminar la sucursal
-	if err := h.service.DeleteSucursal(id); err != nil {
+	if err := h.service.DeleteSucursal(r.Context(), id); err != nil {
 		// Si no se encuentra la sucursal, responde con error 404
 		response.NotFound(w, "Sucursal no encontrada")
 		return

@@ -1,20 +1,22 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreMoneda interface {
-	GetAllMonedas() ([]*models.Moneda, error)
-	GetMonedaByID(id uuid.UUID) (*models.Moneda, error)
-	CreateMoneda(moneda *models.Moneda) (*models.Moneda, error)
-	UpdateMoneda(id uuid.UUID, moneda *models.Moneda) (*models.Moneda, error)
-	DeleteMoneda(id uuid.UUID) error
+	GetAllMonedas(ctx context.Context) ([]*models.Moneda, error)
+	GetMonedaByID(ctx context.Context, id uuid.UUID) (*models.Moneda, error)
+	CreateMoneda(ctx context.Context, moneda *models.Moneda) (*models.Moneda, error)
+	UpdateMoneda(ctx context.Context, id uuid.UUID, moneda *models.Moneda) (*models.Moneda, error)
+	DeleteMoneda(ctx context.Context, id uuid.UUID) error
 }
 
 type storeMoneda struct {
@@ -25,7 +27,8 @@ func NewMoneda(db *sql.DB) StoreMoneda {
 	return &storeMoneda{db: db}
 }
 
-func (s *storeMoneda) GetAllMonedas() ([]*models.Moneda, error) {
+func (s *storeMoneda) GetAllMonedas(ctx context.Context) ([]*models.Moneda, error) {
+	defer performance.Trace(ctx, "store", "GetAllMonedas", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		m.id_moneda,
@@ -45,7 +48,7 @@ func (s *storeMoneda) GetAllMonedas() ([]*models.Moneda, error) {
 	ORDER BY m.id_moneda
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener monedas: %w", err)
 	}
@@ -79,7 +82,8 @@ func (s *storeMoneda) GetAllMonedas() ([]*models.Moneda, error) {
 	return monedas, nil
 }
 
-func (s *storeMoneda) GetMonedaByID(id uuid.UUID) (*models.Moneda, error) {
+func (s *storeMoneda) GetMonedaByID(ctx context.Context, id uuid.UUID) (*models.Moneda, error) {
+	defer performance.Trace(ctx, "store", "GetMonedaByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		m.id_moneda,
@@ -103,7 +107,7 @@ func (s *storeMoneda) GetMonedaByID(id uuid.UUID) (*models.Moneda, error) {
 		Sucursal: &models.Sucursal{},
 	}
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&m.IDMoneda,
 		&m.Nombre,
 		&m.IDSucursal,
@@ -126,11 +130,12 @@ func (s *storeMoneda) GetMonedaByID(id uuid.UUID) (*models.Moneda, error) {
 	return m, nil
 }
 
-func (s *storeMoneda) CreateMoneda(moneda *models.Moneda) (*models.Moneda, error) {
+func (s *storeMoneda) CreateMoneda(ctx context.Context, moneda *models.Moneda) (*models.Moneda, error) {
+	defer performance.Trace(ctx, "store", "CreateMoneda", performance.DbThreshold, time.Now())
 	query := `INSERT INTO moneda (nombre, id_sucursal, id_status) VALUES ($1, $2, $3) RETURNING id_moneda`
 
 	var id uuid.UUID
-	err := s.db.QueryRow(query, moneda.Nombre, moneda.IDSucursal, moneda.IDStatus).Scan(&id)
+	err := s.db.QueryRowContext(ctx, query, moneda.Nombre, moneda.IDSucursal, moneda.IDStatus).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear moneda: %w", err)
 	}
@@ -139,7 +144,8 @@ func (s *storeMoneda) CreateMoneda(moneda *models.Moneda) (*models.Moneda, error
 	return moneda, nil
 }
 
-func (s *storeMoneda) UpdateMoneda(id uuid.UUID, moneda *models.Moneda) (*models.Moneda, error) {
+func (s *storeMoneda) UpdateMoneda(ctx context.Context, id uuid.UUID, moneda *models.Moneda) (*models.Moneda, error) {
+	defer performance.Trace(ctx, "store", "UpdateMoneda", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE moneda
 		SET
@@ -158,7 +164,7 @@ func (s *storeMoneda) UpdateMoneda(id uuid.UUID, moneda *models.Moneda) (*models
 			updated_at
 	`
 
-	err := s.db.QueryRow(query, moneda.Nombre, moneda.IDSucursal, moneda.IDStatus, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, moneda.Nombre, moneda.IDSucursal, moneda.IDStatus, id).Scan(
 		&moneda.IDMoneda,
 		&moneda.Nombre,
 		&moneda.IDSucursal,
@@ -177,10 +183,11 @@ func (s *storeMoneda) UpdateMoneda(id uuid.UUID, moneda *models.Moneda) (*models
 	return moneda, nil
 }
 
-func (s *storeMoneda) DeleteMoneda(id uuid.UUID) error {
+func (s *storeMoneda) DeleteMoneda(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteMoneda", performance.DbThreshold, time.Now())
 	query := `UPDATE moneda SET deleted_at = $1 WHERE id_moneda = $2 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar moneda: %w", err)
 	}
@@ -196,3 +203,4 @@ func (s *storeMoneda) DeleteMoneda(id uuid.UUID) error {
 
 	return nil
 }
+

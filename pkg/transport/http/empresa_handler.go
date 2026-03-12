@@ -26,7 +26,7 @@ func NewEmpresaHandler(s *services.ServiceEmpresa) *EmpresaHandler {
 
 // GetAll obtiene todas las empresas
 func (h *EmpresaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllEmpresa()
+	resp, err := h.service.GetAllEmpresa(r.Context())
 	if err != nil {
 		response.InternalServerError(w, "Error al obtener las empresas")
 		return
@@ -44,7 +44,7 @@ func (h *EmpresaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetByIDEmpresa(id)
+	resp, err := h.service.GetByIDEmpresa(r.Context(), id)
 	if err != nil {
 		response.NotFound(w, "Empresa no encontrada")
 		return
@@ -73,7 +73,7 @@ func (h *EmpresaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		IDStatus: req.IDStatus,
 	}
 
-	resp, err := h.service.CrearEmpresa(empresa)
+	resp, err := h.service.CrearEmpresa(r.Context(), empresa)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -109,7 +109,7 @@ func (h *EmpresaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IDStatus: req.IDStatus,
 	}
 
-	resp, err := h.service.UpdateEmpresa(id, empresa)
+	resp, err := h.service.UpdateEmpresa(r.Context(), id, empresa)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -127,7 +127,7 @@ func (h *EmpresaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.ElimminarEmpresa(id); err != nil {
+	if err := h.service.ElimminarEmpresa(r.Context(), id); err != nil {
 		response.NotFound(w, "Empresa no encontrada")
 		return
 	}

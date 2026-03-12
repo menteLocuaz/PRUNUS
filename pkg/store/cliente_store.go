@@ -1,20 +1,22 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreCliente interface {
-	GetAllClientes() ([]*models.Cliente, error)
-	GetClienteByID(id uuid.UUID) (*models.Cliente, error)
-	CreateCliente(cliente *models.Cliente) (*models.Cliente, error)
-	UpdateCliente(id uuid.UUID, cliente *models.Cliente) (*models.Cliente, error)
-	DeleteCliente(id uuid.UUID) error
+	GetAllClientes(ctx context.Context) ([]*models.Cliente, error)
+	GetClienteByID(ctx context.Context, id uuid.UUID) (*models.Cliente, error)
+	CreateCliente(ctx context.Context, cliente *models.Cliente) (*models.Cliente, error)
+	UpdateCliente(ctx context.Context, id uuid.UUID, cliente *models.Cliente) (*models.Cliente, error)
+	DeleteCliente(ctx context.Context, id uuid.UUID) error
 }
 
 type storeCliente struct {
@@ -25,7 +27,8 @@ func NewCliente(db *sql.DB) StoreCliente {
 	return &storeCliente{db: db}
 }
 
-func (s *storeCliente) GetAllClientes() ([]*models.Cliente, error) {
+func (s *storeCliente) GetAllClientes(ctx context.Context) ([]*models.Cliente, error) {
+	defer performance.Trace(ctx, "store", "GetAllClientes", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		id_cliente,
@@ -43,7 +46,7 @@ func (s *storeCliente) GetAllClientes() ([]*models.Cliente, error) {
 	ORDER BY id_cliente
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener clientes: %w", err)
 	}
@@ -75,7 +78,8 @@ func (s *storeCliente) GetAllClientes() ([]*models.Cliente, error) {
 	return clientes, nil
 }
 
-func (s *storeCliente) GetClienteByID(id uuid.UUID) (*models.Cliente, error) {
+func (s *storeCliente) GetClienteByID(ctx context.Context, id uuid.UUID) (*models.Cliente, error) {
+	defer performance.Trace(ctx, "store", "GetClienteByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		id_cliente,
@@ -95,7 +99,7 @@ func (s *storeCliente) GetClienteByID(id uuid.UUID) (*models.Cliente, error) {
 
 	c := &models.Cliente{}
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&c.IDCliente,
 		&c.EmpresaCliente,
 		&c.Nombre,
@@ -118,7 +122,8 @@ func (s *storeCliente) GetClienteByID(id uuid.UUID) (*models.Cliente, error) {
 	return c, nil
 }
 
-func (s *storeCliente) CreateCliente(cliente *models.Cliente) (*models.Cliente, error) {
+func (s *storeCliente) CreateCliente(ctx context.Context, cliente *models.Cliente) (*models.Cliente, error) {
+	defer performance.Trace(ctx, "store", "CreateCliente", performance.DbThreshold, time.Now())
 	query := `
 		INSERT INTO cliente (empresa_cliente, nombre, ruc, direccion, telefono, email, id_status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -126,7 +131,7 @@ func (s *storeCliente) CreateCliente(cliente *models.Cliente) (*models.Cliente, 
 	`
 
 	var id uuid.UUID
-	err := s.db.QueryRow(query,
+	err := s.db.QueryRowContext(ctx, query,
 		cliente.EmpresaCliente,
 		cliente.Nombre,
 		cliente.RUC,
@@ -143,7 +148,8 @@ func (s *storeCliente) CreateCliente(cliente *models.Cliente) (*models.Cliente, 
 	return cliente, nil
 }
 
-func (s *storeCliente) UpdateCliente(id uuid.UUID, cliente *models.Cliente) (*models.Cliente, error) {
+func (s *storeCliente) UpdateCliente(ctx context.Context, id uuid.UUID, cliente *models.Cliente) (*models.Cliente, error) {
+	defer performance.Trace(ctx, "store", "UpdateCliente", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE cliente
 		SET
@@ -170,7 +176,7 @@ func (s *storeCliente) UpdateCliente(id uuid.UUID, cliente *models.Cliente) (*mo
 			updated_at
 	`
 
-	err := s.db.QueryRow(query,
+	err := s.db.QueryRowContext(ctx, query,
 		cliente.EmpresaCliente,
 		cliente.Nombre,
 		cliente.RUC,
@@ -202,10 +208,12 @@ func (s *storeCliente) UpdateCliente(id uuid.UUID, cliente *models.Cliente) (*mo
 	return cliente, nil
 }
 
-func (s *storeCliente) DeleteCliente(id uuid.UUID) error {
+func (s *storeCliente) DeleteCliente(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteCliente", performance.DbThreshold, time.Now())
 	query := `UPDATE cliente SET deleted_at = $1 WHERE id_cliente = $2 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
+
 	if err != nil {
 		return fmt.Errorf("error al eliminar cliente: %w", err)
 	}

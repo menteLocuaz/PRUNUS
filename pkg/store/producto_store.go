@@ -1,20 +1,22 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreProducto interface {
-	GetAllProductos() ([]*models.Producto, error)
-	GetProductoByID(id uuid.UUID) (*models.Producto, error)
-	CreateProducto(producto *models.Producto) (*models.Producto, error)
-	UpdateProducto(id uuid.UUID, producto *models.Producto) (*models.Producto, error)
-	DeleteProducto(id uuid.UUID) error
+	GetAllProductos(ctx context.Context) ([]*models.Producto, error)
+	GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error)
+	CreateProducto(ctx context.Context, producto *models.Producto) (*models.Producto, error)
+	UpdateProducto(ctx context.Context, id uuid.UUID, producto *models.Producto) (*models.Producto, error)
+	DeleteProducto(ctx context.Context, id uuid.UUID) error
 }
 
 type storeProducto struct {
@@ -25,7 +27,8 @@ func NewProducto(db *sql.DB) StoreProducto {
 	return &storeProducto{db: db}
 }
 
-func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
+func (s *storeProducto) GetAllProductos(ctx context.Context) ([]*models.Producto, error) {
+	defer performance.Trace(ctx, "store", "GetAllProductos", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		p.id_producto,
@@ -66,7 +69,7 @@ func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
 	ORDER BY p.id_producto
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener productos: %w", err)
 	}
@@ -122,7 +125,8 @@ func (s *storeProducto) GetAllProductos() ([]*models.Producto, error) {
 	return productos, nil
 }
 
-func (s *storeProducto) GetProductoByID(id uuid.UUID) (*models.Producto, error) {
+func (s *storeProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error) {
+	defer performance.Trace(ctx, "store", "GetProductoByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		p.id_producto,
@@ -170,7 +174,7 @@ func (s *storeProducto) GetProductoByID(id uuid.UUID) (*models.Producto, error) 
 		Unidad:    &models.Unidad{},
 	}
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&p.IDProducto,
 		&p.Nombre,
 		&p.Descripcion,
@@ -212,7 +216,8 @@ func (s *storeProducto) GetProductoByID(id uuid.UUID) (*models.Producto, error) 
 	return p, nil
 }
 
-func (s *storeProducto) CreateProducto(producto *models.Producto) (*models.Producto, error) {
+func (s *storeProducto) CreateProducto(ctx context.Context, producto *models.Producto) (*models.Producto, error) {
+	defer performance.Trace(ctx, "store", "CreateProducto", performance.DbThreshold, time.Now())
 	query := `
 		INSERT INTO producto (nombre, descripcion, precio_compra, precio_venta, stock, fecha_vencimiento, imagen, id_status, id_sucursal, id_categoria, id_moneda, id_unidad)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -220,7 +225,7 @@ func (s *storeProducto) CreateProducto(producto *models.Producto) (*models.Produ
 	`
 
 	var id uuid.UUID
-	err := s.db.QueryRow(query,
+	err := s.db.QueryRowContext(ctx, query,
 		producto.Nombre,
 		producto.Descripcion,
 		producto.PrecioCompra,
@@ -242,7 +247,8 @@ func (s *storeProducto) CreateProducto(producto *models.Producto) (*models.Produ
 	return producto, nil
 }
 
-func (s *storeProducto) UpdateProducto(id uuid.UUID, producto *models.Producto) (*models.Producto, error) {
+func (s *storeProducto) UpdateProducto(ctx context.Context, id uuid.UUID, producto *models.Producto) (*models.Producto, error) {
+	defer performance.Trace(ctx, "store", "UpdateProducto", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE producto
 		SET
@@ -279,7 +285,7 @@ func (s *storeProducto) UpdateProducto(id uuid.UUID, producto *models.Producto) 
 			updated_at
 	`
 
-	err := s.db.QueryRow(query,
+	err := s.db.QueryRowContext(ctx, query,
 		producto.Nombre,
 		producto.Descripcion,
 		producto.PrecioCompra,
@@ -321,10 +327,11 @@ func (s *storeProducto) UpdateProducto(id uuid.UUID, producto *models.Producto) 
 	return producto, nil
 }
 
-func (s *storeProducto) DeleteProducto(id uuid.UUID) error {
+func (s *storeProducto) DeleteProducto(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteProducto", performance.DbThreshold, time.Now())
 	query := `UPDATE producto SET deleted_at = $1 WHERE id_producto = $2 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar producto: %w", err)
 	}
@@ -340,3 +347,4 @@ func (s *storeProducto) DeleteProducto(id uuid.UUID) error {
 
 	return nil
 }
+

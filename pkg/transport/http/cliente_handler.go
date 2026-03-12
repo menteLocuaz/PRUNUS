@@ -26,7 +26,7 @@ func NewClienteHandler(s *services.ServiceCliente) *ClienteHandler {
 // GetAll obtiene todos los clientes
 func (h *ClienteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	// Llama al servicio para obtener todos los clientes
-	resp, err := h.service.GetAllClientes()
+	resp, err := h.service.GetAllClientes(r.Context())
 	if err != nil {
 		// En caso de error, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -49,7 +49,7 @@ func (h *ClienteHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener el cliente por ID
-	resp, err := h.service.GetClienteByID(id)
+	resp, err := h.service.GetClienteByID(r.Context(), id)
 	if err != nil {
 		// Si no se encuentra el cliente, responde con error 404
 		response.NotFound(w, "Cliente no encontrado")
@@ -88,7 +88,7 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para crear the client
-	resp, err := h.service.CreateCliente(cliente)
+	resp, err := h.service.CreateCliente(r.Context(), cliente)
 	if err != nil {
 		// Si hay error en la creación, responde con error 400
 		response.BadRequest(w, err.Error())
@@ -136,7 +136,7 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para actualizar el cliente
-	resp, err := h.service.UpdateCliente(id, cliente)
+	resp, err := h.service.UpdateCliente(r.Context(), id, cliente)
 	if err != nil {
 		// En caso de error interno, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -159,7 +159,7 @@ func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para eliminar el cliente
-	if err := h.service.DeleteCliente(id); err != nil {
+	if err := h.service.DeleteCliente(r.Context(), id); err != nil {
 		// Si no se encuentra el cliente, responde con error 404
 		response.NotFound(w, "Cliente no encontrado")
 		return

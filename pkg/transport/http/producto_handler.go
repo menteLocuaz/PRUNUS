@@ -26,7 +26,7 @@ func NewProductoHandler(s *services.ServiceProducto) *ProductoHandler {
 
 // GetAll obtiene todos los productos y responde con JSON
 func (h *ProductoHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllProductos()
+	resp, err := h.service.GetAllProductos(r.Context())
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -43,7 +43,7 @@ func (h *ProductoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetProductoByID(id)
+	resp, err := h.service.GetProductoByID(r.Context(), id)
 	if err != nil {
 		response.NotFound(w, "Producto no encontrado")
 		return
@@ -84,7 +84,7 @@ func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		IDUnidad:         req.IDUnidad,
 	}
 
-	resp, err := h.service.CreateProducto(producto)
+	resp, err := h.service.CreateProducto(r.Context(), producto)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -132,7 +132,7 @@ func (h *ProductoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IDUnidad:         req.IDUnidad,
 	}
 
-	resp, err := h.service.UpdateProducto(id, producto)
+	resp, err := h.service.UpdateProducto(r.Context(), id, producto)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -149,7 +149,7 @@ func (h *ProductoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteProducto(id); err != nil {
+	if err := h.service.DeleteProducto(r.Context(), id); err != nil {
 		response.NotFound(w, "Producto no encontrado")
 		return
 	}

@@ -1,20 +1,22 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreCategoria interface {
-	GetAllCategorias() ([]*models.Categoria, error)
-	GetCategoriaByID(id uuid.UUID) (*models.Categoria, error)
-	CreateCategoria(categoria *models.Categoria) (*models.Categoria, error)
-	UpdateCategoria(id uuid.UUID, categoria *models.Categoria) (*models.Categoria, error)
-	DeleteCategoria(id uuid.UUID) error
+	GetAllCategorias(ctx context.Context) ([]*models.Categoria, error)
+	GetCategoriaByID(ctx context.Context, id uuid.UUID) (*models.Categoria, error)
+	CreateCategoria(ctx context.Context, categoria *models.Categoria) (*models.Categoria, error)
+	UpdateCategoria(ctx context.Context, id uuid.UUID, categoria *models.Categoria) (*models.Categoria, error)
+	DeleteCategoria(ctx context.Context, id uuid.UUID) error
 }
 
 type storeCategoria struct {
@@ -25,7 +27,8 @@ func NewCategoria(db *sql.DB) StoreCategoria {
 	return &storeCategoria{db: db}
 }
 
-func (s *storeCategoria) GetAllCategorias() ([]*models.Categoria, error) {
+func (s *storeCategoria) GetAllCategorias(ctx context.Context) ([]*models.Categoria, error) {
+	defer performance.Trace(ctx, "store", "GetAllCategorias", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		c.id_categoria,
@@ -44,7 +47,7 @@ func (s *storeCategoria) GetAllCategorias() ([]*models.Categoria, error) {
 	ORDER BY c.id_categoria
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener categorias: %w", err)
 	}
@@ -77,7 +80,8 @@ func (s *storeCategoria) GetAllCategorias() ([]*models.Categoria, error) {
 	return categorias, nil
 }
 
-func (s *storeCategoria) GetCategoriaByID(id uuid.UUID) (*models.Categoria, error) {
+func (s *storeCategoria) GetCategoriaByID(ctx context.Context, id uuid.UUID) (*models.Categoria, error) {
+	defer performance.Trace(ctx, "store", "GetCategoriaByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT
 		c.id_categoria,
@@ -100,7 +104,7 @@ func (s *storeCategoria) GetCategoriaByID(id uuid.UUID) (*models.Categoria, erro
 		Sucursal: &models.Sucursal{},
 	}
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&c.IDCategoria,
 		&c.Nombre,
 		&c.IDSucursal,
@@ -122,11 +126,12 @@ func (s *storeCategoria) GetCategoriaByID(id uuid.UUID) (*models.Categoria, erro
 	return c, nil
 }
 
-func (s *storeCategoria) CreateCategoria(categoria *models.Categoria) (*models.Categoria, error) {
+func (s *storeCategoria) CreateCategoria(ctx context.Context, categoria *models.Categoria) (*models.Categoria, error) {
+	defer performance.Trace(ctx, "store", "CreateCategoria", performance.DbThreshold, time.Now())
 	query := `INSERT INTO categoria (nombre, id_sucursal) VALUES ($1, $2) RETURNING id_categoria`
 
 	var id uuid.UUID
-	err := s.db.QueryRow(query, categoria.Nombre, categoria.IDSucursal).Scan(&id)
+	err := s.db.QueryRowContext(ctx, query, categoria.Nombre, categoria.IDSucursal).Scan(&id)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear categoria: %w", err)
 	}
@@ -135,7 +140,8 @@ func (s *storeCategoria) CreateCategoria(categoria *models.Categoria) (*models.C
 	return categoria, nil
 }
 
-func (s *storeCategoria) UpdateCategoria(id uuid.UUID, categoria *models.Categoria) (*models.Categoria, error) {
+func (s *storeCategoria) UpdateCategoria(ctx context.Context, id uuid.UUID, categoria *models.Categoria) (*models.Categoria, error) {
+	defer performance.Trace(ctx, "store", "UpdateCategoria", performance.DbThreshold, time.Now())
 	query := `
 		UPDATE categoria
 		SET
@@ -152,7 +158,7 @@ func (s *storeCategoria) UpdateCategoria(id uuid.UUID, categoria *models.Categor
 			updated_at
 	`
 
-	err := s.db.QueryRow(query, categoria.Nombre, categoria.IDSucursal, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, categoria.Nombre, categoria.IDSucursal, id).Scan(
 		&categoria.IDCategoria,
 		&categoria.Nombre,
 		&categoria.IDSucursal,
@@ -170,10 +176,11 @@ func (s *storeCategoria) UpdateCategoria(id uuid.UUID, categoria *models.Categor
 	return categoria, nil
 }
 
-func (s *storeCategoria) DeleteCategoria(id uuid.UUID) error {
+func (s *storeCategoria) DeleteCategoria(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteCategoria", performance.DbThreshold, time.Now())
 	query := `UPDATE categoria SET deleted_at = $1 WHERE id_categoria = $2 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, time.Now(), id)
+	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar categoria: %w", err)
 	}

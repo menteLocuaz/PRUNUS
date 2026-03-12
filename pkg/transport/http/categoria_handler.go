@@ -26,7 +26,7 @@ func NewCategoriaHandler(s *services.ServiceCategoria) *CategoriaHandler {
 // GetAll obtiene todas las categorías
 func (h *CategoriaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	// Llama al servicio para obtener todas las categorías
-	resp, err := h.service.GetAllCategorias()
+	resp, err := h.service.GetAllCategorias(r.Context())
 	if err != nil {
 		// En caso de error, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -49,7 +49,7 @@ func (h *CategoriaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para obtener la categoría por ID
-	resp, err := h.service.GetCategoriaByID(id)
+	resp, err := h.service.GetCategoriaByID(r.Context(), id)
 	if err != nil {
 		// Si no se encuentra la categoría, responde con error 404
 		response.NotFound(w, "Categoría no encontrada")
@@ -83,7 +83,7 @@ func (h *CategoriaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para crear la categoría
-	resp, err := h.service.CreateCategoria(categoria)
+	resp, err := h.service.CreateCategoria(r.Context(), categoria)
 	if err != nil {
 		// Si hay error en la creación, responde con error 400
 		response.BadRequest(w, err.Error())
@@ -126,7 +126,7 @@ func (h *CategoriaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para actualizar la categoría
-	resp, err := h.service.UpdateCategoria(id, categoria)
+	resp, err := h.service.UpdateCategoria(r.Context(), id, categoria)
 	if err != nil {
 		// En caso de error interno, responde con error 500
 		response.InternalServerError(w, err.Error())
@@ -149,7 +149,7 @@ func (h *CategoriaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Llama al servicio para eliminar la categoría
-	if err := h.service.DeleteCategoria(id); err != nil {
+	if err := h.service.DeleteCategoria(r.Context(), id); err != nil {
 		// Si no se encuentra la categoría, responde con error 404
 		response.NotFound(w, "Categoría no encontrada")
 		return

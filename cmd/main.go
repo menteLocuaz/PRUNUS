@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/prunus/pkg/config/database"
 	"github.com/prunus/pkg/config/database/migrations"
@@ -30,6 +32,10 @@ func main() {
 	}
 	cacheStore := store.NewRedisStore(rdb)
 
+	// Configurar logger global de la aplicación (slog)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	// Ejecutar migraciones
 	if err := migrations.RunMigrations(db); err != nil {
 		log.Fatal(err)
@@ -37,7 +43,7 @@ func main() {
 	fmt.Println("✅ Iniciando migracion de la base de datos")
 
 	// Registrar todos los handlers
-	h := RegisterHandlers(db, cacheStore)
+	h := RegisterHandlers(db, cacheStore, logger)
 
 	// Configurar router principal
 	router := routers.NewMainRouter(h)
@@ -50,7 +56,7 @@ func main() {
 }
 
 // RegisterHandlers centraliza la inyección de dependencias y registro de handlers
-func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore) *routers.Handlers {
+func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Logger) *routers.Handlers {
 	// 1. Stores (Repositorios)
 	empresaStore := store.NewEmpresa(db)
 	sucursalStore := store.NewSucursal(db)
@@ -66,18 +72,18 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore) *routers.Handler
 	posStore := store.NewPOSStore(db)
 
 	// 2. Services (Lógica de Negocio)
-	empresaServices := services.NewServiceEmpresa(empresaStore)
-	sucursalServices := services.NewServiceSucursal(sucursalStore)
-	rolService := services.NewServiceRol(rolStore, cacheStore)
-	usuarioService := services.NewServiceUsuario(usuarioStore)
-	categoriaService := services.NewServiceCategoria(categoriaStore, cacheStore)
-	clienteService := services.NewServiceCliente(clienteStore)
-	medidaService := services.NewServiceUnidad(medidaStore)
-	monedaService := services.NewServiceMoneda(monedaStore)
-	productoService := services.NewServiceProducto(productoStore)
-	proveedorService := services.NewServiceProveedor(proveedorStore)
-	estatusService := services.NewServiceEstatus(estatusStore, cacheStore)
-	posService := services.NewServicePOS(posStore)
+	empresaServices := services.NewServiceEmpresa(empresaStore, logger)
+	sucursalServices := services.NewServiceSucursal(sucursalStore, logger)
+	rolService := services.NewServiceRol(rolStore, cacheStore, logger)
+	usuarioService := services.NewServiceUsuario(usuarioStore, logger)
+	categoriaService := services.NewServiceCategoria(categoriaStore, cacheStore, logger)
+	clienteService := services.NewServiceCliente(clienteStore, logger)
+	medidaService := services.NewServiceUnidad(medidaStore, logger)
+	monedaService := services.NewServiceMoneda(monedaStore, logger)
+	productoService := services.NewServiceProducto(productoStore, logger)
+	proveedorService := services.NewServiceProveedor(proveedorStore, logger)
+	estatusService := services.NewServiceEstatus(estatusStore, cacheStore, logger)
+	posService := services.NewServicePOS(posStore, logger)
 
 	// 3. Handlers (Controladores)
 	return &routers.Handlers{

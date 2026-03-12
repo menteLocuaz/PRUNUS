@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,12 +13,17 @@ import (
 )
 
 type ServiceEstatus struct {
-	store store.StoreEstatus
-	cache models.CacheStore
+	store  store.StoreEstatus
+	cache  models.CacheStore
+	logger *slog.Logger
 }
 
-func NewServiceEstatus(s store.StoreEstatus, c models.CacheStore) *ServiceEstatus {
-	return &ServiceEstatus{store: s, cache: c}
+func NewServiceEstatus(s store.StoreEstatus, c models.CacheStore, logger *slog.Logger) *ServiceEstatus {
+	return &ServiceEstatus{
+		store:  s,
+		cache:  c,
+		logger: logger,
+	}
 }
 
 const (
@@ -41,8 +47,7 @@ var moduloNames = map[int]string{
 	8: "Caja/POS",
 }
 
-func (s *ServiceEstatus) GetMasterCatalog() (map[int]interface{}, error) {
-	ctx := context.Background()
+func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (map[int]interface{}, error) {
 	var catalog map[int]interface{}
 
 	// Intentar caché
@@ -52,7 +57,7 @@ func (s *ServiceEstatus) GetMasterCatalog() (map[int]interface{}, error) {
 	}
 
 	// Obtener todos
-	all, err := s.store.GetAllEstatus()
+	all, err := s.store.GetAllEstatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -89,8 +94,7 @@ func (s *ServiceEstatus) GetMasterCatalog() (map[int]interface{}, error) {
 	return catalog, nil
 }
 
-func (s *ServiceEstatus) GetAllEstatus() ([]*models.Estatus, error) {
-	ctx := context.Background()
+func (s *ServiceEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, error) {
 	var estatusList []*models.Estatus
 
 	// Intentar obtener del caché
@@ -99,7 +103,7 @@ func (s *ServiceEstatus) GetAllEstatus() ([]*models.Estatus, error) {
 	}
 
 	// Si no hay caché, ir a la base de datos
-	estatusList, err := s.store.GetAllEstatus()
+	estatusList, err := s.store.GetAllEstatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +114,7 @@ func (s *ServiceEstatus) GetAllEstatus() ([]*models.Estatus, error) {
 	return estatusList, nil
 }
 
-func (s *ServiceEstatus) GetEstatusByID(id uuid.UUID) (*models.Estatus, error) {
-	ctx := context.Background()
+func (s *ServiceEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*models.Estatus, error) {
 	var estatus *models.Estatus
 	key := fmt.Sprintf(cacheKeyEstatusID, id.String())
 
@@ -121,7 +124,7 @@ func (s *ServiceEstatus) GetEstatusByID(id uuid.UUID) (*models.Estatus, error) {
 	}
 
 	// Si no hay caché, ir a la base de datos
-	estatus, err := s.store.GetEstatusByID(id)
+	estatus, err := s.store.GetEstatusByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +135,7 @@ func (s *ServiceEstatus) GetEstatusByID(id uuid.UUID) (*models.Estatus, error) {
 	return estatus, nil
 }
 
-func (s *ServiceEstatus) GetEstatusByTipo(tipo string) ([]*models.Estatus, error) {
-	ctx := context.Background()
+func (s *ServiceEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*models.Estatus, error) {
 	var estatusList []*models.Estatus
 	key := fmt.Sprintf(cacheKeyEstatusTipo, tipo)
 
@@ -143,7 +145,7 @@ func (s *ServiceEstatus) GetEstatusByTipo(tipo string) ([]*models.Estatus, error
 	}
 
 	// Si no hay caché, ir a la base de datos
-	estatusList, err := s.store.GetEstatusByTipo(tipo)
+	estatusList, err := s.store.GetEstatusByTipo(ctx, tipo)
 	if err != nil {
 		return nil, err
 	}
@@ -154,8 +156,7 @@ func (s *ServiceEstatus) GetEstatusByTipo(tipo string) ([]*models.Estatus, error
 	return estatusList, nil
 }
 
-func (s *ServiceEstatus) GetEstatusByModulo(moduloID int) ([]*models.Estatus, error) {
-	ctx := context.Background()
+func (s *ServiceEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]*models.Estatus, error) {
 	var estatusList []*models.Estatus
 	key := fmt.Sprintf(cacheKeyEstatusModuloID, moduloID)
 
@@ -165,7 +166,7 @@ func (s *ServiceEstatus) GetEstatusByModulo(moduloID int) ([]*models.Estatus, er
 	}
 
 	// Si no hay caché, ir a la base de datos
-	estatusList, err := s.store.GetEstatusByModulo(moduloID)
+	estatusList, err := s.store.GetEstatusByModulo(ctx, moduloID)
 	if err != nil {
 		return nil, err
 	}
@@ -176,63 +177,66 @@ func (s *ServiceEstatus) GetEstatusByModulo(moduloID int) ([]*models.Estatus, er
 	return estatusList, nil
 }
 
-func (s *ServiceEstatus) CreateEstatus(estatus models.Estatus) (*models.Estatus, error) {
+func (s *ServiceEstatus) CreateEstatus(ctx context.Context, estatus models.Estatus) (*models.Estatus, error) {
 	if estatus.StdDescripcion == "" {
+		s.logger.WarnContext(ctx, "Intento de creación de estatus con descripción vacía")
 		return nil, errors.New("la descripción es obligatoria")
 	}
 	if estatus.StpTipoEstado == "" {
+		s.logger.WarnContext(ctx, "Intento de creación de estatus sin tipo de estado", slog.String("descripcion", estatus.StdDescripcion))
 		return nil, errors.New("el tipo de estado es obligatorio")
 	}
 	if estatus.MdlID == 0 {
+		s.logger.WarnContext(ctx, "Intento de creación de estatus sin ID de módulo", slog.String("descripcion", estatus.StdDescripcion))
 		return nil, errors.New("el módulo (mdl_id) es obligatorio")
 	}
 
-	result, err := s.store.CreateEstatus(&estatus)
+	result, err := s.store.CreateEstatus(ctx, &estatus)
 	if err != nil {
 		return nil, err
 	}
 
 	// Invalidar caché
-	s.invalidateCache(context.Background(), result)
+	s.invalidateCache(ctx, result)
 
 	return result, nil
 }
 
-func (s *ServiceEstatus) UpdateEstatus(id uuid.UUID, estatus models.Estatus) (*models.Estatus, error) {
+func (s *ServiceEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus models.Estatus) (*models.Estatus, error) {
 	if estatus.StdDescripcion == "" {
+		s.logger.WarnContext(ctx, "Intento de actualización de estatus con descripción vacía", slog.String("id", id.String()))
 		return nil, errors.New("la descripción es obligatoria")
 	}
 
-	result, err := s.store.UpdateEstatus(id, &estatus)
+	result, err := s.store.UpdateEstatus(ctx, id, &estatus)
 	if err != nil {
 		return nil, err
 	}
 
 	// Invalidar caché
-	s.invalidateCache(context.Background(), result)
+	s.invalidateCache(ctx, result)
 
 	return result, nil
 }
 
-func (s *ServiceEstatus) DeleteEstatus(id uuid.UUID) error {
+func (s *ServiceEstatus) DeleteEstatus(ctx context.Context, id uuid.UUID) error {
 	// Obtener el registro antes de borrarlo para saber qué claves invalidar en el caché
-	estatus, err := s.store.GetEstatusByID(id)
+	estatus, err := s.store.GetEstatusByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	if err := s.store.DeleteEstatus(id); err != nil {
+	if err := s.store.DeleteEstatus(ctx, id); err != nil {
 		return err
 	}
 
 	// Invalidar caché
-	s.invalidateCache(context.Background(), estatus)
+	s.invalidateCache(ctx, estatus)
 
 	return nil
 }
 
 // invalidateCache invalida las claves relacionadas con el estatus proporcionado.
-// Nota: el primer parámetro es del tipo context.Context (no context.Background()).
 func (s *ServiceEstatus) invalidateCache(ctx context.Context, e *models.Estatus) {
 	if e == nil {
 		return

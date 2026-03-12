@@ -25,7 +25,7 @@ func NewUsuarioHandler(s *services.ServiceUsuario) *UsuarioHandler {
 
 // GetAll obtiene todos los usuarios
 func (h *UsuarioHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllUsuarios()
+	resp, err := h.service.GetAllUsuarios(r.Context())
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -42,7 +42,7 @@ func (h *UsuarioHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetUsuarioByID(id)
+	resp, err := h.service.GetUsuarioByID(r.Context(), id)
 	if err != nil {
 		response.NotFound(w, "Usuario no encontrado")
 		return
@@ -74,7 +74,7 @@ func (h *UsuarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 		IDStatus:    req.IDStatus,
 	}
 
-	resp, err := h.service.CreateUsuario(usuario)
+	resp, err := h.service.CreateUsuario(r.Context(), usuario)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -113,7 +113,7 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IDStatus:    req.IDStatus,
 	}
 
-	resp, err := h.service.UpdateUsuario(id, usuario)
+	resp, err := h.service.UpdateUsuario(r.Context(), id, usuario)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -130,7 +130,7 @@ func (h *UsuarioHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteUsuario(id); err != nil {
+	if err := h.service.DeleteUsuario(r.Context(), id); err != nil {
 		response.NotFound(w, "Usuario no encontrado")
 		return
 	}

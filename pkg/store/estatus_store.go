@@ -1,21 +1,24 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
+	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreEstatus interface {
-	GetAllEstatus() ([]*models.Estatus, error)
-	GetEstatusByID(id uuid.UUID) (*models.Estatus, error)
-	GetEstatusByTipo(tipo string) ([]*models.Estatus, error)
-	GetEstatusByModulo(moduloID int) ([]*models.Estatus, error)
-	CreateEstatus(estatus *models.Estatus) (*models.Estatus, error)
-	UpdateEstatus(id uuid.UUID, estatus *models.Estatus) (*models.Estatus, error)
-	DeleteEstatus(id uuid.UUID) error
+	GetAllEstatus(ctx context.Context) ([]*models.Estatus, error)
+	GetEstatusByID(ctx context.Context, id uuid.UUID) (*models.Estatus, error)
+	GetEstatusByTipo(ctx context.Context, tipo string) ([]*models.Estatus, error)
+	GetEstatusByModulo(ctx context.Context, moduloID int) ([]*models.Estatus, error)
+	CreateEstatus(ctx context.Context, estatus *models.Estatus) (*models.Estatus, error)
+	UpdateEstatus(ctx context.Context, id uuid.UUID, estatus *models.Estatus) (*models.Estatus, error)
+	DeleteEstatus(ctx context.Context, id uuid.UUID) error
 }
 
 type storeEstatus struct {
@@ -26,7 +29,8 @@ func NewEstatus(db *sql.DB) StoreEstatus {
 	return &storeEstatus{db: db}
 }
 
-func (s *storeEstatus) GetAllEstatus() ([]*models.Estatus, error) {
+func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, error) {
+	defer performance.Trace(ctx, "store", "GetAllEstatus", performance.DbThreshold, time.Now())
 	query := `
 	SELECT 
 		id_status, 
@@ -40,7 +44,7 @@ func (s *storeEstatus) GetAllEstatus() ([]*models.Estatus, error) {
 	ORDER BY created_at DESC
 	`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener estatus: %w", err)
 	}
@@ -65,7 +69,8 @@ func (s *storeEstatus) GetAllEstatus() ([]*models.Estatus, error) {
 	return estatusList, nil
 }
 
-func (s *storeEstatus) GetEstatusByID(id uuid.UUID) (*models.Estatus, error) {
+func (s *storeEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*models.Estatus, error) {
+	defer performance.Trace(ctx, "store", "GetEstatusByID", performance.DbThreshold, time.Now())
 	query := `
 	SELECT 
 		id_status, 
@@ -79,7 +84,7 @@ func (s *storeEstatus) GetEstatusByID(id uuid.UUID) (*models.Estatus, error) {
 	`
 
 	e := &models.Estatus{}
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&e.IDStatus,
 		&e.StdDescripcion,
 		&e.StpTipoEstado,
@@ -98,7 +103,8 @@ func (s *storeEstatus) GetEstatusByID(id uuid.UUID) (*models.Estatus, error) {
 	return e, nil
 }
 
-func (s *storeEstatus) GetEstatusByTipo(tipo string) ([]*models.Estatus, error) {
+func (s *storeEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*models.Estatus, error) {
+	defer performance.Trace(ctx, "store", "GetEstatusByTipo", performance.DbThreshold, time.Now())
 	query := `
 	SELECT 
 		id_status, 
@@ -112,7 +118,7 @@ func (s *storeEstatus) GetEstatusByTipo(tipo string) ([]*models.Estatus, error) 
 	ORDER BY std_descripcion ASC
 	`
 
-	rows, err := s.db.Query(query, tipo)
+	rows, err := s.db.QueryContext(ctx, query, tipo)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener estatus por tipo: %w", err)
 	}
@@ -137,7 +143,8 @@ func (s *storeEstatus) GetEstatusByTipo(tipo string) ([]*models.Estatus, error) 
 	return estatusList, nil
 }
 
-func (s *storeEstatus) GetEstatusByModulo(moduloID int) ([]*models.Estatus, error) {
+func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]*models.Estatus, error) {
+	defer performance.Trace(ctx, "store", "GetEstatusByModulo", performance.DbThreshold, time.Now())
 	query := `
 	SELECT 
 		id_status, 
@@ -151,7 +158,7 @@ func (s *storeEstatus) GetEstatusByModulo(moduloID int) ([]*models.Estatus, erro
 	ORDER BY std_descripcion ASC
 	`
 
-	rows, err := s.db.Query(query, moduloID)
+	rows, err := s.db.QueryContext(ctx, query, moduloID)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener estatus por modulo: %w", err)
 	}
@@ -176,14 +183,15 @@ func (s *storeEstatus) GetEstatusByModulo(moduloID int) ([]*models.Estatus, erro
 	return estatusList, nil
 }
 
-func (s *storeEstatus) CreateEstatus(estatus *models.Estatus) (*models.Estatus, error) {
+func (s *storeEstatus) CreateEstatus(ctx context.Context, estatus *models.Estatus) (*models.Estatus, error) {
+	defer performance.Trace(ctx, "store", "CreateEstatus", performance.DbThreshold, time.Now())
 	query := `
 	INSERT INTO estatus (std_descripcion, stp_tipo_estado, mdl_id)
 	VALUES ($1, $2, $3)
 	RETURNING id_status, created_at, updated_at
 	`
 
-	err := s.db.QueryRow(query, estatus.StdDescripcion, estatus.StpTipoEstado, estatus.MdlID).Scan(
+	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StpTipoEstado, estatus.MdlID).Scan(
 		&estatus.IDStatus,
 		&estatus.CreatedAt,
 		&estatus.UpdatedAt,
@@ -195,7 +203,8 @@ func (s *storeEstatus) CreateEstatus(estatus *models.Estatus) (*models.Estatus, 
 	return estatus, nil
 }
 
-func (s *storeEstatus) UpdateEstatus(id uuid.UUID, estatus *models.Estatus) (*models.Estatus, error) {
+func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus *models.Estatus) (*models.Estatus, error) {
+	defer performance.Trace(ctx, "store", "UpdateEstatus", performance.DbThreshold, time.Now())
 	query := `
 	UPDATE estatus
 	SET 
@@ -207,7 +216,7 @@ func (s *storeEstatus) UpdateEstatus(id uuid.UUID, estatus *models.Estatus) (*mo
 	RETURNING id_status, std_descripcion, stp_tipo_estado, mdl_id, created_at, updated_at
 	`
 
-	err := s.db.QueryRow(query, estatus.StdDescripcion, estatus.StpTipoEstado, estatus.MdlID, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StpTipoEstado, estatus.MdlID, id).Scan(
 		&estatus.IDStatus,
 		&estatus.StdDescripcion,
 		&estatus.StpTipoEstado,
@@ -226,10 +235,11 @@ func (s *storeEstatus) UpdateEstatus(id uuid.UUID, estatus *models.Estatus) (*mo
 	return estatus, nil
 }
 
-func (s *storeEstatus) DeleteEstatus(id uuid.UUID) error {
+func (s *storeEstatus) DeleteEstatus(ctx context.Context, id uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "DeleteEstatus", performance.DbThreshold, time.Now())
 	query := `UPDATE estatus SET deleted_at = CURRENT_TIMESTAMP WHERE id_status = $1 AND deleted_at IS NULL`
 
-	result, err := s.db.Exec(query, id)
+	result, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar estatus: %w", err)
 	}
