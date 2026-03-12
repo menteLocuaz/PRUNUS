@@ -40,7 +40,7 @@ func NewMainRouter(h *Handlers) http.Handler {
 
 		r.Route("/v1", func(r chi.Router) {
 			// Auth Routes
-			// r.Mount("/auth", AuthRouter(h.Auth))
+			r.Mount("/auth", AuthRouter(h.Auth))
 
 			// Mantener login en /v1/login por compatibilidad
 			r.Post("/login", h.Auth.Login)
