@@ -1,32 +1,32 @@
-# Prunus - Sistema de Gestión Empresarial (ERP/POS API)
+# Prunus - Business Management API (ERP/POS)
 
-**Prunus** es una API RESTful robusta y escalable diseñada para la gestión integral de empresas, sucursales, inventarios y operaciones comerciales. Construida bajo los principios de **Clean Architecture**, ofrece una base sólida para aplicaciones de Punto de Venta (POS) y administración de recursos empresariales.
+**Prunus** es una API RESTful de alto rendimiento diseñada para la gestión integral de empresas, inventarios y operaciones comerciales. Construida bajo los principios de **Clean Architecture**, ofrece una base sólida y escalable para aplicaciones de Punto de Venta (POS) y administración de recursos empresariales.
 
 ---
 
 ## 🚀 Características Principales
 
 - **Arquitectura Multi-tenant:** Gestión de múltiples empresas y sucursales con segregación estricta de datos.
+- **CLI Potente:** Interfaz de línea de comandos basada en **Cobra** para gestión de servicios y migraciones.
 - **Control de Acceso (RBAC):** Sistema de roles y permisos dinámicos por sucursal.
-- **Gestión de Inventario:** Control de stock, precios de compra/venta, unidades de medida y vencimientos.
-- **Caché de Alto Rendimiento:** Integración con **Redis** para optimizar la consulta de catálogos frecuentes.
-- **Seguridad:** Autenticación basada en JWT (Stateless) y hashing de contraseñas con bcrypt.
-- **Integridad de Datos:** Implementación de **Soft Deletes** en todas las entidades críticas.
-- **Migraciones Automáticas:** Sistema de versionado de base de datos que se ejecuta al iniciar la aplicación.
+- **Gestión de Inventario:** Control de stock, precios, unidades de medida y trazabilidad.
+- **Caché Distribuida:** Integración con **Redis** para optimizar consultas de catálogos frecuentes.
+- **Observabilidad:** Logging estructurado en JSON compatible con **Grafana Loki**, **CloudWatch** y **Fluentd**.
+- **Seguridad:** Autenticación JWT Stateless y hashing de contraseñas con `bcrypt`.
 
 ---
 
-## 🛠️ Tecnologías
+## 🛠️ Stack Tecnológico
 
-| Herramienta | Versión | Uso |
+| Categoría | Herramienta | Uso |
 |---|---|---|
-| **Go (Golang)** | 1.25.4 | Lenguaje principal y lógica de negocio |
-| **PostgreSQL** | 15 | Base de datos relacional principal |
-| **Redis** | 7-alpine | Sistema de caché para optimización de lectura |
-| **Chi Router** | v5.2.3 | Enrutamiento HTTP ligero y rápido |
-| **pgx** | v5.8.0 | Driver de alto rendimiento para PostgreSQL |
-| **JWT (golang-jwt)** | v5.3.0 | Gestión de tokens de autenticación |
-| **Docker & Compose** | - | Contenerización y orquestación de servicios |
+| **Lenguaje** | **Go (Golang)** 1.25.4 | Lógica de negocio y concurrencia |
+| **Base de Datos** | **PostgreSQL** 15 | Persistencia relacional principal |
+| **Caché** | **Redis** 7-alpine | Optimización de lecturas y catálogos |
+| **Routing** | **Chi Router** v5.2.3 | Enrutamiento HTTP ligero y rápido |
+| **CLI/Config** | **Cobra & Viper** | Interfaz de comandos y gestión de entorno |
+| **Persistencia** | **pgx** v5.8.0 | Driver de alto rendimiento para PostgreSQL |
+| **Infraestructura** | **Docker & systemd** | Contenerización y gestión de servicios |
 
 ---
 
@@ -34,111 +34,69 @@
 
 ```text
 prunus/
-├── cmd/
-│   └── main.go                  # Punto de entrada e Inyección de Dependencias
-├── docs/                        # Documentación técnica, PRD y guías de implementación
+├── cmd/                # Entry points (serve, migrate, root)
+├── deployment/         # Archivos de despliegue (systemd, etc.)
+├── docs/               # Documentación técnica y guías de observabilidad
 ├── pkg/
-│   ├── config/
-│   │   └── database/
-│   │       ├── connection.go    # Conexión a PostgreSQL
-│   │       ├── redis.go         # Conexión a Redis
-│   │       └── migrations/      # Scripts de migración de base de datos (001-031)
-│   ├── dto/                     # Data Transfer Objects (Request/Response)
-│   ├── helper/                  # Utilidades para JWT y hashing
-│   ├── middleware/              # Auth, Logging, CORS y Rate Limiting
-│   ├── models/                  # Entidades de dominio e interfaces de persistencia
-│   ├── routers/                 # Definición de rutas por módulo
-│   ├── services/                # Lógica de negocio y coordinación
-│   ├── store/                   # Implementación de persistencia (SQL & Redis)
-│   ├── transport/http/          # Handlers de la capa de transporte
-│   └── utils/                   # Validadores y respuestas estandarizadas
-├── docker-compose.yml           # Orquestación de Postgres y Redis
-└── .env.example                 # Plantilla de variables de entorno
+│   ├── config/         # Conexiones (DB, Redis) y Migraciones
+│   ├── dto/            # Data Transfer Objects
+│   ├── middleware/     # Auth, Logging (JSON), Rate Limiting
+│   ├── models/         # Entidades de dominio
+│   ├── services/       # Lógica de negocio (Capa Central)
+│   ├── store/          # Repositorios (SQL & Redis)
+│   └── transport/http/ # Handlers y controladores API
+├── docker-compose.yml  # Orquestación de infraestructura local
+└── .env.example        # Plantilla de configuración
 ```
 
 ---
 
-## ⚙️ Configuración y Despliegue
+## ⚙️ Instalación y Ejecución
 
-### 1. Requisitos Previos
+### 1. Requisitos
 - Go 1.25+
-- Docker y Docker Compose
+- Docker & Docker Compose
 
-### 2. Preparar el Entorno
-Copia el archivo de ejemplo y configura tus credenciales:
+### 2. Configuración Inicial
 ```bash
 cp .env.example .env
+docker-compose up -d  # Levanta Postgres y Redis
 ```
 
-### 3. Levantar Infraestructura (Postgres & Redis)
+### 3. Gestión vía CLI
+Prunus utiliza una CLI moderna para facilitar la administración:
+
 ```bash
-docker-compose up -d
+# Ejecutar migraciones de base de datos
+go run ./cmd/ migrate
+
+# Iniciar el servidor API
+go run ./cmd/ serve --port 9090
 ```
 
-### 4. Ejecutar la Aplicación
-Las migraciones se ejecutarán automáticamente al iniciar:
-```bash
-go run cmd/main.go
-```
-El servidor estará disponible en `http://localhost:9090` (por defecto).
+> Para una guía detallada de comandos y despliegue en producción, consulte: [**Guía de Comandos y Despliegue**](docs/COMANDOS-SERVER.md).
 
 ---
 
-## 🔐 Autenticación
+## 📊 Observabilidad y Monitoreo
 
-El sistema utiliza **JWT (JSON Web Tokens)**. Excepto por el endpoint de login, todos los demás requieren el header:
-`Authorization: Bearer <tu_token>`
+La API genera logs estructurados en formato JSON por defecto, facilitando la integración con stacks modernos de monitoreo.
 
-### Flujo Principal:
-1. `POST /api/v1/login` -> Obtiene Access Token.
-2. `GET /api/v1/me` -> Valida identidad y contexto (Sucursal/Rol).
-3. `POST /api/v1/refresh-token` -> Renueva la sesión.
+- **Destinos Soportados**: Grafana Loki, AWS CloudWatch, Fluentd.
+- **Métricas**: Latencia por operación, trazabilidad de errores y auditoría.
 
----
-
-## 📦 Módulos y Endpoints
-
-El sistema cuenta con una amplia gama de módulos para la gestión empresarial:
-
-### Organización
-- **Empresas:** `/api/v1/empresas`
-- **Sucursales:** `/api/v1/sucursal`
-- **Roles:** `/api/v1/rol`
-- **Usuarios:** `/api/v1/usuario`
-
-### Catálogos e Inventario
-- **Categorías:** `/api/v1/categoria` (Con caché en Redis)
-- **Productos:** `/api/v1/producto`
-- **Proveedores:** `/api/v1/proveedor`
-- **Clientes:** `/api/v1/cliente`
-- **Monedas:** `/api/v1/moneda`
-- **Unidades:** `/api/v1/medida`
-
-### Operaciones POS (En Desarrollo/Implementados)
-- **Estatus:** `/api/v1/estatus`
-- **Estaciones POS:** Gestión de puntos de venta físicos.
-- **Caja y Retiros:** Control de flujo de efectivo.
-- **Facturación:** Emisión de comprobantes y detalles de venta.
-- **Inventario:** Movimientos y ajustes de stock.
+Consulte la [**Guía de Observabilidad**](docs/grafana.md) para configurar tableros en Grafana.
 
 ---
 
-## ⚡ Optimización con Redis
+## 🔐 Seguridad e Integridad
 
-Se ha implementado una capa de caché para los catálogos de alta frecuencia (Roles y Categorías) siguiendo el patrón de **Invalidación por Escritura**:
-- **Lectura:** Se consulta primero Redis; ante un *miss*, se lee de DB y se puebla la caché (TTL 1h).
-- **Escritura (Create/Update/Delete):** Se invalida automáticamente la entrada en Redis para garantizar consistencia.
-
----
-
-## 🛡️ Estándares de Desarrollo
-
-- **Idiomática:** Mensajes de error y comentarios en **Español**.
-- **Seguridad:** Uso estricto de consultas parametrizadas para evitar Inyección SQL.
-- **Calidad:** Validaciones robustas en la capa de servicios antes de la persistencia.
-- **Auditoría:** Todas las tablas incluyen `created_at`, `updated_at` y `deleted_at`.
+- **Soft Deletes**: Implementado en todas las entidades críticas (`deleted_at`).
+- **Validación**: Capa de servicios con validación robusta de entrada.
+- **Auditoría**: Todas las tablas incluyen `created_at` y `updated_at`.
+- **RBAC**: Middleware que valida contexto de sucursal y rol en cada petición.
 
 ---
 
 ## 📄 Licencia
-Este proyecto es de código abierto bajo la licencia MIT.
+Este proyecto es propiedad de Prunus y se distribuye bajo la licencia MIT.

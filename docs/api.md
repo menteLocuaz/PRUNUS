@@ -1,146 +1,110 @@
 # API - Referencia de endpoints
 
-Base URL: `http://localhost:9090`
+Base URL: `http://localhost:9090/api/v1`
 
-> Todos los endpoints que modifican datos requieren `Content-Type: application/json`
+> Todos los endpoints que modifican datos requieren `Content-Type: application/json`.
+> La mayoría de los endpoints requieren autenticación mediante un token JWT en el header `Authorization: Bearer <token>`.
 
 ---
 
-## Categoría
+## Autenticación
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/categoria` | Listar todas |
-| POST | `/categoria` | Crear |
-| GET | `/categoria/{id}` | Obtener por ID |
-| PUT | `/categoria/{id}` | Actualizar |
-| DELETE | `/categoria/{id}` | Eliminar |
+| POST | `/login` | Iniciar sesión |
+| GET | `/auth/me` | Obtener información del usuario actual |
+| POST | `/auth/logout` | Cerrar sesión |
+| POST | `/auth/refresh-token` | Refrescar el token de acceso |
 
-**POST /categoria**
+**POST /login**
 ```json
 {
-  "nombre": "Electrónica",
-  "id_sucursal": 1
-}
-```
-
-**PUT /categoria/{id}**
-```json
-{
-  "nombre": "Electrónica actualizada",
-  "id_sucursal": 1
+  "email": "admin@prunus.com",
+  "password": "password123"
 }
 ```
 
 ---
 
-## Cliente
+## Administración de Usuarios y Roles
 
+### Usuarios
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/cliente` | Listar todos |
-| POST | `/cliente` | Crear |
-| GET | `/cliente/{id}` | Obtener por ID |
-| PUT | `/cliente/{id}` | Actualizar |
-| DELETE | `/cliente/{id}` | Eliminar |
+| GET | `/usuarios` | Listar todos los usuarios |
+| POST | `/usuarios` | Crear un nuevo usuario |
+| GET | `/usuarios/{id}` | Obtener usuario por ID |
+| PUT | `/usuarios/{id}` | Actualizar usuario |
+| DELETE | `/usuarios/{id}` | Eliminar usuario |
 
-**POST /cliente**
+**POST /usuarios**
 ```json
 {
-  "empresa_cliente": "Empresa ABC S.A.",
-  "nombre": "Juan Pérez",
-  "ruc": "20123456789",
-  "direccion": "Av. Lima 123",
-  "telefono": "987654321",
-  "email": "juan@empresa.com",
-  "estado": 1
+  "id_sucursal": "uuid",
+  "id_rol": "uuid",
+  "email": "usuario@ejemplo.com",
+  "usu_nombre": "Nombre Apellido",
+  "usu_dni": "12345678",
+  "usu_telefono": "987654321",
+  "password": "securepassword",
+  "id_status": "uuid"
 }
 ```
 
-**PUT /cliente/{id}**
-```json
-{
-  "empresa_cliente": "Empresa ABC S.A.",
-  "nombre": "Juan Pérez",
-  "ruc": "20123456789",
-  "direccion": "Av. Lima 456",
-  "telefono": "987654321",
-  "email": "juan@empresa.com",
-  "estado": 1
-}
-```
+### Roles
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/roles` | Listar todos los roles |
+| POST | `/roles` | Crear un nuevo rol |
+| GET | `/roles/{id}` | Obtener rol por ID |
+| PUT | `/roles/{id}` | Actualizar rol |
+| DELETE | `/roles/{id}` | Eliminar rol |
 
 ---
 
-## Medida (Unidad)
+## Estructura Organizacional
 
+### Empresas
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/medida` | Listar todas |
-| POST | `/medida` | Crear |
-| GET | `/medida/{id}` | Obtener por ID |
-| PUT | `/medida/{id}` | Actualizar |
-| DELETE | `/medida/{id}` | Eliminar |
+| GET | `/empresas` | Listar todas las empresas |
+| POST | `/empresas` | Crear una nueva empresa |
+| GET | `/empresas/{id}` | Obtener empresa por ID |
+| PUT | `/empresas/{id}` | Actualizar empresa |
+| DELETE | `/empresas/{id}` | Eliminar empresa |
 
-**POST /medida**
-```json
-{
-  "nombre": "Kilogramo",
-  "id_sucursal": 1
-}
-```
-
-**PUT /medida/{id}**
-```json
-{
-  "nombre": "Kilogramo",
-  "id_sucursal": 1
-}
-```
+### Sucursales
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/sucursales` | Listar todas las sucursales |
+| POST | `/sucursales` | Crear una nueva sucursal |
+| GET | `/sucursales/{id}` | Obtener sucursal por ID |
+| PUT | `/sucursales/{id}` | Actualizar sucursal |
+| DELETE | `/sucursales/{id}` | Eliminar sucursal |
 
 ---
 
-## Moneda
+## Catálogos y Productos
 
+### Categorías
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/moneda` | Listar todas |
-| POST | `/moneda` | Crear |
-| GET | `/moneda/{id}` | Obtener por ID |
-| PUT | `/moneda/{id}` | Actualizar |
-| DELETE | `/moneda/{id}` | Eliminar |
+| GET | `/categorias` | Listar todas |
+| POST | `/categorias` | Crear |
+| GET | `/categorias/{id}` | Obtener por ID |
+| PUT | `/categorias/{id}` | Actualizar |
+| DELETE | `/categorias/{id}` | Eliminar |
 
-**POST /moneda**
-```json
-{
-  "nombre": "Sol peruano",
-  "id_sucursal": 1,
-  "estado": 1
-}
-```
-
-**PUT /moneda/{id}**
-```json
-{
-  "nombre": "Sol peruano",
-  "id_sucursal": 1,
-  "estado": 1
-}
-```
-
----
-
-## Producto
-
+### Productos
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/producto` | Listar todos |
-| POST | `/producto` | Crear |
-| GET | `/producto/{id}` | Obtener por ID |
-| PUT | `/producto/{id}` | Actualizar |
-| DELETE | `/producto/{id}` | Eliminar |
+| GET | `/productos` | Listar todos |
+| POST | `/productos` | Crear |
+| GET | `/productos/{id}` | Obtener por ID |
+| PUT | `/productos/{id}` | Actualizar |
+| DELETE | `/productos/{id}` | Eliminar |
 
-**POST /producto**
+**POST /productos**
 ```json
 {
   "nombre": "Laptop HP",
@@ -150,77 +114,61 @@ Base URL: `http://localhost:9090`
   "stock": 10,
   "fecha_vencimiento": "2027-01-01T00:00:00Z",
   "imagen": "https://ejemplo.com/imagen.jpg",
-  "estado": 1,
-  "id_sucursal": 1,
-  "id_categoria": 1,
-  "id_moneda": 1,
-  "id_unidad": 1
+  "id_sucursal": "uuid",
+  "id_categoria": "uuid",
+  "id_moneda": "uuid",
+  "id_unidad": "uuid",
+  "estado": 1
 }
 ```
 
-**PUT /producto/{id}**
-```json
-{
-  "nombre": "Laptop HP",
-  "descripcion": "Laptop HP 15 pulgadas actualizada",
-  "precio_compra": 2500.00,
-  "precio_venta": 3400.00,
-  "stock": 8,
-  "fecha_vencimiento": "2027-01-01T00:00:00Z",
-  "imagen": "https://ejemplo.com/imagen.jpg",
-  "estado": 1,
-  "id_sucursal": 1,
-  "id_categoria": 1,
-  "id_moneda": 1,
-  "id_unidad": 1
-}
-```
+### Medidas (Unidades)
+Ruta: `/medidas`
+
+### Monedas
+Ruta: `/monedas`
+
+### Estatus (Estados del Sistema)
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/estatus` | Listar todos los estados |
+| GET | `/estatus/catalogo` | Obtener catálogo maestro agrupado por módulo |
+| GET | `/estatus/tipo/{tipo}` | Obtener estados por tipo (PRODUCTO, FACTURA, etc.) |
+| GET | `/estatus/modulo/{id}` | Obtener estados por ID de módulo |
 
 ---
 
-## Proveedor
+## Punto de Venta (POS)
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/proveedor` | Listar todos |
-| POST | `/proveedor` | Crear |
-| GET | `/proveedor/{id}` | Obtener por ID |
-| PUT | `/proveedor/{id}` | Actualizar |
-| DELETE | `/proveedor/{id}` | Eliminar |
+| POST | `/pos/abrir` | Abrir caja / Iniciar turno |
+| GET | `/pos/estado/{id}` | Consultar estado actual de una caja |
 
-**POST /proveedor**
+**POST /pos/abrir**
 ```json
 {
-  "nombre": "Distribuidora Norte S.A.C.",
-  "ruc": "20456789012",
-  "telefono": "01-4567890",
-  "direccion": "Av. Industrial 789",
-  "email": "contacto@distribuidora.com",
-  "estado": 1,
-  "id_sucursal": 1,
-  "id_empresa": 1
-}
-```
-
-**PUT /proveedor/{id}**
-```json
-{
-  "nombre": "Distribuidora Norte S.A.C.",
-  "ruc": "20456789012",
-  "telefono": "01-4567890",
-  "direccion": "Av. Industrial 999",
-  "email": "contacto@distribuidora.com",
-  "estado": 1,
-  "id_sucursal": 1,
-  "id_empresa": 1
+  "id_estacion": "uuid",
+  "fondo_base": 150.00,
+  "id_user_pos": "uuid"
 }
 ```
 
 ---
 
-## Notas
+## Clientes y Proveedores
 
-- `estado`: `1` = activo, `0` = inactivo
-- `fecha_vencimiento`: formato ISO 8601 `"YYYY-MM-DDT00:00:00Z"`. Omitir el campo si no aplica
-- Los campos `id_categoria`, `id_moneda`, `id_unidad`, `id_sucursal`, `id_empresa` deben existir previamente en la base de datos
-- Los campos `id_*`, `created_at`, `updated_at`, `deleted_at` son generados por el servidor, no se envían en POST/PUT
+### Clientes
+Ruta: `/clientes`
+
+### Proveedores
+Ruta: `/proveedores`
+
+---
+
+## Notas Técnicas
+
+- **Formatos de ID:** El sistema utiliza `UUID` para todos los identificadores únicos.
+- **Soft Deletes:** Los registros no se eliminan físicamente; se marcan como eliminados en la base de datos.
+- **Fechas:** Todas las fechas se manejan en formato ISO 8601 UTC (`YYYY-MM-DDTHH:MM:SSZ`).
+- **Estados:** Utilice el endpoint `/estatus/catalogo` para conocer los IDs de estado válidos para cada módulo.
