@@ -7,25 +7,18 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/prunus/pkg/config"
 	"github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 )
 
 // InitDB abre la conexión a la base de datos usando la configuración de Viper.
 func InitDB() (*sql.DB, error) {
-	host := viper.GetString("DB_HOST")
-	user := viper.GetString("DB_USER")
-	password := viper.GetString("DB_PASSWORD")
-	dbname := viper.GetString("DB_NAME")
-	port := viper.GetString("DB_PORT")
-	sslmode := viper.GetString("DB_SSLMODE")
-
-	if port == "" {
-		port = "5432"
-	}
-	if sslmode == "" {
-		sslmode = "disable"
-	}
+	host := config.Get("DB_HOST")
+	user := config.Get("DB_USER")
+	password := config.Get("DB_PASSWORD")
+	dbname := config.Get("DB_NAME")
+	port := config.GetDefault("DB_PORT", "5432")
+	sslmode := config.GetDefault("DB_SSLMODE", "disable")
 
 	connStr := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
@@ -50,17 +43,10 @@ func InitDB() (*sql.DB, error) {
 
 // InitRedis abre la conexión a Redis usando la configuración de Viper.
 func InitRedis() (*redis.Client, error) {
-	host := viper.GetString("REDIS_HOST")
-	port := viper.GetString("REDIS_PORT")
-	password := viper.GetString("REDIS_PASSWORD")
-	db := viper.GetInt("REDIS_DB")
-
-	if host == "" {
-		host = "localhost"
-	}
-	if port == "" {
-		port = "6379"
-	}
+	host := config.GetDefault("REDIS_HOST", "localhost")
+	port := config.GetDefault("REDIS_PORT", "6379")
+	password := config.Get("REDIS_PASSWORD")
+	db := config.GetInt("REDIS_DB")
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", host, port),

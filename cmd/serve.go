@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prunus/pkg/config"
 	"github.com/prunus/pkg/config/database"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/routers"
 	"github.com/prunus/pkg/store"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var port string
@@ -27,14 +27,22 @@ var serveCmd = &cobra.Command{
 	Short: "Inicia el servidor API REST",
 	Long:  `Levanta el servidor HTTP de Prunus e inyecta todas las dependencias necesarias con soporte para Graceful Shutdown.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// 1. Conexión a Base de Datos
+		// 1. Validar variables de configuración críticas antes de arrancar
+		if err := config.Validate(
+			"DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME",
+			"JWT_SECRET",
+		); err != nil {
+			log.Fatalf("❌ Error de configuración: %v", err)
+		}
+
+		// 2. Conexión a Base de Datos
 		db, err := database.InitDB()
 		if err != nil {
 			log.Fatalf("❌ Error crítico conectando a la base de datos: %v", err)
 		}
 		defer db.Close()
 
-		// 2. Conexión a Redis
+		// 3. Conexión a Redis
 		rdb, err := database.InitRedis()
 		var cacheStore models.CacheStore
 		if err != nil {
@@ -43,21 +51,18 @@ var serveCmd = &cobra.Command{
 			cacheStore = store.NewRedisStore(rdb)
 		}
 
-		// 3. Logger
+		// 4. Logger
 		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 		slog.SetDefault(logger)
 
-		// 4. Handlers y Router
+		// 5. Handlers y Router
 		h := RegisterHandlers(db, cacheStore, logger)
 		router := routers.NewMainRouter(h)
 
-		// 5. Configuración del Servidor
-		finalPort := viper.GetString("PORT")
+		// 6. Configuración del Servidor
+		finalPort := config.GetDefault("PORT", "9090")
 		if port != "9090" {
 			finalPort = port
-		}
-		if finalPort == "" {
-			finalPort = "9090"
 		}
 
 		srv := &http.Server{
@@ -65,7 +70,7 @@ var serveCmd = &cobra.Command{
 			Handler: router,
 		}
 
-		// 6. Graceful Shutdown
+		// 7. Graceful Shutdown
 		go func() {
 			fmt.Printf("🚀 Servidor Prunus iniciado en el puerto %s\n", finalPort)
 			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
