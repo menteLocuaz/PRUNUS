@@ -64,7 +64,7 @@ docker-compose up -d  # Levanta Postgres y Redis
 ```
 
 ### 3. Gestión vía CLI
-Prunus utiliza una CLI moderna para facilitar la administración:
+Prunus utiliza una CLI moderna para facilitar la administración y el registro inicial de datos:
 
 ```bash
 # Ejecutar migraciones de base de datos
@@ -72,6 +72,22 @@ go run ./cmd/ migrate
 
 # Iniciar el servidor API
 go run ./cmd/ serve --port 9090
+
+# Registro de entidades base (Setup inicial)
+# 1. Registrar un estatus
+go run ./cmd/ register estatus --desc "Activo" --tipo "GENERAL" --modulo 1
+
+# 2. Registrar una empresa (requiere ID de estatus)
+go run ./cmd/ register empresa --nombre "Empresa Central" --rut "12345678-9" --status <UUID_STATUS>
+
+# 3. Registrar una sucursal (requiere ID de empresa y estatus)
+go run ./cmd/ register sucursal --empresa <UUID_EMPRESA> --nombre "Sucursal Norte" --status <UUID_STATUS>
+
+# 4. Registrar un rol (requiere ID de sucursal y estatus)
+go run ./cmd/ register rol --sucursal <UUID_SUCURSAL> --nombre "Administrador" --status <UUID_STATUS>
+
+# 5. Registrar un usuario (requiere sucursal, rol, email, nombre, dni, password y estatus)
+go run ./cmd/ register usuario --sucursal <UUID_SUCURSAL> --rol <UUID_ROL> --email "admin@prunus.com" --nombre "Admin" --dni "12345678" --password "secret123" --status <UUID_STATUS>
 ```
 
 > Para una guía detallada de comandos y despliegue en producción, consulte: [**Guía de Comandos y Despliegue**](docs/COMANDOS-SERVER.md).
