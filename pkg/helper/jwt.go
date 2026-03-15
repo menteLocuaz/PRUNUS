@@ -3,12 +3,12 @@ package helper
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/config"
 	"github.com/prunus/pkg/models"
 )
 
@@ -23,7 +23,7 @@ var (
 
 // getJWTSecret obtiene el secret desde las variables de entorno
 func getJWTSecret() (string, error) {
-	secret := os.Getenv("JWT_SECRET")
+	secret := config.Get("JWT_SECRET")
 	if secret == "" {
 		return "", ErrMissingSecret
 	}
@@ -33,7 +33,7 @@ func getJWTSecret() (string, error) {
 // getJWTExpirationHours obtiene las horas de expiración desde variables de entorno
 // Por defecto: 24 horas
 func getJWTExpirationHours() int {
-	hoursStr := os.Getenv("JWT_EXPIRATION_HOURS")
+	hoursStr := config.Get("JWT_EXPIRATION_HOURS")
 	if hoursStr == "" {
 		return 24 // Default: 24 horas
 	}
