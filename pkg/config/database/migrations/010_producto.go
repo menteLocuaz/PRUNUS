@@ -8,8 +8,13 @@ func migrateProducto(db *sql.DB) error {
 		id_producto       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		nombre            VARCHAR(150)   NOT NULL,
 		descripcion       TEXT,
+		precio_compra     DECIMAL(12,2)  NOT NULL DEFAULT 0,
+		precio_venta      DECIMAL(12,2)  NOT NULL DEFAULT 0,
+		stock             INTEGER        NOT NULL DEFAULT 0,
+		fecha_vencimiento DATE,
 		imagen            TEXT,
 		id_status         UUID           NOT NULL,
+		id_sucursal       UUID           NOT NULL,
 		id_categoria      UUID           NOT NULL,
 		id_moneda         UUID           NOT NULL,
 		id_unidad         UUID           NOT NULL,
@@ -21,6 +26,12 @@ func migrateProducto(db *sql.DB) error {
 		CONSTRAINT fk_producto_status
 			FOREIGN KEY (id_status)
 			REFERENCES estatus(id_status),
+
+		CONSTRAINT fk_producto_sucursal
+			FOREIGN KEY (id_sucursal)
+			REFERENCES sucursal(id_sucursal)
+			ON UPDATE CASCADE
+			ON DELETE RESTRICT,
 
 		CONSTRAINT fk_producto_categoria
 			FOREIGN KEY (id_categoria)
@@ -41,6 +52,7 @@ func migrateProducto(db *sql.DB) error {
 			ON DELETE RESTRICT
 	);
 
+	CREATE INDEX IF NOT EXISTS idx_producto_id_sucursal  ON producto(id_sucursal);
 	CREATE INDEX IF NOT EXISTS idx_producto_id_categoria ON producto(id_categoria);
 	CREATE INDEX IF NOT EXISTS idx_producto_id_moneda    ON producto(id_moneda);
 	CREATE INDEX IF NOT EXISTS idx_producto_id_unidad    ON producto(id_unidad);
