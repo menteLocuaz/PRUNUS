@@ -26,6 +26,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	proveedorStore := store.NewProveedor(db)
 	estatusStore := store.NewEstatus(db)
 	posStore := store.NewPOSStore(db)
+	inventarioStore := store.NewInventario(db)
 
 	// 2. Services (Lógica de Negocio)
 	empresaServices := services.NewServiceEmpresa(empresaStore, logger)
@@ -40,21 +41,23 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	proveedorService := services.NewServiceProveedor(proveedorStore, logger)
 	estatusService := services.NewServiceEstatus(estatusStore, cacheStore, logger)
 	posService := services.NewServicePOS(posStore, logger)
+	inventarioService := services.NewServiceInventario(inventarioStore, logger)
 
 	// 3. Handlers (Controladores)
 	return &routers.Handlers{
-		Empresa:   transport.NewEmpresaHandler(empresaServices),
-		Sucursal:  transport.NewSucursalHandler(sucursalServices),
-		Rol:       transport.NewRolHandler(rolService),
-		Usuario:   transport.NewUsuarioHandler(usuarioService),
-		Auth:      transport.NewAuthHandler(usuarioService),
-		Categoria: transport.NewCategoriaHandler(categoriaService),
-		Cliente:   transport.NewClienteHandler(clienteService),
-		Medida:    transport.NewMedidaHandler(medidaService),
-		Moneda:    transport.NewMonedaHandler(monedaService),
-		Producto:  transport.NewProductoHandler(productoService),
-		Proveedor: transport.NewProveedorHandler(proveedorService),
-		Estatus:   transport.NewEstatusHandler(estatusService),
-		POS:       transport.NewPOSHandler(posService),
+		Empresa:    transport.NewEmpresaHandler(empresaServices),
+		Sucursal:   transport.NewSucursalHandler(sucursalServices),
+		Rol:        transport.NewRolHandler(rolService),
+		Usuario:    transport.NewUsuarioHandler(usuarioService),
+		Auth:       transport.NewAuthHandler(usuarioService),
+		Categoria:  transport.NewCategoriaHandler(categoriaService),
+		Cliente:    transport.NewClienteHandler(clienteService),
+		Medida:     transport.NewMedidaHandler(medidaService),
+		Moneda:     transport.NewMonedaHandler(monedaService),
+		Producto:   transport.NewProductoHandler(productoService),
+		Proveedor:  transport.NewProveedorHandler(proveedorService),
+		Estatus:    transport.NewEstatusHandler(estatusService),
+		POS:        transport.NewPOSHandler(posService),
+		Inventario: transport.NewInventarioHandler(inventarioService),
 	}
 }

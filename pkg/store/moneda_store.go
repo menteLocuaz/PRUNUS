@@ -203,4 +203,3 @@ func (s *storeMoneda) DeleteMoneda(ctx context.Context, id uuid.UUID) error {
 
 	return nil
 }
-

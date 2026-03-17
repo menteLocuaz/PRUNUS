@@ -6,7 +6,7 @@ import (
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func EmpresaRouter(h *transport.EmpresaHandler) chi.Router {
+func InventarioRouter(h *transport.InventarioHandler) chi.Router {
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {

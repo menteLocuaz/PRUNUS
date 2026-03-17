@@ -11,19 +11,20 @@ import (
 
 // Handlers agrupa todos los handlers de la aplicación
 type Handlers struct {
-	Empresa   *transport.EmpresaHandler
-	Sucursal  *transport.SucursalHandler
-	Rol       *transport.RolHandler
-	Usuario   *transport.UsuarioHandler
-	Auth      *transport.AuthHandler
-	Categoria *transport.CategoriaHandler
-	Cliente   *transport.ClienteHandler
-	Medida    *transport.MedidaHandler
-	Moneda    *transport.MonedaHandler
-	Producto  *transport.ProductoHandler
-	Proveedor *transport.ProveedorHandler
-	Estatus   *transport.EstatusHandler
-	POS       *transport.POSHandler
+	Empresa    *transport.EmpresaHandler
+	Sucursal   *transport.SucursalHandler
+	Rol        *transport.RolHandler
+	Usuario    *transport.UsuarioHandler
+	Auth       *transport.AuthHandler
+	Categoria  *transport.CategoriaHandler
+	Cliente    *transport.ClienteHandler
+	Medida     *transport.MedidaHandler
+	Moneda     *transport.MonedaHandler
+	Producto   *transport.ProductoHandler
+	Proveedor  *transport.ProveedorHandler
+	Estatus    *transport.EstatusHandler
+	POS        *transport.POSHandler
+	Inventario *transport.InventarioHandler
 }
 
 // NewMainRouter crea el router principal que combina todos los recursos
@@ -59,6 +60,7 @@ func NewMainRouter(h *Handlers) http.Handler {
 			r.Mount("/proveedores", ProveedorRouter(h.Proveedor))
 			r.Mount("/estatus", EstatusRouter(h.Estatus))
 			r.Mount("/pos", POSRouter(h.POS))
+			r.Mount("/inventario", InventarioRouter(h.Inventario))
 		})
 	})
 
