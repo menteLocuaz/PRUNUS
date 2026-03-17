@@ -6,7 +6,7 @@ import (
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func InventarioRouter(h *transport.InventarioHandler) chi.Router {
+func AgregadoresRouter(h *transport.AgregadoresHandler) chi.Router {
 	r := chi.NewRouter()
 
 	r.Group(func(r chi.Router) {
@@ -16,8 +16,7 @@ func InventarioRouter(h *transport.InventarioHandler) chi.Router {
 		r.Get("/{id}", h.GetByID)
 		r.Put("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
-		r.Post("/movimientos", h.RegistrarMovimiento)
-		r.Get("/movimientos/{id}", h.GetMovimientos)
+		r.Post("/orden", h.CreateOrden)
 	})
 
 	return r

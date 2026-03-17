@@ -18,6 +18,10 @@ type StoreInventario interface {
 	CreateInventario(ctx context.Context, inventario *models.Inventario) (*models.Inventario, error)
 	UpdateInventario(ctx context.Context, id uuid.UUID, inventario *models.Inventario) (*models.Inventario, error)
 	DeleteInventario(ctx context.Context, id uuid.UUID) error
+
+	// Movimientos
+	CreateMovimiento(ctx context.Context, m *models.MovimientoInventario) (*models.MovimientoInventario, error)
+	GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error)
 }
 
 type storeInventario struct {
@@ -180,4 +184,32 @@ func (s *storeInventario) DeleteInventario(ctx context.Context, id uuid.UUID) er
 	}
 
 	return nil
+}
+
+func (s *storeInventario) CreateMovimiento(ctx context.Context, m *models.MovimientoInventario) (*models.MovimientoInventario, error) {
+	query := `INSERT INTO movimientos_inventario (id_producto, tipo_movimiento, cantidad, fecha, id_usuario, referencia) 
+	          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_movimiento, created_at, updated_at`
+	err := s.db.QueryRowContext(ctx, query, m.IDProducto, m.TipoMovimiento, m.Cantidad, time.Now(), m.IDUsuario, m.Referencia).
+		Scan(&m.IDMovimiento, &m.CreatedAt, &m.UpdatedAt)
+	m.Fecha = time.Now()
+	return m, err
+}
+
+func (s *storeInventario) GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error) {
+	query := `SELECT id_movimiento, id_producto, tipo_movimiento, cantidad, fecha, id_usuario, referencia FROM movimientos_inventario WHERE id_producto = $1 AND deleted_at IS NULL ORDER BY fecha DESC`
+	rows, err := s.db.QueryContext(ctx, query, productoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var movimientos []*models.MovimientoInventario
+	for rows.Next() {
+		m := &models.MovimientoInventario{}
+		if err := rows.Scan(&m.IDMovimiento, &m.IDProducto, &m.TipoMovimiento, &m.Cantidad, &m.Fecha, &m.IDUsuario, &m.Referencia); err != nil {
+			return nil, err
+		}
+		movimientos = append(movimientos, m)
+	}
+	return movimientos, nil
 }

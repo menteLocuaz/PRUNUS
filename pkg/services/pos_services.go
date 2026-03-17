@@ -101,3 +101,11 @@ func (s *ServicePOS) GetEstadoCaja(ctx context.Context, idEstacion uuid.UUID) (*
 		FechaInicio:       control.FechaInicio,
 	}, nil
 }
+
+func (s *ServicePOS) GetAllDispositivos(ctx context.Context) ([]*models.DispositivoPos, error) {
+	return s.store.GetAllDispositivos(ctx)
+}
+
+func (s *ServicePOS) CreateDispositivo(ctx context.Context, d models.DispositivoPos) (*models.DispositivoPos, error) {
+	return s.store.CreateDispositivo(ctx, &d)
+}

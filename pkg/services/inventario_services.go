@@ -50,3 +50,11 @@ func (s *ServiceInventario) UpdateInventario(ctx context.Context, id uuid.UUID, 
 func (s *ServiceInventario) DeleteInventario(ctx context.Context, id uuid.UUID) error {
 	return s.store.DeleteInventario(ctx, id)
 }
+
+func (s *ServiceInventario) RegistrarMovimiento(ctx context.Context, m models.MovimientoInventario) (*models.MovimientoInventario, error) {
+	return s.store.CreateMovimiento(ctx, &m)
+}
+
+func (s *ServiceInventario) GetMovimientos(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error) {
+	return s.store.GetMovimientosByProducto(ctx, productoID)
+}
