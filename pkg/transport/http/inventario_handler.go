@@ -125,3 +125,32 @@ func (h *InventarioHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *InventarioHandler) RegistrarMovimiento(w http.ResponseWriter, r *http.Request) {
+	var m models.MovimientoInventario
+	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+	resp, err := h.service.RegistrarMovimiento(r.Context(), m)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Created(w, "Movimiento de inventario registrado correctamente", resp)
+}
+
+func (h *InventarioHandler) GetMovimientos(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID de producto inválido")
+		return
+	}
+	resp, err := h.service.GetMovimientos(r.Context(), id)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Movimientos obtenidos correctamente", resp)
+}
