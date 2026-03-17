@@ -376,4 +376,3 @@ func (s *storeUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error {
 
 	return nil
 }
-

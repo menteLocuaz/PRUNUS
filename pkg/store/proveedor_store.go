@@ -283,4 +283,3 @@ func (s *storeProveedor) DeleteProveedor(ctx context.Context, id uuid.UUID) erro
 
 	return nil
 }
-

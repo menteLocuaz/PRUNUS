@@ -7,10 +7,10 @@ import (
 )
 
 type Sucursal struct {
-	IDSucursal     uuid.UUID  `json:"id_sucursal"`
-	IDEmpresa      uuid.UUID  `json:"id_empresa"`
-	NombreSucursal string     `json:"nombre_sucursal"`
-	IDStatus       uuid.UUID  `json:"id_status"`
+	IDSucursal     uuid.UUID `json:"id_sucursal"`
+	IDEmpresa      uuid.UUID `json:"id_empresa"`
+	NombreSucursal string    `json:"nombre_sucursal"`
+	IDStatus       uuid.UUID `json:"id_status"`
 
 	// Relación de navegación (no se persiste directamente en la tabla)
 	Empresa *Empresa `json:"empresa,omitempty"`

@@ -12,7 +12,7 @@ func POSRouter(handler *transport.POSHandler) chi.Router {
 	// Rutas protegidas por autenticación
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth())
-		
+
 		r.Post("/abrir", handler.AbrirCajaHandler)
 		r.Get("/estado/{id}", handler.GetEstadoCajaHandler)
 	})

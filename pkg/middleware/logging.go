@@ -186,7 +186,7 @@ func Logger(config *LogConfig) func(http.Handler) http.Handler {
 
 			// Pre-asignar slice de atributos para evitar re-allocations constantes (capacidad estimada de 16)
 			attrs := make([]slog.Attr, 0, 16)
-			
+
 			// Extraer Request ID del contexto si existe
 			if reqID := GetRequestID(ctx); reqID != "" {
 				attrs = append(attrs, slog.String("request_id", reqID))

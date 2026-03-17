@@ -293,13 +293,13 @@ func runRegisterUsuario(cmd *cobra.Command, args []string) {
 	usuarioService := services.NewServiceUsuario(usuarioStore, logger)
 
 	model := models.Usuario{
-		IDSucursal:  sucID,
-		IDRol:       rolID,
-		Email:       usuEmail,
-		UsuNombre:   usuNombre,
-		UsuDNI:      usuDni,
-		Password:    usuPassword,
-		IDStatus:    statusID,
+		IDSucursal: sucID,
+		IDRol:      rolID,
+		Email:      usuEmail,
+		UsuNombre:  usuNombre,
+		UsuDNI:     usuDni,
+		Password:   usuPassword,
+		IDStatus:   statusID,
 	}
 
 	result, err := usuarioService.CreateUsuario(context.Background(), model)

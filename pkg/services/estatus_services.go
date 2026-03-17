@@ -71,7 +71,7 @@ func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (map[int]interfac
 				name = n
 			}
 			catalog[e.MdlID] = struct {
-				Modulo string           `json:"modulo"`
+				Modulo string            `json:"modulo"`
 				Items  []*models.Estatus `json:"items"`
 			}{
 				Modulo: name,
@@ -81,7 +81,7 @@ func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (map[int]interfac
 
 		// Hack para añadir al slice de una interfaz{} (o podrías usar structs tipados en el servicio)
 		group := catalog[e.MdlID].(struct {
-			Modulo string           `json:"modulo"`
+			Modulo string            `json:"modulo"`
 			Items  []*models.Estatus `json:"items"`
 		})
 		group.Items = append(group.Items, e)

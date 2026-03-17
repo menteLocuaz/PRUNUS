@@ -210,4 +210,3 @@ func (s *storeRol) DeleteRol(ctx context.Context, id uuid.UUID) error {
 
 	return nil
 }
-

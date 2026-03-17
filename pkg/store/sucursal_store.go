@@ -211,4 +211,3 @@ func (s *storeSucursal) DeleteSucursal(ctx context.Context, id uuid.UUID) error 
 
 	return nil
 }
-
