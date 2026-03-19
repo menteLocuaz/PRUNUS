@@ -11,24 +11,26 @@ import (
 
 // Handlers agrupa todos los handlers de la aplicación
 type Handlers struct {
-	Empresa     *transport.EmpresaHandler
-	Sucursal    *transport.SucursalHandler
-	Rol         *transport.RolHandler
-	Usuario     *transport.UsuarioHandler
-	Auth        *transport.AuthHandler
-	Categoria   *transport.CategoriaHandler
-	Cliente     *transport.ClienteHandler
-	Medida      *transport.MedidaHandler
-	Moneda      *transport.MonedaHandler
-	Producto    *transport.ProductoHandler
-	Proveedor   *transport.ProveedorHandler
-	Estatus     *transport.EstatusHandler
-	POS         *transport.POSHandler
-	Inventario  *transport.InventarioHandler
-	Agregadores *transport.AgregadoresHandler
-	Caja        *transport.CajaHandler
-	Factura     *transport.FacturaHandler
-	OrdenPedido *transport.OrdenPedidoHandler
+	Empresa        *transport.EmpresaHandler
+	Sucursal       *transport.SucursalHandler
+	Rol            *transport.RolHandler
+	Usuario        *transport.UsuarioHandler
+	Auth           *transport.AuthHandler
+	Categoria      *transport.CategoriaHandler
+	Cliente        *transport.ClienteHandler
+	Medida         *transport.MedidaHandler
+	Moneda         *transport.MonedaHandler
+	Producto       *transport.ProductoHandler
+	Proveedor      *transport.ProveedorHandler
+	Estatus        *transport.EstatusHandler
+	POS            *transport.POSHandler
+	Inventario     *transport.InventarioHandler
+	Agregadores    *transport.AgregadoresHandler
+	Caja           *transport.CajaHandler
+	Factura        *transport.FacturaHandler
+	OrdenPedido    *transport.OrdenPedidoHandler
+	DispositivoPos *transport.DispositivoPosHandler
+	EstacionPos    *transport.EstacionPosHandler
 }
 
 // NewMainRouter crea el router principal que combina todos los recursos
@@ -69,6 +71,8 @@ func NewMainRouter(h *Handlers) http.Handler {
 			r.Mount("/caja", CajaRouter(h.Caja))
 			r.Mount("/facturas", FacturaRouter(h.Factura))
 			r.Mount("/ordenes", OrdenPedidoRouter(h.OrdenPedido))
+			r.Mount("/dispositivos-pos", DispositivoPosRouter(h.DispositivoPos))
+			r.Mount("/estaciones-pos", EstacionPosRouter(h.EstacionPos))
 		})
 	})
 

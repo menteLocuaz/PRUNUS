@@ -6,15 +6,16 @@ import (
 	transport "github.com/prunus/pkg/transport/http"
 )
 
-func POSRouter(handler *transport.POSHandler) chi.Router {
+func DispositivoPosRouter(h *transport.DispositivoPosHandler) chi.Router {
 	r := chi.NewRouter()
 
-	// Rutas protegidas por autenticación
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth())
-
-		r.Post("/abrir", handler.AbrirCajaHandler)
-		r.Get("/estado/{id}", handler.GetEstadoCajaHandler)
+		r.Get("/", h.GetAll)
+		r.Post("/", h.Create)
+		r.Get("/{id}", h.GetByID)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
 	})
 
 	return r
