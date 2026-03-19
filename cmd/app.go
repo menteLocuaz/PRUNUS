@@ -31,6 +31,8 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	cajaStore := store.NewCaja(db)
 	facturaStore := store.NewFactura(db)
 	ordenPedidoStore := store.NewOrdenPedido(db)
+	dispositivoPosStore := store.NewDispositivoPosStore(db)
+	estacionPosStore := store.NewEstacionPosStore(db)
 
 	// 2. Services (Lógica de Negocio)
 	empresaServices := services.NewServiceEmpresa(empresaStore, logger)
@@ -50,26 +52,30 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	cajaService := services.NewServiceCaja(cajaStore, logger)
 	facturaService := services.NewServiceFactura(facturaStore, logger)
 	ordenPedidoService := services.NewServiceOrdenPedido(ordenPedidoStore, logger)
+	dispositivoPosService := services.NewServiceDispositivoPos(dispositivoPosStore, logger)
+	estacionPosService := services.NewServiceEstacionPos(estacionPosStore, logger)
 
 	// 3. Handlers (Controladores)
 	return &routers.Handlers{
-		Empresa:     transport.NewEmpresaHandler(empresaServices),
-		Sucursal:    transport.NewSucursalHandler(sucursalServices),
-		Rol:         transport.NewRolHandler(rolService),
-		Usuario:     transport.NewUsuarioHandler(usuarioService),
-		Auth:        transport.NewAuthHandler(usuarioService),
-		Categoria:   transport.NewCategoriaHandler(categoriaService),
-		Cliente:     transport.NewClienteHandler(clienteService),
-		Medida:      transport.NewMedidaHandler(medidaService),
-		Moneda:      transport.NewMonedaHandler(monedaService),
-		Producto:    transport.NewProductoHandler(productoService),
-		Proveedor:   transport.NewProveedorHandler(proveedorService),
-		Estatus:     transport.NewEstatusHandler(estatusService),
-		POS:         transport.NewPOSHandler(posService),
-		Inventario:  transport.NewInventarioHandler(inventarioService),
-		Agregadores: transport.NewAgregadoresHandler(agregadoresService),
-		Caja:        transport.NewCajaHandler(cajaService),
-		Factura:     transport.NewFacturaHandler(facturaService),
-		OrdenPedido: transport.NewOrdenPedidoHandler(ordenPedidoService),
+		Empresa:        transport.NewEmpresaHandler(empresaServices),
+		Sucursal:       transport.NewSucursalHandler(sucursalServices),
+		Rol:            transport.NewRolHandler(rolService),
+		Usuario:        transport.NewUsuarioHandler(usuarioService),
+		Auth:           transport.NewAuthHandler(usuarioService),
+		Categoria:      transport.NewCategoriaHandler(categoriaService),
+		Cliente:        transport.NewClienteHandler(clienteService),
+		Medida:         transport.NewMedidaHandler(medidaService),
+		Moneda:         transport.NewMonedaHandler(monedaService),
+		Producto:       transport.NewProductoHandler(productoService),
+		Proveedor:      transport.NewProveedorHandler(proveedorService),
+		Estatus:        transport.NewEstatusHandler(estatusService),
+		POS:            transport.NewPOSHandler(posService),
+		Inventario:     transport.NewInventarioHandler(inventarioService),
+		Agregadores:    transport.NewAgregadoresHandler(agregadoresService),
+		Caja:           transport.NewCajaHandler(cajaService),
+		Factura:        transport.NewFacturaHandler(facturaService),
+		OrdenPedido:    transport.NewOrdenPedidoHandler(ordenPedidoService),
+		DispositivoPos: transport.NewDispositivoPosHandler(dispositivoPosService),
+		EstacionPos:    transport.NewEstacionPosHandler(estacionPosService),
 	}
 }

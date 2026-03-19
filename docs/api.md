@@ -96,7 +96,49 @@ Controla el stock físico por sucursal.
 |--------|------|-------------|
 | POST | `/abrir` | Abrir una caja (Control Estación) |
 | GET | `/estado/{id}` | Consultar estado de una estación |
-| GET | `/dispositivos` | Listar impresoras/periféricos |
+
+### Estaciones POS (`/estaciones-pos`)
+Gestión de estaciones físicas de venta.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar todas las estaciones |
+| POST | `/` | Registrar nueva estación |
+| GET | `/{id}` | Obtener detalle de estación |
+| PUT | `/{id}` | Actualizar estación |
+| DELETE | `/{id}` | Eliminar estación (Soft Delete) |
+
+**POST /estaciones-pos**
+```json
+{
+  "codigo": "CAJA-01",
+  "nombre": "Caja Principal Planta Baja",
+  "ip": "192.168.1.10",
+  "id_sucursal": "uuid",
+  "id_status": "uuid"
+}
+```
+
+### Dispositivos POS (`/dispositivos-pos`)
+Gestión de periféricos (Impresoras, Kioskos, Datáfonos).
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar todos los dispositivos |
+| POST | `/` | Registrar nuevo dispositivo |
+| GET | `/{id}` | Obtener detalle de dispositivo |
+| PUT | `/{id}` | Actualizar dispositivo |
+| DELETE | `/{id}` | Eliminar dispositivo (Soft Delete) |
+
+**POST /dispositivos-pos**
+```json
+{
+  "nombre": "Impresora Térmica Cocina",
+  "tipo": "IMPRESORA",
+  "ip": "192.168.1.50",
+  "id_estacion": "uuid"
+}
+```
 
 ### Caja (`/caja`)
 | Método | Ruta | Descripción |

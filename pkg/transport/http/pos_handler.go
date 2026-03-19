@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
-	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
@@ -64,27 +63,4 @@ func (h *POSHandler) GetEstadoCajaHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	response.Success(w, "Estado de caja obtenido correctamente", result)
-}
-
-func (h *POSHandler) GetAllDispositivos(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllDispositivos(r.Context())
-	if err != nil {
-		response.InternalServerError(w, err.Error())
-		return
-	}
-	response.Success(w, "Dispositivos obtenidos correctamente", resp)
-}
-
-func (h *POSHandler) CreateDispositivo(w http.ResponseWriter, r *http.Request) {
-	var d models.DispositivoPos
-	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-		response.BadRequest(w, "JSON inválido")
-		return
-	}
-	resp, err := h.service.CreateDispositivo(r.Context(), d)
-	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-	response.Created(w, "Dispositivo creado correctamente", resp)
 }

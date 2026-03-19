@@ -11,7 +11,7 @@ type DispositivoPos struct {
 	Nombre        string     `json:"nombre"`
 	Tipo          string     `json:"tipo"`
 	IP            string     `json:"ip"`
-	IDEstacion    uint       `json:"id_estacion"`
+	IDEstacion    uuid.UUID  `json:"id_estacion"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 	DeletedAt     *time.Time `json:"deleted_at,omitempty"`

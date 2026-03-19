@@ -23,10 +23,6 @@ type StorePOS interface {
 
 	// Periodos
 	GetActivePeriodo(ctx context.Context) (*models.Periodo, error)
-
-	// Dispositivos
-	GetAllDispositivos(ctx context.Context) ([]*models.DispositivoPos, error)
-	CreateDispositivo(ctx context.Context, d *models.DispositivoPos) (*models.DispositivoPos, error)
 }
 
 type storePOS struct {
@@ -120,29 +116,4 @@ func (s *storePOS) GetActivePeriodo(ctx context.Context) (*models.Periodo, error
 		return nil, fmt.Errorf("no hay un periodo activo abierto")
 	}
 	return p, err
-}
-
-func (s *storePOS) GetAllDispositivos(ctx context.Context) ([]*models.DispositivoPos, error) {
-	query := `SELECT id_dispositivo, nombre, tipo, ip, id_estacion, created_at FROM dispositivos_pos WHERE deleted_at IS NULL`
-	rows, err := s.db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var dispositivos []*models.DispositivoPos
-	for rows.Next() {
-		d := &models.DispositivoPos{}
-		if err := rows.Scan(&d.IDDispositivo, &d.Nombre, &d.Tipo, &d.IP, &d.IDEstacion, &d.CreatedAt); err != nil {
-			return nil, err
-		}
-		dispositivos = append(dispositivos, d)
-	}
-	return dispositivos, nil
-}
-
-func (s *storePOS) CreateDispositivo(ctx context.Context, d *models.DispositivoPos) (*models.DispositivoPos, error) {
-	query := `INSERT INTO dispositivos_pos (nombre, tipo, ip, id_estacion) VALUES ($1, $2, $3, $4) RETURNING id_dispositivo, created_at, updated_at`
-	err := s.db.QueryRowContext(ctx, query, d.Nombre, d.Tipo, d.IP, d.IDEstacion).Scan(&d.IDDispositivo, &d.CreatedAt, &d.UpdatedAt)
-	return d, err
 }
