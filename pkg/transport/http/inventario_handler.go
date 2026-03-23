@@ -127,12 +127,30 @@ func (h *InventarioHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *InventarioHandler) RegistrarMovimiento(w http.ResponseWriter, r *http.Request) {
-	var m models.MovimientoInventario
-	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
+	var req dto.MovimientoCreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "JSON inválido")
 		return
 	}
-	resp, err := h.service.RegistrarMovimiento(r.Context(), m)
+
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
+	// Obtener ID de usuario del contexto (inyectado por middleware)
+	userID, _ := r.Context().Value("user_id").(uuid.UUID)
+
+	movimiento := models.MovimientoInventario{
+		IDProducto:     req.IDProducto,
+		IDSucursal:     req.IDSucursal,
+		TipoMovimiento: req.TipoMovimiento,
+		Cantidad:       req.Cantidad,
+		Referencia:     req.Referencia,
+		IDUsuario:      userID,
+	}
+
+	resp, err := h.service.RegistrarMovimiento(r.Context(), movimiento)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -153,4 +171,60 @@ func (h *InventarioHandler) GetMovimientos(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	response.Success(w, "Movimientos obtenidos correctamente", resp)
+}
+
+func (h *InventarioHandler) GetAllAlertas(w http.ResponseWriter, r *http.Request) {
+	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	if sucursalIDStr == "" {
+		// Si no viene sucursal, intentar obtenerla del token/contexto
+		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
+		if !ok {
+			response.BadRequest(w, "Debe proporcionar id_sucursal")
+			return
+		}
+		sucursalIDStr = ctxSucursal.String()
+	}
+
+	sucursalID, err := uuid.Parse(sucursalIDStr)
+	if err != nil {
+		response.BadRequest(w, "id_sucursal inválido")
+		return
+	}
+
+	resp, err := h.service.GetAlertasStock(r.Context(), sucursalID)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Alertas de stock obtenidas correctamente", resp)
+}
+
+func (h *InventarioHandler) GetValuacion(w http.ResponseWriter, r *http.Request) {
+	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	if sucursalIDStr == "" {
+		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
+		if !ok {
+			response.BadRequest(w, "Debe proporcionar id_sucursal")
+			return
+		}
+		sucursalIDStr = ctxSucursal.String()
+	}
+
+	sucursalID, err := uuid.Parse(sucursalIDStr)
+	if err != nil {
+		response.BadRequest(w, "id_sucursal inválido")
+		return
+	}
+
+	total, err := h.service.GetValuacion(r.Context(), sucursalID)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+
+	data := map[string]interface{}{
+		"id_sucursal": sucursalID,
+		"total_valor": total,
+	}
+	response.Success(w, "Valuación de inventario calculada correctamente", data)
 }

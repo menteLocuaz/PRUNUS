@@ -52,9 +52,17 @@ func (s *ServiceInventario) DeleteInventario(ctx context.Context, id uuid.UUID) 
 }
 
 func (s *ServiceInventario) RegistrarMovimiento(ctx context.Context, m models.MovimientoInventario) (*models.MovimientoInventario, error) {
-	return s.store.CreateMovimiento(ctx, &m)
+	return s.store.RegistrarMovimiento(ctx, &m)
 }
 
 func (s *ServiceInventario) GetMovimientos(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error) {
 	return s.store.GetMovimientosByProducto(ctx, productoID)
+}
+
+func (s *ServiceInventario) GetAlertasStock(ctx context.Context, sucursalID uuid.UUID) ([]*models.Inventario, error) {
+	return s.store.GetAlertasStock(ctx, sucursalID)
+}
+
+func (s *ServiceInventario) GetValuacion(ctx context.Context, sucursalID uuid.UUID) (float64, error) {
+	return s.store.GetValuacion(ctx, sucursalID)
 }

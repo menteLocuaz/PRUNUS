@@ -21,3 +21,11 @@ type InventarioUpdateRequest struct {
 	PrecioCompra float64 `json:"precio_compra" validate:"required,gte=0"`
 	PrecioVenta  float64 `json:"precio_venta" validate:"required,gte=0"`
 }
+
+type MovimientoCreateRequest struct {
+	IDProducto     uuid.UUID `json:"id_producto" validate:"required"`
+	IDSucursal     uuid.UUID `json:"id_sucursal" validate:"required"`
+	TipoMovimiento string    `json:"tipo_movimiento" validate:"required,oneof=ENTRADA SALIDA AJUSTE DEVOLUCION TRASLADO"`
+	Cantidad       float64   `json:"cantidad" validate:"required,gt=0"`
+	Referencia     string    `json:"referencia"`
+}
