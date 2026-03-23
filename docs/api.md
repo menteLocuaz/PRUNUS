@@ -225,12 +225,91 @@ Para integración con plataformas externas (UberEats, Rappi, etc).
 
 ---
 
-## Casos Límite y Errores
+## 7. Proveedores y Compras
 
+### Proveedores (`/proveedores`)
+Gestión de entidades que suministran productos al negocio.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar todos los proveedores |
+| POST | `/` | Registrar un nuevo proveedor |
+| GET | `/{id}` | Obtener detalle de un proveedor |
+| PUT | `/{id}` | Actualizar información del proveedor |
+| DELETE | `/{id}` | Eliminación lógica del proveedor |
+
+**POST /proveedores**
+```json
+{
+  "nombre": "Distribuidora Global S.A.",
+  "ruc": "1234567890123",
+  "telefono": "+507 6655-4433",
+  "direccion": "Parque Industrial, Galera 4",
+  "email": "ventas@distglobal.com",
+  "id_sucursal": "uuid",
+  "id_empresa": "uuid",
+  "id_status": "uuid"
+}
+```
+
+---
+
+### Compras (`/compras`)
+Módulo encargado del abastecimiento de inventario mediante órdenes de compra.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar historial de órdenes de compra |
+| POST | `/` | Crear una nueva Orden de Compra (OC) |
+| POST | `/recepcion` | Recibir mercancía y abastecer inventario |
+
+**POST /compras** (Crear Orden)
+> Registra la intención de compra. El stock NO se ve afectado en este paso.
+```json
+{
+  "numero_orden": "OC-2024-001",
+  "id_proveedor": "uuid",
+  "id_sucursal": "uuid",
+  "id_moneda": "uuid",
+  "id_status": "uuid", // Estado inicial (ej: SOLICITADO)
+  "observaciones": "Pedido mensual de bebidas",
+  "detalles": [
+    {
+      "id_producto": "uuid",
+      "cantidad_pedida": 100,
+      "precio_unitario": 0.50,
+      "impuesto": 7.0
+    }
+  ]
+}
+```
+
+**POST /compras/recepcion** (Entrada de Mercancía)
+> Al ejecutar este endpoint, el sistema genera automáticamente movimientos de `ENTRADA` en el inventario para cada producto recibido.
+```json
+{
+  "id_orden_compra": "uuid",
+  "id_status": "uuid", // Nuevo estado (ej: RECIBIDO)
+  "items": [
+    {
+      "id_detalle_compra": "uuid", // ID de la línea de la OC
+      "id_producto": "uuid",
+      "cantidad_recibida": 100
+    }
+  ]
+}
+```
+
+---
+
+## Casos Límite y Errores
 1. **Duplicados en Inventario:** No se permite crear dos registros de inventario para el mismo producto en la misma sucursal.
 2. **Caja con Sesión Activa:** Intentar abrir una caja que ya tiene una sesión `ABIERTA` devolverá un error `400`.
 3. **Stock Negativo:** Los movimientos que resulten en stock negativo generarán una advertencia en los logs del sistema, aunque la operación se complete si no hay validación estricta habilitada.
+...
 4. **Token Expirado:** Cualquier petición después de 24h (por defecto) devolverá `401 Unauthorized`.
+5. **Recepciones Parciales:** El sistema permite recibir cantidades menores a las pedidas en una Orden de Compra. El stock se actualizará únicamente por el valor de `cantidad_recibida`.
+6. **Inexistencia en Inventario:** Si intenta recibir un producto en una sucursal donde no ha sido inicializado el registro de inventario, el sistema devolverá un error `400`. Primero debe usar `POST /inventario` para ese producto/sucursal.
 
 ---
 
