@@ -53,15 +53,17 @@ Inicia sesión en el sistema.
 ## 3. Inventario y Stock
 
 ### Inventario (`/inventario`)
-Controla el stock físico por sucursal.
+Controla el stock físico por sucursal, alertas de existencias y valuación.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/` | Listar todos los registros de inventario |
 | POST | `/` | Crear registro de inventario inicial |
 | PUT | `/{id}` | Actualizar stock o precios |
-| POST | `/movimientos` | Registrar un movimiento (VENTA, COMPRA, AJUSTE) |
-| GET | `/movimientos/{id}` | Listar movimientos de un producto |
+| POST | `/movimientos` | Registrar un movimiento (ENTRADA, SALIDA, AJUSTE, DEVOLUCION, TRASLADO) |
+| GET | `/movimientos/{id}` | Listar historial de movimientos (Kardex) de un producto |
+| GET | `/alertas` | Listar productos con stock bajo (Query: `id_sucursal`) |
+| GET | `/valuacion` | Obtener valor total del inventario (Query: `id_sucursal`) |
 
 **POST /inventario**
 ```json
@@ -77,13 +79,26 @@ Controla el stock físico por sucursal.
 ```
 
 **POST /inventario/movimientos**
+> El sistema actualiza automáticamente el `stock_actual` en la tabla de inventario y el `stock` total en la tabla de productos.
 ```json
 {
   "id_producto": "uuid",
-  "tipo_movimiento": "VENTA",
-  "cantidad": 5,
-  "id_usuario": "uuid",
-  "referencia": "Factura #123"
+  "id_sucursal": "uuid",
+  "tipo_movimiento": "ENTRADA",
+  "cantidad": 50,
+  "referencia": "Compra Proveedor #999"
+}
+```
+
+**GET /inventario/valuacion?id_sucursal=uuid**
+```json
+{
+  "status": "success",
+  "message": "Valuación de inventario calculada correctamente",
+  "data": {
+    "id_sucursal": "uuid",
+    "total_valor": 15450.75
+  }
 }
 ```
 

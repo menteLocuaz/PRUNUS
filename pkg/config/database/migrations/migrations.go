@@ -40,6 +40,7 @@ func RunMigrations(db *sql.DB) error {
 		{"029_agregadores", migrateAgregadores},
 		{"030_orden_agregador", migrateOrdenAgregador},
 		{"031_dispositivos_pos", migrateDispositivosPos},
+		{"032_update_movimientos_inventario", migrateUpdateMovimientosInventario},
 	}
 
 	for _, s := range steps {
