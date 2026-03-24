@@ -44,6 +44,12 @@ func migrateTriggerStockSync(db *sql.DB) error {
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id_producto = NEW.id_producto AND id_sucursal = NEW.id_sucursal;
 
+		-- Sincronizar stock GLOBAL en la tabla producto (Suma de todas las sucursales)
+		UPDATE producto 
+		SET stock = (SELECT COALESCE(SUM(stock_actual), 0) FROM inventario WHERE id_producto = NEW.id_producto AND deleted_at IS NULL),
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id_producto = NEW.id_producto;
+
 		RETURN NEW;
 	END;
 	$$ language 'plpgsql';

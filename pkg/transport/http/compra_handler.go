@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
@@ -27,6 +28,22 @@ func (h *CompraHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Success(w, "Órdenes de compra obtenidas correctamente", resp)
+}
+
+func (h *CompraHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID de orden de compra inválido")
+		return
+	}
+
+	resp, err := h.service.GetOrdenByID(r.Context(), id)
+	if err != nil {
+		response.NotFound(w, err.Error())
+		return
+	}
+	response.Success(w, "Orden de compra obtenida correctamente", resp)
 }
 
 func (h *CompraHandler) Create(w http.ResponseWriter, r *http.Request) {
