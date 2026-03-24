@@ -12,6 +12,7 @@ func CompraRouter(h *transport.CompraHandler) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth())
 		r.Get("/", h.GetAll)
+		r.Get("/{id}", h.GetByID)
 		r.Post("/", h.Create)
 		r.Post("/recepcion", h.Recepcion)
 	})

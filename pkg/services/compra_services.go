@@ -30,6 +30,10 @@ func (s *ServiceCompra) GetAllOrdenes(ctx context.Context) ([]*models.OrdenCompr
 	return s.store.GetAllOrdenes(ctx)
 }
 
+func (s *ServiceCompra) GetOrdenByID(ctx context.Context, id uuid.UUID) (*models.OrdenCompra, error) {
+	return s.store.GetOrdenByID(ctx, id)
+}
+
 func (s *ServiceCompra) ProcesarRecepcion(ctx context.Context, idCompra uuid.UUID, statusID uuid.UUID, items []*models.DetalleOrdenCompra, userID uuid.UUID) error {
 	// 1. Obtener la orden para validar sucursal y existencia
 	orden, err := s.store.GetOrdenByID(ctx, idCompra)
