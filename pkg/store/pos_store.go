@@ -23,6 +23,7 @@ type StorePOS interface {
 
 	// Periodos
 	GetActivePeriodo(ctx context.Context) (*models.Periodo, error)
+	GetTotalActiveControls(ctx context.Context) (int, error)
 }
 
 type storePOS struct {
@@ -31,6 +32,14 @@ type storePOS struct {
 
 func NewPOSStore(db *sql.DB) StorePOS {
 	return &storePOS{db: db}
+}
+
+func (s *storePOS) GetTotalActiveControls(ctx context.Context) (int, error) {
+	defer performance.Trace(ctx, "store", "GetTotalActiveControls", performance.DbThreshold, time.Now())
+	query := `SELECT COUNT(*) FROM control_estacion WHERE fecha_salida IS NULL AND deleted_at IS NULL`
+	var count int
+	err := s.db.QueryRowContext(ctx, query).Scan(&count)
+	return count, err
 }
 
 func (s *storePOS) GetActiveControlByEstacion(ctx context.Context, idEstacion uuid.UUID) (*models.ControlEstacion, error) {
