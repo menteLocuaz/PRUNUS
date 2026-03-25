@@ -34,6 +34,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	dispositivoPosStore := store.NewDispositivoPosStore(db)
 	estacionPosStore := store.NewEstacionPosStore(db)
 	compraStore := store.NewCompra(db)
+	periodoStore := store.NewPeriodoStore(db)
 
 	// 2. Services (Lógica de Negocio)
 	empresaServices := services.NewServiceEmpresa(empresaStore, logger)
@@ -56,6 +57,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	dispositivoPosService := services.NewServiceDispositivoPos(dispositivoPosStore, logger)
 	estacionPosService := services.NewServiceEstacionPos(estacionPosStore, logger)
 	compraService := services.NewServiceCompra(compraStore, inventarioService)
+	periodoService := services.NewServicePeriodo(periodoStore, posStore, logger)
 
 	// 3. Handlers (Controladores)
 	return &routers.Handlers{
@@ -80,5 +82,6 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 		DispositivoPos: transport.NewDispositivoPosHandler(dispositivoPosService),
 		EstacionPos:    transport.NewEstacionPosHandler(estacionPosService),
 		Compra:         transport.NewCompraHandler(compraService),
+		Periodo:        transport.NewPeriodoHandler(periodoService),
 	}
 }

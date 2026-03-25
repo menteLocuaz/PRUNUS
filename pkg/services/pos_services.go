@@ -45,9 +45,9 @@ func (s *ServicePOS) AbrirCaja(ctx context.Context, input dto.AbrirCajaDTO, idUs
 
 	// 3. Validar que exista un periodo activo
 	periodo, err := s.store.GetActivePeriodo(ctx)
-	if err != nil {
+	if err != nil || periodo == nil {
 		s.logger.WarnContext(ctx, "Intento de abrir caja sin periodo activo")
-		return nil, fmt.Errorf("error al validar periodo: %w", err)
+		return nil, errors.New("operación no permitida: no hay un periodo contable abierto por administración")
 	}
 
 	// 4. Crear el registro de control de estación
