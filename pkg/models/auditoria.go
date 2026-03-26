@@ -9,9 +9,10 @@ import (
 type LogSistema struct {
 	IDLog      uuid.UUID  `json:"id_log"`
 	IDUsuario  uuid.UUID  `json:"id_usuario"`
+	IDModulo   *uuid.UUID `json:"id_modulo,omitempty"`
 	Accion     string     `json:"accion"`
 	Tabla      string     `json:"tabla"`
-	RegistroID uint       `json:"registro_id"`
+	RegistroID uuid.UUID  `json:"registro_id"`
 	Fecha      time.Time  `json:"fecha"`
 	IP         string     `json:"ip"`
 	CreatedAt  time.Time  `json:"created_at"`

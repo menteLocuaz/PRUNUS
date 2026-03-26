@@ -162,7 +162,7 @@ func runRegisterEstatus(cmd *cobra.Command, args []string) {
 
 	model := models.Estatus{
 		StdDescripcion: estDescription,
-		StpTipoEstado:  estType,
+		StdTipoEstado:  estType,
 		MdlID:          estModuloID,
 	}
 
