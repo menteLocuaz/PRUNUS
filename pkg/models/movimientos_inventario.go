@@ -23,3 +23,8 @@ type MovimientoInventario struct {
 	UpdatedAt      time.Time  `json:"updated_at"`
 	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 }
+
+type MovimientoItem struct {
+	IDProducto uuid.UUID `json:"id_producto"`
+	Cantidad   float64   `json:"cantidad"`
+}

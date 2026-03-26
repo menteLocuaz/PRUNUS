@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/utils/response"
@@ -34,6 +35,29 @@ func (h *FacturaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Created(w, "Factura creada correctamente", resp)
+}
+
+func (h *FacturaHandler) RegistrarCompleta(w http.ResponseWriter, r *http.Request) {
+	var req dto.FacturaCompletaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	// Obtener ID de usuario del contexto (inyectado por middleware de auth)
+	userID, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		response.Unauthorized(w, "Usuario no autenticado")
+		return
+	}
+
+	resp, err := h.service.RegistrarFacturaCompleta(r.Context(), req, userID)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+
+	response.Created(w, "Factura procesada correctamente", resp)
 }
 
 func (h *FacturaHandler) GetByID(w http.ResponseWriter, r *http.Request) {

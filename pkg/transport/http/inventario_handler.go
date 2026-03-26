@@ -158,6 +158,36 @@ func (h *InventarioHandler) RegistrarMovimiento(w http.ResponseWriter, r *http.R
 	response.Created(w, "Movimiento de inventario registrado correctamente", resp)
 }
 
+func (h *InventarioHandler) RegistrarMovimientoMasivo(w http.ResponseWriter, r *http.Request) {
+	var req dto.MovimientoMasivoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
+	userID, _ := r.Context().Value("user_id").(uuid.UUID)
+
+	items := make([]models.MovimientoItem, len(req.Items))
+	for i, item := range req.Items {
+		items[i] = models.MovimientoItem{
+			IDProducto: item.IDProducto,
+			Cantidad:   item.Cantidad,
+		}
+	}
+
+	resp, err := h.service.RegistrarMovimientoMasivo(r.Context(), req.IDSucursal, userID, req.TipoMovimiento, req.Referencia, items)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Created(w, "Movimientos de inventario registrados correctamente", resp)
+}
+
 func (h *InventarioHandler) GetMovimientos(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)

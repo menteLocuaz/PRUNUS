@@ -29,3 +29,15 @@ type MovimientoCreateRequest struct {
 	Cantidad       float64   `json:"cantidad" validate:"required,gt=0"`
 	Referencia     string    `json:"referencia"`
 }
+
+type MovimientoItemRequest struct {
+	IDProducto uuid.UUID `json:"id_producto" validate:"required"`
+	Cantidad   float64   `json:"cantidad" validate:"required,gt=0"`
+}
+
+type MovimientoMasivoRequest struct {
+	IDSucursal     uuid.UUID               `json:"id_sucursal" validate:"required"`
+	TipoMovimiento string                  `json:"tipo_movimiento" validate:"required,oneof=ENTRADA SALIDA AJUSTE DEVOLUCION TRASLADO"`
+	Referencia     string                  `json:"referencia"`
+	Items          []MovimientoItemRequest `json:"items" validate:"required,min=1,dive"`
+}

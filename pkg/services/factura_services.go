@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -23,6 +24,10 @@ func NewServiceFactura(s store.StoreFactura, logger *slog.Logger) *ServiceFactur
 
 func (s *ServiceFactura) CreateFactura(ctx context.Context, f models.Factura, items []*models.DetalleFactura) (*models.Factura, error) {
 	return s.store.CreateFactura(ctx, &f, items)
+}
+
+func (s *ServiceFactura) RegistrarFacturaCompleta(ctx context.Context, req dto.FacturaCompletaRequest, idUsuario uuid.UUID) (*dto.FacturaResponse, error) {
+	return s.store.RegistrarFacturaCompleta(ctx, req, idUsuario)
 }
 
 func (s *ServiceFactura) GetFactura(ctx context.Context, id uuid.UUID) (*models.Factura, []*models.DetalleFactura, error) {

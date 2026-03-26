@@ -7,11 +7,13 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreFactura interface {
 	CreateFactura(ctx context.Context, f *models.Factura, items []*models.DetalleFactura) (*models.Factura, error)
+	RegistrarFacturaCompleta(ctx context.Context, req dto.FacturaCompletaRequest, idUsuario uuid.UUID) (*dto.FacturaResponse, error)
 	GetFacturaByID(ctx context.Context, id uuid.UUID) (*models.Factura, []*models.DetalleFactura, error)
 	GetAllFacturas(ctx context.Context) ([]*models.Factura, error)
 
@@ -73,6 +75,37 @@ func (s *storeFactura) CreateFactura(ctx context.Context, f *models.Factura, ite
 	}
 
 	return f, nil
+}
+
+func (s *storeFactura) RegistrarFacturaCompleta(ctx context.Context, req dto.FacturaCompletaRequest, idUsuario uuid.UUID) (*dto.FacturaResponse, error) {
+	cabeceraJSON, err := json.Marshal(req.Cabecera)
+	if err != nil {
+		return nil, fmt.Errorf("error al serializar cabecera: %w", err)
+	}
+
+	detallesJSON, err := json.Marshal(req.Detalles)
+	if err != nil {
+		return nil, fmt.Errorf("error al serializar detalles: %w", err)
+	}
+
+	pagosJSON, err := json.Marshal(req.Pagos)
+	if err != nil {
+		return nil, fmt.Errorf("error al serializar pagos: %w", err)
+	}
+
+	query := `SELECT id_factura, fac_numero, total, status_msg 
+	          FROM factura_registrar_completa($1, $2, $3, $4)`
+
+	res := &dto.FacturaResponse{}
+	err = s.db.QueryRowContext(ctx, query, cabeceraJSON, detallesJSON, pagosJSON, idUsuario).Scan(
+		&res.IDFactura, &res.FacNumero, &res.Total, &res.StatusMsg,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("error al registrar factura completa: %w", err)
+	}
+
+	return res, nil
 }
 
 func (s *storeFactura) GetFacturaByID(ctx context.Context, id uuid.UUID) (*models.Factura, []*models.DetalleFactura, error) {
