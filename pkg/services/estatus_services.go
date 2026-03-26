@@ -182,7 +182,7 @@ func (s *ServiceEstatus) CreateEstatus(ctx context.Context, estatus models.Estat
 		s.logger.WarnContext(ctx, "Intento de creación de estatus con descripción vacía")
 		return nil, errors.New("la descripción es obligatoria")
 	}
-	if estatus.StpTipoEstado == "" {
+	if estatus.StdTipoEstado == "" {
 		s.logger.WarnContext(ctx, "Intento de creación de estatus sin tipo de estado", slog.String("descripcion", estatus.StdDescripcion))
 		return nil, errors.New("el tipo de estado es obligatorio")
 	}
@@ -244,6 +244,6 @@ func (s *ServiceEstatus) invalidateCache(ctx context.Context, e *models.Estatus)
 	_ = s.cache.Delete(ctx, cacheKeyEstatusAll)
 	_ = s.cache.Delete(ctx, cacheKeyEstatusMaster)
 	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyEstatusID, e.IDStatus.String()))
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyEstatusTipo, e.StpTipoEstado))
+	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyEstatusTipo, e.StdTipoEstado))
 	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyEstatusModuloID, e.MdlID))
 }

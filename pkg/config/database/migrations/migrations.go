@@ -14,6 +14,7 @@ func RunMigrations(db *sql.DB) error {
 		{"001_empresa", migrateEmpresa},
 		{"003_sucursal", migrateSucursal},
 		{"002_rol", migrateRol},
+		{"011_modulos", migrateModulos},
 		{"004_usuario", migrateUsuario},
 		{"005_categoria", migrateCategoria},
 		{"006_unidad", migrateUnidad},
@@ -46,6 +47,8 @@ func RunMigrations(db *sql.DB) error {
 		{"035_trigger_stock_sync", migrateTriggerStockSync},
 		{"036_trigger_venta_movimiento", migrateTriggerVentaMovimiento},
 		{"037_trigger_anulacion_factura", migrateTriggerAnulacionFactura},
+		{"038_fn_modulos", migrateFnModulos},
+		{"039_fn_estados", migrateFnEstados},
 	}
 
 	for _, s := range steps {

@@ -59,7 +59,7 @@ erDiagram
 Centraliza los estados lógicos de todos los módulos.
 - `id_status` (PK): Identificador único (UUID).
 - `std_descripcion`: Nombre del estado (Activo, Inactivo, Cerrado, etc.).
-- `stp_tipo_estado`: Categoría (PRODUCTO, FACTURA, USUARIO).
+- `std_tipo_estado`: Categoría (PRODUCTO, FACTURA, USUARIO).
 - `mdl_id`: ID del módulo asociado.
 
 #### `empresa`

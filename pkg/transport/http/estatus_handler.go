@@ -104,7 +104,7 @@ func (h *EstatusHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	estatus := models.Estatus{
 		StdDescripcion: req.StdDescripcion,
-		StpTipoEstado:  req.StpTipoEstado,
+		StdTipoEstado:  req.StdTipoEstado,
 		MdlID:          req.MdlID,
 	}
 
@@ -138,7 +138,7 @@ func (h *EstatusHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	estatus := models.Estatus{
 		StdDescripcion: req.StdDescripcion,
-		StpTipoEstado:  req.StpTipoEstado,
+		StdTipoEstado:  req.StdTipoEstado,
 		MdlID:          req.MdlID,
 	}
 

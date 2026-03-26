@@ -35,7 +35,7 @@ func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, er
 	SELECT 
 		id_status, 
 		std_descripcion, 
-		stp_tipo_estado, 
+		std_tipo_estado, 
 		mdl_id, 
 		created_at, 
 		updated_at 
@@ -56,7 +56,7 @@ func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, er
 		if err := rows.Scan(
 			&e.IDStatus,
 			&e.StdDescripcion,
-			&e.StpTipoEstado,
+			&e.StdTipoEstado,
 			&e.MdlID,
 			&e.CreatedAt,
 			&e.UpdatedAt,
@@ -75,7 +75,7 @@ func (s *storeEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*model
 	SELECT 
 		id_status, 
 		std_descripcion, 
-		stp_tipo_estado, 
+		std_tipo_estado, 
 		mdl_id, 
 		created_at, 
 		updated_at 
@@ -87,7 +87,7 @@ func (s *storeEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*model
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&e.IDStatus,
 		&e.StdDescripcion,
-		&e.StpTipoEstado,
+		&e.StdTipoEstado,
 		&e.MdlID,
 		&e.CreatedAt,
 		&e.UpdatedAt,
@@ -109,12 +109,12 @@ func (s *storeEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*mo
 	SELECT 
 		id_status, 
 		std_descripcion, 
-		stp_tipo_estado, 
+		std_tipo_estado, 
 		mdl_id, 
 		created_at, 
 		updated_at 
 	FROM estatus 
-	WHERE stp_tipo_estado = $1 AND deleted_at IS NULL
+	WHERE std_tipo_estado = $1 AND deleted_at IS NULL
 	ORDER BY std_descripcion ASC
 	`
 
@@ -130,7 +130,7 @@ func (s *storeEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*mo
 		if err := rows.Scan(
 			&e.IDStatus,
 			&e.StdDescripcion,
-			&e.StpTipoEstado,
+			&e.StdTipoEstado,
 			&e.MdlID,
 			&e.CreatedAt,
 			&e.UpdatedAt,
@@ -149,7 +149,7 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 	SELECT 
 		id_status, 
 		std_descripcion, 
-		stp_tipo_estado, 
+		std_tipo_estado, 
 		mdl_id, 
 		created_at, 
 		updated_at 
@@ -170,7 +170,7 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 		if err := rows.Scan(
 			&e.IDStatus,
 			&e.StdDescripcion,
-			&e.StpTipoEstado,
+			&e.StdTipoEstado,
 			&e.MdlID,
 			&e.CreatedAt,
 			&e.UpdatedAt,
@@ -186,12 +186,12 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 func (s *storeEstatus) CreateEstatus(ctx context.Context, estatus *models.Estatus) (*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "CreateEstatus", performance.DbThreshold, time.Now())
 	query := `
-	INSERT INTO estatus (std_descripcion, stp_tipo_estado, mdl_id)
+	INSERT INTO estatus (std_descripcion, std_tipo_estado, mdl_id)
 	VALUES ($1, $2, $3)
 	RETURNING id_status, created_at, updated_at
 	`
 
-	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StpTipoEstado, estatus.MdlID).Scan(
+	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StdTipoEstado, estatus.MdlID).Scan(
 		&estatus.IDStatus,
 		&estatus.CreatedAt,
 		&estatus.UpdatedAt,
@@ -209,17 +209,17 @@ func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus 
 	UPDATE estatus
 	SET 
 		std_descripcion = $1, 
-		stp_tipo_estado = $2, 
+		std_tipo_estado = $2, 
 		mdl_id = $3, 
 		updated_at = CURRENT_TIMESTAMP
 	WHERE id_status = $4 AND deleted_at IS NULL
-	RETURNING id_status, std_descripcion, stp_tipo_estado, mdl_id, created_at, updated_at
+	RETURNING id_status, std_descripcion, std_tipo_estado, mdl_id, created_at, updated_at
 	`
 
-	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StpTipoEstado, estatus.MdlID, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StdTipoEstado, estatus.MdlID, id).Scan(
 		&estatus.IDStatus,
 		&estatus.StdDescripcion,
-		&estatus.StpTipoEstado,
+		&estatus.StdTipoEstado,
 		&estatus.MdlID,
 		&estatus.CreatedAt,
 		&estatus.UpdatedAt,

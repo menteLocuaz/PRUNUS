@@ -50,7 +50,24 @@ Inicia sesión en el sistema.
 
 ---
 
-## 3. Inventario y Stock
+## 3. Administración Contable (Periodos)
+Gestiona los ciclos contables necesarios para la operación de las cajas. **Es obligatorio tener un periodo abierto para poder abrir una caja.**
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/abrir` | Iniciar un nuevo periodo contable |
+| POST | `/cerrar/{id}` | Finalizar el periodo (Valida que no haya cajas abiertas) |
+| GET | `/activo` | Obtener el periodo actual |
+
+**POST /periodos/abrir**
+> No requiere body. El sistema registra automáticamente la fecha y el usuario desde el token.
+
+**POST /periodos/cerrar/{id}**
+> Si existen estaciones con sesiones abiertas vinculadas a este periodo, el sistema devolverá un error `400` impidiendo el cierre hasta que todas las cajas finalicen su arqueo.
+
+---
+
+## 4. Inventario y Stock
 
 ### Inventario (`/inventario`)
 Controla el stock físico por sucursal, alertas de existencias y valuación.
@@ -135,7 +152,7 @@ Gestión de estaciones físicas de venta.
 ```
 
 ### Dispositivos POS (`/dispositivos-pos`)
-Gestión de periféricos (Impresoras, Kioskos, Datáfonos).
+Gestión de periféricos (Impresoras, Kioskos, Datáfonos, Scanners).
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -148,9 +165,9 @@ Gestión de periféricos (Impresoras, Kioskos, Datáfonos).
 **POST /dispositivos-pos**
 ```json
 {
-  "nombre": "Impresora Térmica Cocina",
-  "tipo": "IMPRESORA",
-  "ip": "192.168.1.50",
+  "nombre": "Escáner de mano Almacén",
+  "tipo": "SCANNER", // Opciones: IMPRESORA, DATAFONO, KIOSKO, MONITOR, SCANNER
+  "ip": "192.168.1.55",
   "id_estacion": "uuid"
 }
 ```

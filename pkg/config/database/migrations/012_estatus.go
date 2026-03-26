@@ -13,20 +13,23 @@ func migrateEstatus(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS estatus (
 		id_status       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		std_descripcion VARCHAR(255) NOT NULL,
-		stp_tipo_estado VARCHAR(255) NOT NULL,
+		std_tipo_estado VARCHAR(255) NOT NULL,
+		factor          VARCHAR(10),
+		nivel           INTEGER      DEFAULT 0,
 		mdl_id          INTEGER      NOT NULL,
+		is_active       BOOLEAN      DEFAULT TRUE,
 
 		created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at      TIMESTAMP    NULL
 	);
 
-	CREATE INDEX IF NOT EXISTS idx_estatus_tipo       ON estatus(stp_tipo_estado);
+	CREATE INDEX IF NOT EXISTS idx_estatus_tipo       ON estatus(std_tipo_estado);
 	CREATE INDEX IF NOT EXISTS idx_estatus_modulo     ON estatus(mdl_id);
 	CREATE INDEX IF NOT EXISTS idx_estatus_deleted_at ON estatus(deleted_at);
 
 	-- Insertar valores predeterminados si no existen
-	INSERT INTO estatus (id_status, std_descripcion, stp_tipo_estado, mdl_id) VALUES
+	INSERT INTO estatus (id_status, std_descripcion, std_tipo_estado, mdl_id) VALUES
 		('59039503-85CF-E511-80C1-000C29C9E0E0', 'Activo', '1', 8),
 		('5A039503-85CF-E511-80C1-000C29C9E0E0', 'Inactivo', '1', 8),
 		('99039503-85CF-E511-80C1-000C29C9E0E0', 'Fondo Asignado', '1', 8),
