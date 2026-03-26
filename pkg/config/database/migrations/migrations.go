@@ -49,6 +49,7 @@ func RunMigrations(db *sql.DB) error {
 		{"037_trigger_anulacion_factura", migrateTriggerAnulacionFactura},
 		{"038_fn_modulos", migrateFnModulos},
 		{"039_fn_estados", migrateFnEstados},
+		{"040_fn_estaciones", migrateFnEstaciones},
 	}
 
 	for _, s := range steps {
