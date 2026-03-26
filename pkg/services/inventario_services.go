@@ -55,6 +55,13 @@ func (s *ServiceInventario) RegistrarMovimiento(ctx context.Context, m models.Mo
 	return s.store.RegistrarMovimiento(ctx, &m)
 }
 
+func (s *ServiceInventario) RegistrarMovimientoMasivo(ctx context.Context, idSucursal, idUsuario uuid.UUID, tipoMov, referencia string, items []models.MovimientoItem) ([]*models.MovimientoInventario, error) {
+	if len(items) == 0 {
+		return nil, errors.New("debe proporcionar al menos un item para el movimiento")
+	}
+	return s.store.RegistrarMovimientoMasivo(ctx, idSucursal, idUsuario, tipoMov, referencia, items)
+}
+
 func (s *ServiceInventario) GetMovimientos(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error) {
 	return s.store.GetMovimientosByProducto(ctx, productoID)
 }

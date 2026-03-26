@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -21,6 +22,7 @@ type StoreInventario interface {
 
 	// Movimientos
 	RegistrarMovimiento(ctx context.Context, m *models.MovimientoInventario) (*models.MovimientoInventario, error)
+	RegistrarMovimientoMasivo(ctx context.Context, idSucursal, idUsuario uuid.UUID, tipoMov, referencia string, items []models.MovimientoItem) ([]*models.MovimientoInventario, error)
 	GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error)
 	GetAlertasStock(ctx context.Context, sucursalID uuid.UUID) ([]*models.Inventario, error)
 	GetValuacion(ctx context.Context, sucursalID uuid.UUID) (float64, error)
@@ -191,29 +193,63 @@ func (s *storeInventario) DeleteInventario(ctx context.Context, id uuid.UUID) er
 func (s *storeInventario) RegistrarMovimiento(ctx context.Context, m *models.MovimientoInventario) (*models.MovimientoInventario, error) {
 	defer performance.Trace(ctx, "store", "RegistrarMovimiento", performance.DbThreshold, time.Now())
 
-	// Ahora solo insertamos el movimiento. 
-	// Los Triggers de la DB (Migración 035) se encargan de:
-	// 1. Crear el registro en 'inventario' si no existe.
-	// 2. Calcular stock_anterior y stock_posterior.
-	// 3. Actualizar el stock_actual en la tabla 'inventario'.
-	
-	m.Fecha = time.Now()
-	queryMov := `INSERT INTO movimientos_inventario (
-		id_producto, id_sucursal, tipo_movimiento, cantidad, costo_unitario, 
-		precio_unitario, fecha, id_usuario, referencia
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-	RETURNING id_movimiento, stock_anterior, stock_posterior, created_at, updated_at`
+	// Creamos el JSON de items para la función almacenada.
+	// Aunque el modelo actual solo tiene un producto, la función soporta múltiples.
+	itemsJSON := fmt.Sprintf(`[{"id_producto": "%s", "cantidad": %f}]`, m.IDProducto, m.Cantidad)
 
-	err := s.db.QueryRowContext(ctx, queryMov,
-		m.IDProducto, m.IDSucursal, m.TipoMovimiento, m.Cantidad, m.CostoUnitario,
-		m.PrecioUnitario, m.Fecha, m.IDUsuario, m.Referencia,
-	).Scan(&m.IDMovimiento, &m.StockAnterior, &m.StockPosterior, &m.CreatedAt, &m.UpdatedAt)
+	query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
+	          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
+
+	err := s.db.QueryRowContext(ctx, query,
+		m.IDSucursal, m.IDUsuario, m.TipoMovimiento, m.Referencia, itemsJSON,
+	).Scan(&m.IDMovimiento, &m.IDProducto, &m.StockAnterior, &m.Cantidad, &m.StockPosterior)
 
 	if err != nil {
-		return nil, fmt.Errorf("error al insertar movimiento: %w", err)
+		return nil, fmt.Errorf("error al registrar movimiento mediante función: %w", err)
 	}
 
+	m.Fecha = time.Now()
+	m.CreatedAt = m.Fecha
+	m.UpdatedAt = m.Fecha
+
 	return m, nil
+}
+
+func (s *storeInventario) RegistrarMovimientoMasivo(ctx context.Context, idSucursal, idUsuario uuid.UUID, tipoMov, referencia string, items []models.MovimientoItem) ([]*models.MovimientoInventario, error) {
+	defer performance.Trace(ctx, "store", "RegistrarMovimientoMasivo", performance.DbThreshold, time.Now())
+
+	itemsJSON, err := json.Marshal(items)
+	if err != nil {
+		return nil, fmt.Errorf("error al serializar items: %w", err)
+	}
+
+	query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
+	          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
+
+	rows, err := s.db.QueryContext(ctx, query, idSucursal, idUsuario, tipoMov, referencia, itemsJSON)
+	if err != nil {
+		return nil, fmt.Errorf("error al ejecutar movimiento masivo: %w", err)
+	}
+	defer rows.Close()
+
+	var resultados []*models.MovimientoInventario
+	for rows.Next() {
+		m := &models.MovimientoInventario{
+			IDSucursal:     idSucursal,
+			IDUsuario:      idUsuario,
+			TipoMovimiento: tipoMov,
+			Referencia:     referencia,
+			Fecha:          time.Now(),
+		}
+		if err := rows.Scan(&m.IDMovimiento, &m.IDProducto, &m.StockAnterior, &m.Cantidad, &m.StockPosterior); err != nil {
+			return nil, fmt.Errorf("error al escanear resultado de movimiento: %w", err)
+		}
+		m.CreatedAt = m.Fecha
+		m.UpdatedAt = m.Fecha
+		resultados = append(resultados, m)
+	}
+
+	return resultados, nil
 }
 
 func (s *storeInventario) GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error) {
