@@ -13,6 +13,7 @@ func FacturaRouter(h *transport.FacturaHandler) chi.Router {
 		r.Use(middleware.RequireAuth())
 		r.Get("/", h.GetAll)
 		r.Post("/", h.Create)
+		r.Post("/completa", h.RegistrarCompleta)
 		r.Get("/{id}", h.GetByID)
 		r.Get("/impuestos", h.GetImpuestos)
 		r.Get("/formas-pago", h.GetFormasPago)

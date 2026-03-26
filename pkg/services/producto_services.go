@@ -31,7 +31,7 @@ func (s *ServiceProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*m
 }
 
 func (s *ServiceProducto) CreateProducto(ctx context.Context, producto models.Producto) (*models.Producto, error) {
-	if err := s.validateProducto(ctx, &producto); err != nil {
+	if err := s.validateProducto(&producto); err != nil {
 		s.logger.WarnContext(ctx, "Fallo de validación al crear producto",
 			slog.String("nombre", producto.Nombre),
 			slog.Any("error", err),
@@ -84,7 +84,7 @@ func (s *ServiceProducto) DeleteProducto(ctx context.Context, id uuid.UUID) erro
 	return s.store.DeleteProducto(ctx, id)
 }
 
-func (s *ServiceProducto) validateProducto(ctx context.Context, p *models.Producto) error {
+func (s *ServiceProducto) validateProducto(p *models.Producto) error {
 	if p.Nombre == "" {
 		return errors.New("falta el nombre del producto")
 	}

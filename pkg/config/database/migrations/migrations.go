@@ -51,6 +51,7 @@ func RunMigrations(db *sql.DB) error {
 		{"039_fn_estados", migrateFnEstados},
 		{"040_fn_estaciones", migrateFnEstaciones},
 		{"041_fn_inventario", migrateFnInventario},
+		{"042_fn_facturacion", migrateFnFacturacion},
 	}
 
 	for _, s := range steps {
