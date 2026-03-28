@@ -27,17 +27,31 @@ func NewServicePOS(s store.StorePOS, l store.StoreLogs, logger *slog.Logger) *Se
 }
 
 // DesmontarCajero cierra la sesión de una estación y actualiza retiros (Migración de SP)
-func (s *ServicePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, usrID uuid.UUID, rstID string) error {
-	// 1. Ejecutar actualizaciones en DB
-	err := s.store.DesmontarCajero(ctx, ctrlID, models.EstatusInactivo, models.EstatusRetiroTotal, models.EstatusDesmontado)
+func (s *ServicePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, usrID uuid.UUID, rstID string, motivoDescuadre string, accionInt int) error {
+	// 1. Ejecutar actualizaciones en DB (Actualiza Control_Estacion y Retiros)
+	err := s.store.DesmontarCajero(ctx, ctrlID, models.EstatusInactivo, models.EstatusRetiroTotal, models.EstatusDesmontado, motivoDescuadre)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Error al desmontar cajero", slog.Any("error", err), slog.String("ctrl_id", ctrlID.String()))
 		return err
 	}
 
-	// 2. Registrar Auditoría
-	descAudit := fmt.Sprintf("DESMONTAR EN BACK OFFICE Cod Control Estacion: %s, Cod Usuario: %s, Cod Restaurante: %s",
-		ctrlID.String(), usrID.String(), rstID)
+	// 2. Determinar descripción de Auditoría según accionInt (Migración de lógica de SP)
+	var descAudit string
+	switch accionInt {
+	case 1: // Cierre normal con/sin motivo
+		if motivoDescuadre != "" {
+			descAudit = fmt.Sprintf("DESMONTADO DEL CAJERO CON MOTIVO DE DESCUADRE: %s", motivoDescuadre)
+		} else {
+			descAudit = fmt.Sprintf("DESMONTAR EN BACK OFFICE Cod Control Estacion: %s, Cod Usuario: %s, Cod Restaurante: %s",
+				ctrlID.String(), usrID.String(), rstID)
+		}
+	case 2: // Por Administrador
+		descAudit = fmt.Sprintf("DESMONTADO DEL CAJERO POR ADMINISTRADOR: %s", usrID.String())
+	case 3: // Con Motivo (Explícito en SP original)
+		descAudit = fmt.Sprintf("DESMONTADO DEL CAJERO CON MOTIVO DE DESCUADRE: %s", motivoDescuadre)
+	default:
+		descAudit = fmt.Sprintf("DESMONTADO DE CAJERO: %s", ctrlID.String())
+	}
 
 	audit := &models.AuditoriaCaja{
 		IDControlEstacion: ctrlID,
@@ -48,7 +62,6 @@ func (s *ServicePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, usrI
 
 	if err := s.logsStore.CreateAuditoriaCaja(ctx, audit); err != nil {
 		s.logger.ErrorContext(ctx, "Error al registrar auditoría de desmontado", slog.Any("error", err))
-		// No retornamos error aquí para no revertir la operación principal si falla solo el log
 	}
 
 	return nil

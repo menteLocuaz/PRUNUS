@@ -26,7 +26,7 @@ type StorePOS interface {
 	GetTotalActiveControls(ctx context.Context) (int, error)
 
 	// Desmontar (Migración SP)
-	DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID) error
+	DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID, motivoDescuadre string) error
 }
 
 type storePOS struct {
@@ -130,16 +130,18 @@ func (s *storePOS) GetActivePeriodo(ctx context.Context) (*models.Periodo, error
 	return p, err
 }
 
-func (s *storePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID) error {
+func (s *storePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID, motivoDescuadre string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	// 1. Cerrar sesión en Control_Estacion
-	queryCtrl := `UPDATE control_estacion SET id_status = $1, fecha_salida = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id_control_estacion = $2 AND deleted_at IS NULL`
-	if _, err := tx.ExecContext(ctx, queryCtrl, idStatusInactivo, ctrlID); err != nil {
+	// 1. Cerrar sesión en Control_Estacion y grabar motivo de descuadre si existe
+	queryCtrl := `UPDATE control_estacion 
+	              SET id_status = $1, fecha_salida = CURRENT_TIMESTAMP, ctrc_motivo_descuadre = $2, updated_at = CURRENT_TIMESTAMP 
+	              WHERE id_control_estacion = $3 AND deleted_at IS NULL`
+	if _, err := tx.ExecContext(ctx, queryCtrl, idStatusInactivo, motivoDescuadre, ctrlID); err != nil {
 		return fmt.Errorf("error al cerrar sesión en control_estacion: %w", err)
 	}
 

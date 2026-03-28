@@ -53,6 +53,8 @@ func (h *POSHandler) DesmontarCajeroHandler(w http.ResponseWriter, r *http.Reque
 	var input struct {
 		IDControlEstacion uuid.UUID `json:"id_control_estacion" validate:"required"`
 		IDRestaurante     string    `json:"id_restaurante" validate:"required"`
+		MotivoDescuadre   string    `json:"motivo_descuadre"`
+		AccionInt         int       `json:"accion_int"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -71,7 +73,12 @@ func (h *POSHandler) DesmontarCajeroHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err := h.service.DesmontarCajero(r.Context(), input.IDControlEstacion, idUsuario, input.IDRestaurante)
+	// Valor por defecto si no se envía
+	if input.AccionInt == 0 {
+		input.AccionInt = 1
+	}
+
+	err := h.service.DesmontarCajero(r.Context(), input.IDControlEstacion, idUsuario, input.IDRestaurante, input.MotivoDescuadre, input.AccionInt)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
