@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -22,8 +23,8 @@ func NewServiceProducto(s store.StoreProducto, logger *slog.Logger) *ServiceProd
 	}
 }
 
-func (s *ServiceProducto) GetAllProductos(ctx context.Context) ([]*models.Producto, error) {
-	return s.store.GetAllProductos(ctx)
+func (s *ServiceProducto) GetAllProductos(ctx context.Context, params dto.PaginationParams) ([]*models.Producto, error) {
+	return s.store.GetAllProductos(ctx, params)
 }
 
 func (s *ServiceProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error) {

@@ -31,8 +31,8 @@ func InitDB() (*sql.DB, error) {
 	}
 
 	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(time.Hour)
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("error al conectar (ping) a PostgreSQL: %w", err)

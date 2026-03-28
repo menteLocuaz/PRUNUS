@@ -3,15 +3,17 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 )
 
 type StoreLogs interface {
 	CreateLog(ctx context.Context, l *models.LogSistema) error
-	GetAllLogs(ctx context.Context) ([]*models.LogSistema, error)
+	GetAllLogs(ctx context.Context, params dto.PaginationParams) ([]*models.LogSistema, error)
 
 	CreateAuditoriaCaja(ctx context.Context, a *models.AuditoriaCaja) error
 	GetAuditoriaCaja(ctx context.Context, controlID uuid.UUID) ([]*models.AuditoriaCaja, error)
@@ -31,9 +33,24 @@ func (s *storeLogs) CreateLog(ctx context.Context, l *models.LogSistema) error {
 	return err
 }
 
-func (s *storeLogs) GetAllLogs(ctx context.Context) ([]*models.LogSistema, error) {
-	query := `SELECT id_log, id_usuario, accion, tabla, registro_id, ip, fecha FROM log_sistema ORDER BY fecha DESC LIMIT 100`
-	rows, err := s.db.QueryContext(ctx, query)
+func (s *storeLogs) GetAllLogs(ctx context.Context, params dto.PaginationParams) ([]*models.LogSistema, error) {
+	if params.Limit <= 0 {
+		params.Limit = 100 // Límite por defecto para logs es mayor
+	}
+
+	query := `SELECT id_log, id_usuario, accion, tabla, registro_id, ip, fecha FROM log_sistema`
+	
+	var args []interface{}
+	
+	if params.LastDate != nil {
+		query += " WHERE fecha < $1"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY fecha DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

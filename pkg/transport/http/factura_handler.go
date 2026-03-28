@@ -9,6 +9,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
 )
 
@@ -79,7 +80,8 @@ func (h *FacturaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FacturaHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllFacturas(r.Context())
+	params := utils.ParsePaginationParams(r)
+	resp, err := h.service.GetAllFacturas(r.Context(), params)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return

@@ -10,6 +10,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
 )
@@ -26,7 +27,8 @@ func NewProductoHandler(s *services.ServiceProducto) *ProductoHandler {
 
 // GetAll obtiene todos los productos y responde con JSON
 func (h *ProductoHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllProductos(r.Context())
+	params := utils.ParsePaginationParams(r)
+	resp, err := h.service.GetAllProductos(r.Context(), params)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return

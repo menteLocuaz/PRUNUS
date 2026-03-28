@@ -15,7 +15,7 @@ type StoreFactura interface {
 	CreateFactura(ctx context.Context, f *models.Factura, items []*models.DetalleFactura) (*models.Factura, error)
 	RegistrarFacturaCompleta(ctx context.Context, req dto.FacturaCompletaRequest, idUsuario uuid.UUID) (*dto.FacturaResponse, error)
 	GetFacturaByID(ctx context.Context, id uuid.UUID) (*models.Factura, []*models.DetalleFactura, error)
-	GetAllFacturas(ctx context.Context) ([]*models.Factura, error)
+	GetAllFacturas(ctx context.Context, params dto.PaginationParams) ([]*models.Factura, error)
 
 	// Impuestos
 	GetAllImpuestos(ctx context.Context) ([]*models.Impuesto, error)
@@ -135,9 +135,27 @@ func (s *storeFactura) GetFacturaByID(ctx context.Context, id uuid.UUID) (*model
 	return f, items, nil
 }
 
-func (s *storeFactura) GetAllFacturas(ctx context.Context) ([]*models.Factura, error) {
-	query := `SELECT id_factura, fac_numero, cfac_total, id_cliente, created_at FROM factura WHERE deleted_at IS NULL ORDER BY created_at DESC`
-	rows, err := s.db.QueryContext(ctx, query)
+func (s *storeFactura) GetAllFacturas(ctx context.Context, params dto.PaginationParams) ([]*models.Factura, error) {
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
+	query := `
+		SELECT id_factura, fac_numero, cfac_total, id_cliente, created_at 
+		FROM factura 
+		WHERE deleted_at IS NULL
+	`
+	var args []interface{}
+	
+	if params.LastDate != nil {
+		query += " AND created_at < $1"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
