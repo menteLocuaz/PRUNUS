@@ -55,6 +55,10 @@ func RunMigrations(db *sql.DB) error {
 		{"048_usuario_sucursal_acceso", migrateUsuarioSucursalAcceso},
 		{"049_performance_optimizations", migratePerformanceOptimizations},
 		{"050_pagination_indexes", migratePaginationIndexes},
+		{"051_normalize_inventory", migrateNormalizeInventory},
+		{"052_status_consistency_triggers", migrateStatusConsistencyTriggers},
+		{"053_refactor_orden_agregador", migrateRefactorOrdenAgregador},
+		{"054_specialized_auditing", migrateSpecializedAuditing},
 	}
 
 	for _, s := range steps {

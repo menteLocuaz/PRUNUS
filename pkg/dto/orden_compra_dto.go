@@ -5,12 +5,12 @@ import (
 )
 
 type OrdenCompraCreateRequest struct {
-	NumeroOrden   string                `json:"numero_orden" validate:"required"`
-	IDProveedor   uuid.UUID             `json:"id_proveedor" validate:"required"`
-	IDSucursal    uuid.UUID             `json:"id_sucursal" validate:"required"`
-	IDMoneda      uuid.UUID             `json:"id_moneda" validate:"required"`
-	IDStatus      uuid.UUID             `json:"id_status" validate:"required"`
-	Observaciones string                `json:"observaciones"`
+	NumeroOrden   string                 `json:"numero_orden" validate:"required"`
+	IDProveedor   uuid.UUID              `json:"id_proveedor" validate:"required"`
+	IDSucursal    uuid.UUID              `json:"id_sucursal" validate:"required"`
+	IDMoneda      uuid.UUID              `json:"id_moneda" validate:"required"`
+	IDStatus      uuid.UUID              `json:"id_status" validate:"required"`
+	Observaciones string                 `json:"observaciones"`
 	Detalles      []DetalleCompraRequest `json:"detalles" validate:"required,min=1"`
 }
 
@@ -22,8 +22,8 @@ type DetalleCompraRequest struct {
 }
 
 type RecepcionCompraRequest struct {
-	IDOrdenCompra uuid.UUID              `json:"id_orden_compra" validate:"required"`
-	IDStatus      uuid.UUID              `json:"id_status" validate:"required"` // Estado "RECIBIDO"
+	IDOrdenCompra uuid.UUID                 `json:"id_orden_compra" validate:"required"`
+	IDStatus      uuid.UUID                 `json:"id_status" validate:"required"` // Estado "RECIBIDO"
 	Items         []DetalleRecepcionRequest `json:"items" validate:"required,min=1"`
 }
 

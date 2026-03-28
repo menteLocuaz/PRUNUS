@@ -6,7 +6,7 @@ import (
 
 // FacturaCompletaRequest representa la petición para registrar una factura con todo su detalle y pagos.
 type FacturaCompletaRequest struct {
-	Cabecera FacturaCabeceraJSON `json:"cabecera" validate:"required"`
+	Cabecera FacturaCabeceraJSON  `json:"cabecera" validate:"required"`
 	Detalles []FacturaDetalleJSON `json:"detalles" validate:"required,min=1"`
 	Pagos    []FacturaPagoJSON    `json:"pagos" validate:"required,min=1"`
 }
@@ -48,8 +48,8 @@ type FacturaPagoJSON struct {
 
 // FacturaResponse es la respuesta tras registrar una factura mediante la función almacenada.
 type FacturaResponse struct {
-	IDFactura  uuid.UUID `json:"id_factura"`
-	FacNumero  string    `json:"fac_numero"`
-	Total      float64   `json:"total"`
-	StatusMsg  string    `json:"status_msg"`
+	IDFactura uuid.UUID `json:"id_factura"`
+	FacNumero string    `json:"fac_numero"`
+	Total     float64   `json:"total"`
+	StatusMsg string    `json:"status_msg"`
 }

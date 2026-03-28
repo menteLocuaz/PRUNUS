@@ -87,7 +87,7 @@ func (s *ServiceUnidad) CreateUnidad(ctx context.Context, unidad models.Unidad) 
 		s.logger.WarnContext(ctx, "Intento de creación de unidad sin sucursal", slog.String("nombre", unidad.Nombre))
 		return nil, errors.New("falta el id de la sucursal")
 	}
-	
+
 	res, err := s.store.CreateUnidad(ctx, &unidad)
 	if err != nil {
 		return nil, err

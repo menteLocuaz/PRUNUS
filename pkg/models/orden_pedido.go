@@ -16,6 +16,7 @@ type OrdenPedido struct {
 	IDStatus         uuid.UUID  `json:"id_status"`
 	Direccion        string     `json:"direccion"`
 	Canal            string     `json:"canal"`
+	OdpTotal         float64    `json:"odp_total"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 	DeletedAt        *time.Time `json:"deleted_at,omitempty"`

@@ -146,7 +146,7 @@ func (s *storeFactura) GetAllFacturas(ctx context.Context, params dto.Pagination
 		WHERE deleted_at IS NULL
 	`
 	var args []interface{}
-	
+
 	if params.LastDate != nil {
 		query += " AND created_at < $1"
 		args = append(args, params.LastDate)

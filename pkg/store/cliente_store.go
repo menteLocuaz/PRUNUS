@@ -32,12 +32,12 @@ func (s *storeCliente) GetAllClientes(ctx context.Context) ([]*models.Cliente, e
 	query := `
 	SELECT
 		id_cliente,
-		empresa_cliente,
+		COALESCE(empresa_cliente, ''),
 		nombre,
 		ruc,
-		direccion,
-		telefono,
-		email,
+		COALESCE(direccion, ''),
+		COALESCE(telefono, ''),
+		COALESCE(email, ''),
 		id_status,
 		created_at,
 		updated_at
@@ -83,12 +83,12 @@ func (s *storeCliente) GetClienteByID(ctx context.Context, id uuid.UUID) (*model
 	query := `
 	SELECT
 		id_cliente,
-		empresa_cliente,
+		COALESCE(empresa_cliente, ''),
 		nombre,
 		ruc,
-		direccion,
-		telefono,
-		email,
+		COALESCE(direccion, ''),
+		COALESCE(telefono, ''),
+		COALESCE(email, ''),
 		id_status,
 		created_at,
 		updated_at
@@ -165,12 +165,12 @@ func (s *storeCliente) UpdateCliente(ctx context.Context, id uuid.UUID, cliente 
 		  AND deleted_at IS NULL
 		RETURNING
 			id_cliente,
-			empresa_cliente,
+			COALESCE(empresa_cliente, ''),
 			nombre,
 			ruc,
-			direccion,
-			telefono,
-			email,
+			COALESCE(direccion, ''),
+			COALESCE(telefono, ''),
+			COALESCE(email, ''),
 			id_status,
 			created_at,
 			updated_at

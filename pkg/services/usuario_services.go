@@ -3,14 +3,19 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/helper"
+	"github.com/prunus/pkg/middleware"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
 // ServiceUsuario servicio que encapsula la lógica de negocio para usuario
 type ServiceUsuario struct {
@@ -26,6 +31,31 @@ func NewServiceUsuario(s store.StoreUsuario, l store.StoreLogs, logger *slog.Log
 		logsStore: l,
 		logger:    logger,
 	}
+}
+
+func (s *ServiceUsuario) validateUser(u *models.Usuario, isUpdate bool) error {
+	if u.Email == "" {
+		return errors.New("el email del usuario es requerido")
+	}
+	if !emailRegex.MatchString(u.Email) {
+		return errors.New("el formato del email es inválido")
+	}
+	if u.UsuNombre == "" {
+		return errors.New("el nombre del usuario es requerido")
+	}
+	if u.UsuDNI == "" {
+		return errors.New("el DNI del usuario es requerido")
+	}
+	if !isUpdate && u.Password == "" {
+		return errors.New("la contraseña del usuario es requerida")
+	}
+	if u.IDSucursal == uuid.Nil {
+		return errors.New("el ID de la sucursal es requerido")
+	}
+	if !isUpdate && u.IDRol == uuid.Nil {
+		return errors.New("el ID del rol es requerido")
+	}
+	return nil
 }
 
 // GetAllUsuarios obtiene todos los usuarios del sistema
@@ -44,37 +74,9 @@ func (s *ServiceUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*mod
 
 // CreateUsuario crea un nuevo usuario con validaciones de negocio
 func (s *ServiceUsuario) CreateUsuario(ctx context.Context, usuario models.Usuario) (*models.Usuario, error) {
-	// Validar campos obligatorios
-	if usuario.Email == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de usuario con email vacío")
-		return nil, errors.New("el email del usuario es requerido")
-	}
-	if usuario.UsuNombre == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de usuario con nombre vacío", slog.String("email", usuario.Email))
-		return nil, errors.New("el nombre del usuario es requerido")
-	}
-	if usuario.UsuDNI == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de usuario con DNI vacío", slog.String("email", usuario.Email))
-		return nil, errors.New("el DNI del usuario es requerido")
-	}
-	if usuario.Password == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de usuario con password vacío", slog.String("email", usuario.Email))
-		return nil, errors.New("la contraseña del usuario es requerida")
-	}
-	if usuario.IDSucursal == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de usuario sin sucursal", slog.String("email", usuario.Email))
-		return nil, errors.New("el ID de la sucursal es requerido")
-	}
-	if usuario.IDRol == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de usuario sin rol", slog.String("email", usuario.Email))
-		return nil, errors.New("el ID del rol es requerido")
-	}
-
-	// Validar formato de email
-	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	if !emailRegex.MatchString(usuario.Email) {
-		s.logger.WarnContext(ctx, "Intento de creación de usuario con formato de email inválido", slog.String("email", usuario.Email))
-		return nil, errors.New("el formato del email es inválido")
+	if err := s.validateUser(&usuario, false); err != nil {
+		s.logger.WarnContext(ctx, "Fallo de validación al crear usuario", slog.String("email", usuario.Email), slog.Any("error", err))
+		return nil, err
 	}
 
 	// Aqui se hashea la contraseña
@@ -93,28 +95,10 @@ func (s *ServiceUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuari
 		s.logger.WarnContext(ctx, "Intento de actualización de usuario con ID nulo")
 		return nil, errors.New("el ID del usuario es requerido")
 	}
-	if usuario.Email == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización de usuario con email vacío", slog.String("id", id.String()))
-		return nil, errors.New("el email del usuario es requerido")
-	}
-	if usuario.UsuNombre == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización de usuario con nombre vacío", slog.String("id", id.String()))
-		return nil, errors.New("el nombre del usuario es requerido")
-	}
-	if usuario.UsuDNI == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización de usuario con DNI vacío", slog.String("id", id.String()))
-		return nil, errors.New("el DNI del usuario es requerido")
-	}
-	if usuario.IDSucursal == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de actualización de usuario sin sucursal", slog.String("id", id.String()))
-		return nil, errors.New("el ID de la sucursal es requerido")
-	}
 
-	// Validar formato de email
-	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	if !emailRegex.MatchString(usuario.Email) {
-		s.logger.WarnContext(ctx, "Intento de actualización de usuario con formato de email inválido", slog.String("id", id.String()), slog.String("email", usuario.Email))
-		return nil, errors.New("el formato del email es inválido")
+	if err := s.validateUser(&usuario, true); err != nil {
+		s.logger.WarnContext(ctx, "Fallo de validación al actualizar usuario", slog.String("id", id.String()), slog.Any("error", err))
+		return nil, err
 	}
 
 	// SOLO si viene contraseña nueva → hashear
@@ -145,7 +129,10 @@ func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.
 
 	// 1. Validar y Procesar Password
 	if usuario.Password != "" {
-		hp, _ := helper.HashPassword(usuario.Password)
+		hp, err := helper.HashPassword(usuario.Password)
+		if err != nil {
+			return nil, fmt.Errorf("error al hashear password: %w", err)
+		}
 		usuario.Password = hp
 	}
 
@@ -173,7 +160,7 @@ func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.
 		Accion:     "ADMINISTRAR_USUARIO",
 		Tabla:      "usuario",
 		RegistroID: result.IDUsuario,
-		IP:         "internal",
+		IP:         middleware.GetClientIP(ctx),
 	})
 
 	return result, nil
@@ -183,34 +170,38 @@ func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.
 func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, email, password string) (*models.Usuario, error) {
 	// Validar que se proporcionen ambos campos
 	if email == "" {
-		s.logger.WarnContext(ctx, "Intento de login con email vacío")
 		return nil, errors.New("el email es requerido")
 	}
 	if password == "" {
-		s.logger.WarnContext(ctx, "Intento de login con password vacío", slog.String("email", email))
 		return nil, errors.New("la contraseña es requerida")
 	}
 
-	// Validar formato de email
-	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	if !emailRegex.MatchString(email) {
-		s.logger.WarnContext(ctx, "Intento de login con formato de email inválido", slog.String("email", email))
-		return nil, errors.New("el formato del email es inválido")
-	}
+	// Limpiar email de espacios o caracteres accidentales
+	emailClean := strings.TrimSpace(email)
 
 	// Buscar usuario por email
-	usuario, err := s.store.GetUsuarioByEmail(ctx, email)
+	usuario, err := s.store.GetUsuarioByEmail(ctx, emailClean)
 	if err != nil {
 		// No revelar si el usuario existe o no por seguridad
-		s.logger.WarnContext(ctx, "Login fallido: usuario no encontrado", slog.String("email", email))
+		s.logger.WarnContext(ctx, "Login fallido: usuario no encontrado", slog.String("email", emailClean))
 		return nil, errors.New("credenciales inválidas")
+	}
+
+	// Validar que el usuario esté activo (ID: 3a99d245-b34f-48a5-ac08-a5a010c5822f)
+	// Comparamos contra la constante si está disponible o directo al UUID de la semilla
+	estatusActivo := uuid.MustParse("3a99d245-b34f-48a5-ac08-a5a010c5822f")
+	if usuario.IDStatus != estatusActivo {
+		s.logger.WarnContext(ctx, "Login fallido: usuario inactivo o bloqueado",
+			slog.String("email", emailClean),
+			slog.String("status", usuario.IDStatus.String()))
+		return nil, errors.New("su cuenta no está activa")
 	}
 
 	// Verificar la contraseña usando bcrypt
 	err = helper.CheckPassword(password, usuario.Password)
 	if err != nil {
 		// Password incorrecta
-		s.logger.WarnContext(ctx, "Login fallido: contraseña incorrecta", slog.String("email", email), slog.String("id_usuario", usuario.IDUsuario.String()))
+		s.logger.WarnContext(ctx, "Login fallido: contraseña incorrecta", slog.String("email", emailClean), slog.String("id_usuario", usuario.IDUsuario.String()))
 		return nil, errors.New("credenciales inválidas")
 	}
 

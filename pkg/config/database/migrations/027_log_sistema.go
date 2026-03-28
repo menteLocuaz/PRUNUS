@@ -27,7 +27,7 @@ func migrateLogSistema(db *sql.DB) error {
 		`ALTER TABLE log_sistema ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;`,
 		`ALTER TABLE log_sistema ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;`,
 		`ALTER TABLE log_sistema ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL;`,
-		
+
 		// Re-intentar crear la FK si se añadió la columna recién
 		`DO $$ 
 		BEGIN 
