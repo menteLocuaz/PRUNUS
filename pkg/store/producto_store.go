@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreProducto interface {
-	GetAllProductos(ctx context.Context) ([]*models.Producto, error)
+	GetAllProductos(ctx context.Context, params dto.PaginationParams) ([]*models.Producto, error)
 	GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error)
 	CreateProducto(ctx context.Context, producto *models.Producto) (*models.Producto, error)
 	UpdateProducto(ctx context.Context, id uuid.UUID, producto *models.Producto) (*models.Producto, error)
@@ -27,8 +28,13 @@ func NewProducto(db *sql.DB) StoreProducto {
 	return &storeProducto{db: db}
 }
 
-func (s *storeProducto) GetAllProductos(ctx context.Context) ([]*models.Producto, error) {
+func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.PaginationParams) ([]*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "GetAllProductos", performance.DbThreshold, time.Now())
+	
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
 	query := `
 	SELECT
 		p.id_producto,
@@ -66,10 +72,19 @@ func (s *storeProducto) GetAllProductos(ctx context.Context) ([]*models.Producto
 	LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
 	LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
 	WHERE p.deleted_at IS NULL
-	ORDER BY p.id_producto
 	`
+	
+	var args []interface{}
+	
+	if params.LastDate != nil {
+		query += " AND p.created_at < $1"
+		args = append(args, params.LastDate)
+	}
 
-	rows, err := s.db.QueryContext(ctx, query)
+	query += " ORDER BY p.created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener productos: %w", err)
 	}

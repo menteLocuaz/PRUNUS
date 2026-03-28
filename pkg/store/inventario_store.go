@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
 
 type StoreInventario interface {
-	GetAllInventario(ctx context.Context) ([]*models.Inventario, error)
+	GetAllInventario(ctx context.Context, params dto.PaginationParams) ([]*models.Inventario, error)
 	GetInventarioByID(ctx context.Context, id uuid.UUID) (*models.Inventario, error)
 	GetInventarioByProductoYSucursal(ctx context.Context, idProducto, idSucursal uuid.UUID) (*models.Inventario, error)
 	CreateInventario(ctx context.Context, inventario *models.Inventario) (*models.Inventario, error)
@@ -23,7 +24,7 @@ type StoreInventario interface {
 	// Movimientos
 	RegistrarMovimiento(ctx context.Context, m *models.MovimientoInventario) (*models.MovimientoInventario, error)
 	RegistrarMovimientoMasivo(ctx context.Context, idSucursal, idUsuario uuid.UUID, tipoMov, referencia string, items []models.MovimientoItem) ([]*models.MovimientoInventario, error)
-	GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error)
+	GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID, params dto.PaginationParams) ([]*models.MovimientoInventario, error)
 	GetAlertasStock(ctx context.Context, sucursalID uuid.UUID) ([]*models.Inventario, error)
 	GetValuacion(ctx context.Context, sucursalID uuid.UUID) (float64, error)
 }
@@ -36,18 +37,32 @@ func NewInventario(db *sql.DB) StoreInventario {
 	return &storeInventario{db: db}
 }
 
-func (s *storeInventario) GetAllInventario(ctx context.Context) ([]*models.Inventario, error) {
+func (s *storeInventario) GetAllInventario(ctx context.Context, params dto.PaginationParams) ([]*models.Inventario, error) {
 	defer performance.Trace(ctx, "store", "GetAllInventario", performance.DbThreshold, time.Now())
+	
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
 	query := `
 		SELECT 
 			id_inventario, id_producto, id_sucursal, stock_actual, stock_minimo, 
 			stock_maximo, precio_compra, precio_venta, created_at, updated_at
 		FROM inventario
 		WHERE deleted_at IS NULL
-		ORDER BY created_at DESC
 	`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	var args []interface{}
+
+	if params.LastDate != nil {
+		query += " AND created_at < $1"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener inventario: %w", err)
 	}
@@ -252,17 +267,32 @@ func (s *storeInventario) RegistrarMovimientoMasivo(ctx context.Context, idSucur
 	return resultados, nil
 }
 
-func (s *storeInventario) GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error) {
+func (s *storeInventario) GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID, params dto.PaginationParams) ([]*models.MovimientoInventario, error) {
 	defer performance.Trace(ctx, "store", "GetMovimientosByProducto", performance.DbThreshold, time.Now())
+	
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
 	query := `SELECT 
 		id_movimiento, id_producto, id_sucursal, tipo_movimiento, cantidad, 
 		costo_unitario, precio_unitario, stock_anterior, stock_posterior, 
 		fecha, id_usuario, referencia 
 	FROM movimientos_inventario 
-	WHERE id_producto = $1 AND deleted_at IS NULL 
-	ORDER BY fecha DESC`
+	WHERE id_producto = $1 AND deleted_at IS NULL`
+	
+	var args []interface{}
+	args = append(args, productoID)
 
-	rows, err := s.db.QueryContext(ctx, query, productoID)
+	if params.LastDate != nil {
+		query += " AND fecha < $2"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY fecha DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

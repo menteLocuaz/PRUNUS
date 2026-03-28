@@ -53,6 +53,8 @@ func RunMigrations(db *sql.DB) error {
 		{"041_fn_inventario", migrateFnInventario},
 		{"042_fn_facturacion", migrateFnFacturacion},
 		{"048_usuario_sucursal_acceso", migrateUsuarioSucursalAcceso},
+		{"049_performance_optimizations", migratePerformanceOptimizations},
+		{"050_pagination_indexes", migratePaginationIndexes},
 	}
 
 	for _, s := range steps {

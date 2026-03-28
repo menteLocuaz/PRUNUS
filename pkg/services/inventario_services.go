@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -22,8 +23,8 @@ func NewServiceInventario(s store.StoreInventario, logger *slog.Logger) *Service
 	}
 }
 
-func (s *ServiceInventario) GetAllInventario(ctx context.Context) ([]*models.Inventario, error) {
-	return s.store.GetAllInventario(ctx)
+func (s *ServiceInventario) GetAllInventario(ctx context.Context, params dto.PaginationParams) ([]*models.Inventario, error) {
+	return s.store.GetAllInventario(ctx, params)
 }
 
 func (s *ServiceInventario) GetInventarioByID(ctx context.Context, id uuid.UUID) (*models.Inventario, error) {
@@ -62,8 +63,8 @@ func (s *ServiceInventario) RegistrarMovimientoMasivo(ctx context.Context, idSuc
 	return s.store.RegistrarMovimientoMasivo(ctx, idSucursal, idUsuario, tipoMov, referencia, items)
 }
 
-func (s *ServiceInventario) GetMovimientos(ctx context.Context, productoID uuid.UUID) ([]*models.MovimientoInventario, error) {
-	return s.store.GetMovimientosByProducto(ctx, productoID)
+func (s *ServiceInventario) GetMovimientos(ctx context.Context, productoID uuid.UUID, params dto.PaginationParams) ([]*models.MovimientoInventario, error) {
+	return s.store.GetMovimientosByProducto(ctx, productoID, params)
 }
 
 func (s *ServiceInventario) GetAlertasStock(ctx context.Context, sucursalID uuid.UUID) ([]*models.Inventario, error) {

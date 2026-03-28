@@ -9,6 +9,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
 )
@@ -22,12 +23,13 @@ func NewInventarioHandler(s *services.ServiceInventario) *InventarioHandler {
 }
 
 func (h *InventarioHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllInventario(r.Context())
+	params := utils.ParsePaginationParams(r)
+	resp, err := h.service.GetAllInventario(r.Context(), params)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
 	}
-	response.Success(w, "Inventarios obtenidos correctamente", resp)
+	response.Success(w, "Inventario obtenido correctamente", resp)
 }
 
 func (h *InventarioHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +197,8 @@ func (h *InventarioHandler) GetMovimientos(w http.ResponseWriter, r *http.Reques
 		response.BadRequest(w, "ID de producto inválido")
 		return
 	}
-	resp, err := h.service.GetMovimientos(r.Context(), id)
+	params := utils.ParsePaginationParams(r)
+	resp, err := h.service.GetMovimientos(r.Context(), id, params)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
