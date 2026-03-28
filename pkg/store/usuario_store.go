@@ -19,6 +19,10 @@ type StoreUsuario interface {
 	CreateUsuario(ctx context.Context, usuario *models.Usuario) (*models.Usuario, error)
 	UpdateUsuario(ctx context.Context, id uuid.UUID, usuario *models.Usuario) (*models.Usuario, error)
 	DeleteUsuario(ctx context.Context, id uuid.UUID) error
+
+	// Accesos Multi-Sucursal
+	AssignSucursales(ctx context.Context, userID uuid.UUID, sucursales []uuid.UUID) error
+	GetSucursalesAcceso(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
 // storeUsuario implementación de la interfaz StoreUsuario
@@ -43,6 +47,9 @@ func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, e
 			u.usu_nombre,
 			u.usu_dni,
 			u.usu_telefono,
+			u.usu_tarjeta_nfc,
+			u.usu_pin_pos,
+			u.nombre_ticket,
 			u.password,
 			u.id_status,
 			u.created_at,
@@ -85,6 +92,9 @@ func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, e
 			&usuario.UsuNombre,
 			&usuario.UsuDNI,
 			&usuario.UsuTelefono,
+			&usuario.UsuTarjetaNFC,
+			&usuario.UsuPinPOS,
+			&usuario.NombreTicket,
 			&usuario.Password,
 			&usuario.IDStatus,
 			&usuario.CreatedAt,
@@ -123,6 +133,9 @@ func (s *storeUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*model
 			u.usu_nombre,
 			u.usu_dni,
 			u.usu_telefono,
+			u.usu_tarjeta_nfc,
+			u.usu_pin_pos,
+			u.nombre_ticket,
 			u.password,
 			u.id_status,
 			u.created_at,
@@ -156,6 +169,9 @@ func (s *storeUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*model
 		&usuario.UsuNombre,
 		&usuario.UsuDNI,
 		&usuario.UsuTelefono,
+		&usuario.UsuTarjetaNFC,
+		&usuario.UsuPinPOS,
+		&usuario.NombreTicket,
 		&usuario.Password,
 		&usuario.IDStatus,
 		&usuario.CreatedAt,
@@ -196,6 +212,9 @@ func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*mo
 			u.usu_nombre,
 			u.usu_dni,
 			u.usu_telefono,
+			u.usu_tarjeta_nfc,
+			u.usu_pin_pos,
+			u.nombre_ticket,
 			u.password,
 			u.id_status,
 			u.created_at,
@@ -229,6 +248,9 @@ func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*mo
 		&usuario.UsuNombre,
 		&usuario.UsuDNI,
 		&usuario.UsuTelefono,
+		&usuario.UsuTarjetaNFC,
+		&usuario.UsuPinPOS,
+		&usuario.NombreTicket,
 		&usuario.Password,
 		&usuario.IDStatus,
 		&usuario.CreatedAt,
@@ -260,8 +282,8 @@ func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*mo
 func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuario) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "CreateUsuario", performance.DbThreshold, time.Now())
 	query := `
-		INSERT INTO usuario (id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, password, id_status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO usuario (id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket, password, id_status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id_usuario, created_at, updated_at
 	`
 
@@ -274,6 +296,9 @@ func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuari
 		usuario.UsuNombre,
 		usuario.UsuDNI,
 		usuario.UsuTelefono,
+		usuario.UsuTarjetaNFC,
+		usuario.UsuPinPOS,
+		usuario.NombreTicket,
 		usuario.Password,
 		usuario.IDStatus,
 	).Scan(&usuario.IDUsuario, &usuario.CreatedAt, &usuario.UpdatedAt)
@@ -297,10 +322,13 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 			usu_nombre = $4,
 			usu_dni = $5,
 			usu_telefono = $6,
-			password = $7,
-			id_status = $8,
+			usu_tarjeta_nfc = $7,
+			usu_pin_pos = $8,
+			nombre_ticket = $9,
+			password = $10,
+			id_status = $11,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id_usuario = $9 AND deleted_at IS NULL
+		WHERE id_usuario = $12 AND deleted_at IS NULL
 		RETURNING
 			id_usuario,
 			id_sucursal,
@@ -309,6 +337,9 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 			usu_nombre,
 			usu_dni,
 			usu_telefono,
+			usu_tarjeta_nfc,
+			usu_pin_pos,
+			nombre_ticket,
 			password,
 			id_status,
 			created_at,
@@ -324,6 +355,9 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 		usuario.UsuNombre,
 		usuario.UsuDNI,
 		usuario.UsuTelefono,
+		usuario.UsuTarjetaNFC,
+		usuario.UsuPinPOS,
+		usuario.NombreTicket,
 		usuario.Password,
 		usuario.IDStatus,
 		id,
@@ -335,6 +369,9 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 		&usuario.UsuNombre,
 		&usuario.UsuDNI,
 		&usuario.UsuTelefono,
+		&usuario.UsuTarjetaNFC,
+		&usuario.UsuPinPOS,
+		&usuario.NombreTicket,
 		&usuario.Password,
 		&usuario.IDStatus,
 		&usuario.CreatedAt,
@@ -375,4 +412,49 @@ func (s *storeUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (s *storeUsuario) AssignSucursales(ctx context.Context, userID uuid.UUID, sucursales []uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "AssignSucursales", performance.DbThreshold, time.Now())
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Limpiar accesos previos
+	queryDelete := `DELETE FROM usuario_sucursal_acceso WHERE id_usuario = $1`
+	if _, err := tx.ExecContext(ctx, queryDelete, userID); err != nil {
+		return fmt.Errorf("error al eliminar accesos previos: %w", err)
+	}
+
+	// 2. Insertar nuevos accesos
+	queryInsert := `INSERT INTO usuario_sucursal_acceso (id_usuario, id_sucursal) VALUES ($1, $2)`
+	for _, sucursalID := range sucursales {
+		if _, err := tx.ExecContext(ctx, queryInsert, userID, sucursalID); err != nil {
+			return fmt.Errorf("error al insertar acceso a sucursal %s: %w", sucursalID, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *storeUsuario) GetSucursalesAcceso(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	defer performance.Trace(ctx, "store", "GetSucursalesAcceso", performance.DbThreshold, time.Now())
+	query := `SELECT id_sucursal FROM usuario_sucursal_acceso WHERE id_usuario = $1`
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sucursales []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		sucursales = append(sucursales, id)
+	}
+	return sucursales, nil
 }

@@ -62,7 +62,7 @@ VALUES ('b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e', 'Administrador', 'a3b4c5d6-e7f8-
 
 -- 4. Crear el usuario administrador (password: Admin123)
 -- El hash corresponde a "Admin123" generado con bcrypt
-INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, password, id_status)
+INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, password, id_status, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket)
 VALUES (
   'c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f',
   'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d',
@@ -72,8 +72,15 @@ VALUES (
   '12345678',
   '+51999888777',
   '$2a$10$U.sUS/qwAXlDPrJZ9wAaLe78DmRtcnWVY39wFp85YLiL0iIVPVkkK',
-  '59039503-85CF-E511-80C1-000C29C9E0E0'
+  '59039503-85CF-E511-80C1-000C29C9E0E0',
+  'NFC-ADMIN-001',
+  '1234',
+  'Admin Master'
 );
+
+-- 5. Habilitar acceso a sucursal (Opcional: Relación multi-sucursal)
+INSERT INTO usuario_sucursal_acceso (id_usuario, id_sucursal)
+VALUES ('c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f', 'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d');
 ```
 
 ---

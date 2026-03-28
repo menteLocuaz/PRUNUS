@@ -290,7 +290,8 @@ func runRegisterUsuario(cmd *cobra.Command, args []string) {
 	}
 
 	usuarioStore := store.NewUsuario(db)
-	usuarioService := services.NewServiceUsuario(usuarioStore, logger)
+	logsStore := store.NewLogs(db)
+	usuarioService := services.NewServiceUsuario(usuarioStore, logsStore, logger)
 
 	model := models.Usuario{
 		IDSucursal: sucID,

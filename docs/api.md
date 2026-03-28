@@ -40,7 +40,30 @@ Inicia sesión en el sistema.
 |--------|------|-------------|
 | GET | `/` | Listar todos los usuarios |
 | POST | `/` | Crear un nuevo usuario |
+| POST | `/administrar` | Gestión integral (NFC, PIN, Multi-Sucursal) |
 | GET | `/{id}` | Obtener usuario por ID |
+
+**POST /usuarios/administrar**
+> Diseñado para entornos de supermercado. Permite configurar accesos rápidos y movilidad de personal.
+- **Body:**
+```json
+{
+  "email": "cajero01@super.com",
+  "usu_nombre": "Juan Pérez",
+  "usu_dni": "12345678",
+  "usu_tarjeta_nfc": "NFC-998877",
+  "usu_pin_pos": "1234",
+  "nombre_ticket": "Cajero Juan P.",
+  "id_sucursal": "uuid_base",
+  "id_rol": "uuid_rol",
+  "id_status": "uuid_status",
+  "sucursales_acceso": [
+    "uuid_sucursal_norte",
+    "uuid_sucursal_centro"
+  ]
+}
+```
+> El campo `sucursales_acceso` habilita al usuario para operar en múltiples sedes.
 
 ### Roles (`/roles`)
 | Método | Ruta | Descripción |

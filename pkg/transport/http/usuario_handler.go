@@ -64,14 +64,18 @@ func (h *UsuarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	usuario := models.Usuario{
-		IDSucursal:  req.IDSucursal,
-		IDRol:       req.IDRol,
-		Email:       req.UsuEmail,
-		UsuNombre:   req.UsuNombre,
-		UsuDNI:      req.UsuDni,
-		UsuTelefono: req.UsuTelefono,
-		Password:    req.UsuPassword,
-		IDStatus:    req.IDStatus,
+		IDSucursal:    req.IDSucursal,
+		IDRol:         req.IDRol,
+		Email:         req.UsuEmail,
+		UsuNombre:     req.UsuNombre,
+		UsuDNI:        req.UsuDni,
+		UsuTelefono:   req.UsuTelefono,
+		UsuTarjetaNFC: req.UsuTarjetaNFC,
+		UsuPinPOS:     req.UsuPinPOS,
+		NombreTicket:  req.NombreTicket,
+		Password:      req.UsuPassword,
+		IDStatus:      req.IDStatus,
+		Sucursales:    req.SucursalesAcceso,
 	}
 
 	resp, err := h.service.CreateUsuario(r.Context(), usuario)
@@ -103,14 +107,18 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	usuario := models.Usuario{
-		IDSucursal:  req.IDSucursal,
-		IDRol:       req.IDRol,
-		Email:       req.UsuEmail,
-		UsuNombre:   req.UsuNombre,
-		UsuDNI:      req.UsuDni,
-		UsuTelefono: req.UsuTelefono,
-		Password:    req.UsuPassword,
-		IDStatus:    req.IDStatus,
+		IDSucursal:    req.IDSucursal,
+		IDRol:         req.IDRol,
+		Email:         req.UsuEmail,
+		UsuNombre:     req.UsuNombre,
+		UsuDNI:        req.UsuDni,
+		UsuTelefono:   req.UsuTelefono,
+		UsuTarjetaNFC: req.UsuTarjetaNFC,
+		UsuPinPOS:     req.UsuPinPOS,
+		NombreTicket:  req.NombreTicket,
+		Password:      req.UsuPassword,
+		IDStatus:      req.IDStatus,
+		Sucursales:    req.SucursalesAcceso,
 	}
 
 	resp, err := h.service.UpdateUsuario(r.Context(), id, usuario)
@@ -119,6 +127,56 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Success(w, "Usuario actualizado correctamente", resp)
+}
+
+// Administrar maneja la gestión integral de un usuario (Supermercado)
+func (h *UsuarioHandler) Administrar(w http.ResponseWriter, r *http.Request) {
+	var req dto.UsuarioCreateRequest // Reutilizamos el create para administración integral
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	if err := validator.Validate.Struct(req); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
+	// Obtener ID del admin desde el token
+	adminID, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		response.Unauthorized(w, "Admin no autenticado")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	var userID uuid.UUID
+	if idStr != "" {
+		userID, _ = uuid.Parse(idStr)
+	}
+
+	usuario := models.Usuario{
+		IDUsuario:     userID,
+		IDSucursal:    req.IDSucursal,
+		IDRol:         req.IDRol,
+		Email:         req.UsuEmail,
+		UsuNombre:     req.UsuNombre,
+		UsuDNI:        req.UsuDni,
+		UsuTelefono:   req.UsuTelefono,
+		UsuTarjetaNFC: req.UsuTarjetaNFC,
+		UsuPinPOS:     req.UsuPinPOS,
+		NombreTicket:  req.NombreTicket,
+		Password:      req.UsuPassword,
+		IDStatus:      req.IDStatus,
+		Sucursales:    req.SucursalesAcceso,
+	}
+
+	resp, err := h.service.AdministrarUsuario(r.Context(), usuario, adminID)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Usuario gestionado correctamente", resp)
 }
 
 // Delete elimina un usuario

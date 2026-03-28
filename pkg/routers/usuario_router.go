@@ -13,6 +13,8 @@ func UsuarioRouter(h *transport.UsuarioHandler) chi.Router {
 		r.Use(middleware.RequireAuth())
 		r.Get("/", h.GetAll)
 		r.Post("/", h.Create)
+		r.Post("/administrar", h.Administrar)
+		r.Post("/administrar/{id}", h.Administrar)
 		r.Get("/{id}", h.GetByID)
 		r.Put("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
