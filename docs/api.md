@@ -148,7 +148,17 @@ Controla el stock físico por sucursal, alertas de existencias y valuación.
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/abrir` | Abrir una caja (Control Estación) |
+| POST | `/desmontar` | Desmontar/cerrar sesión de un cajero (Back Office) |
 | GET | `/estado/{id}` | Consultar estado de una estación |
+
+**POST /pos/desmontar**
+> Migración de SP `iae_actualizacajeromotivo`. Cierra la sesión activa y actualiza retiros a "Retiro Total".
+```json
+{
+  "id_control_estacion": "uuid",
+  "id_restaurante": "1"
+}
+```
 
 ### Estaciones POS (`/estaciones-pos`)
 Gestión de estaciones físicas de venta.
