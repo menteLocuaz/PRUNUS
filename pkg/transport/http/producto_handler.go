@@ -3,12 +3,10 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
-	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
@@ -66,27 +64,7 @@ func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var fechaVenc *time.Time
-	if !req.FechaVencimiento.IsZero() {
-		fechaVenc = &req.FechaVencimiento
-	}
-
-	producto := models.Producto{
-		Nombre:           req.Nombre,
-		Descripcion:      req.Descripcion,
-		PrecioCompra:     req.PrecioCompra,
-		PrecioVenta:      req.PrecioVenta,
-		Stock:            req.Stock,
-		FechaVencimiento: fechaVenc,
-		Imagen:           req.Imagen,
-		IDStatus:         req.IDStatus,
-		IDSucursal:       req.IDSucursal,
-		IDCategoria:      req.IDCategoria,
-		IDMoneda:         req.IDMoneda,
-		IDUnidad:         req.IDUnidad,
-	}
-
-	resp, err := h.service.CreateProducto(r.Context(), producto)
+	resp, err := h.service.CreateProducto(r.Context(), req)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -114,27 +92,7 @@ func (h *ProductoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var fechaVenc *time.Time
-	if !req.FechaVencimiento.IsZero() {
-		fechaVenc = &req.FechaVencimiento
-	}
-
-	producto := models.Producto{
-		Nombre:           req.Nombre,
-		Descripcion:      req.Descripcion,
-		PrecioCompra:     req.PrecioCompra,
-		PrecioVenta:      req.PrecioVenta,
-		Stock:            req.Stock,
-		FechaVencimiento: fechaVenc,
-		Imagen:           req.Imagen,
-		IDStatus:         req.IDStatus,
-		IDSucursal:       req.IDSucursal,
-		IDCategoria:      req.IDCategoria,
-		IDMoneda:         req.IDMoneda,
-		IDUnidad:         req.IDUnidad,
-	}
-
-	resp, err := h.service.UpdateProducto(r.Context(), id, producto)
+	resp, err := h.service.UpdateProducto(r.Context(), id, req)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return

@@ -25,17 +25,17 @@ func NewOrdenPedido(db *sql.DB) StoreOrdenPedido {
 }
 
 func (s *storeOrdenPedido) CreateOrden(ctx context.Context, o *models.OrdenPedido) (*models.OrdenPedido, error) {
-	query := `INSERT INTO orden_pedido (odp_observacion, id_user_pos, id_periodo, id_estacion, id_status, direccion, canal) 
-	          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id_orden_pedido, odp_fecha_creacion, created_at, updated_at`
-	err := s.db.QueryRowContext(ctx, query, o.OdpObservacion, o.IDUserPos, o.IDPeriodo, o.IDEstacion, o.IDStatus, o.Direccion, o.Canal).
+	query := `INSERT INTO orden_pedido (odp_observacion, id_user_pos, id_periodo, id_estacion, id_status, direccion, canal, odp_total) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id_orden_pedido, odp_fecha_creacion, created_at, updated_at`
+	err := s.db.QueryRowContext(ctx, query, o.OdpObservacion, o.IDUserPos, o.IDPeriodo, o.IDEstacion, o.IDStatus, o.Direccion, o.Canal, o.OdpTotal).
 		Scan(&o.IDOrdenPedido, &o.OdpFechaCreacion, &o.CreatedAt, &o.UpdatedAt)
 	return o, err
 }
 
 func (s *storeOrdenPedido) GetOrdenByID(ctx context.Context, id uuid.UUID) (*models.OrdenPedido, error) {
-	query := `SELECT id_orden_pedido, odp_fecha_creacion, odp_observacion, id_user_pos, id_periodo, id_estacion, id_status, direccion, canal FROM orden_pedido WHERE id_orden_pedido = $1 AND deleted_at IS NULL`
+	query := `SELECT id_orden_pedido, odp_fecha_creacion, odp_observacion, id_user_pos, id_periodo, id_estacion, id_status, direccion, canal, odp_total FROM orden_pedido WHERE id_orden_pedido = $1 AND deleted_at IS NULL`
 	o := &models.OrdenPedido{}
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&o.IDOrdenPedido, &o.OdpFechaCreacion, &o.OdpObservacion, &o.IDUserPos, &o.IDPeriodo, &o.IDEstacion, &o.IDStatus, &o.Direccion, &o.Canal)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&o.IDOrdenPedido, &o.OdpFechaCreacion, &o.OdpObservacion, &o.IDUserPos, &o.IDPeriodo, &o.IDEstacion, &o.IDStatus, &o.Direccion, &o.Canal, &o.OdpTotal)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("orden no encontrada")
 	}
@@ -43,7 +43,7 @@ func (s *storeOrdenPedido) GetOrdenByID(ctx context.Context, id uuid.UUID) (*mod
 }
 
 func (s *storeOrdenPedido) GetAllOrdenes(ctx context.Context) ([]*models.OrdenPedido, error) {
-	query := `SELECT id_orden_pedido, odp_fecha_creacion, odp_observacion, id_status, canal FROM orden_pedido WHERE deleted_at IS NULL ORDER BY created_at DESC`
+	query := `SELECT id_orden_pedido, odp_fecha_creacion, odp_observacion, id_status, canal, odp_total FROM orden_pedido WHERE deleted_at IS NULL ORDER BY created_at DESC`
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (s *storeOrdenPedido) GetAllOrdenes(ctx context.Context) ([]*models.OrdenPe
 	var ordenes []*models.OrdenPedido
 	for rows.Next() {
 		o := &models.OrdenPedido{}
-		if err := rows.Scan(&o.IDOrdenPedido, &o.OdpFechaCreacion, &o.OdpObservacion, &o.IDStatus, &o.Canal); err != nil {
+		if err := rows.Scan(&o.IDOrdenPedido, &o.OdpFechaCreacion, &o.OdpObservacion, &o.IDStatus, &o.Canal, &o.OdpTotal); err != nil {
 			return nil, err
 		}
 		ordenes = append(ordenes, o)

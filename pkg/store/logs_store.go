@@ -17,6 +17,11 @@ type StoreLogs interface {
 
 	CreateAuditoriaCaja(ctx context.Context, a *models.AuditoriaCaja) error
 	GetAuditoriaCaja(ctx context.Context, controlID uuid.UUID) ([]*models.AuditoriaCaja, error)
+
+	CreateFacturaAudit(ctx context.Context, a *models.FacturaAudit) error
+	GetFacturaAudit(ctx context.Context, facturaID uuid.UUID) ([]*models.FacturaAudit, error)
+
+	GetHistorialPrecios(ctx context.Context, productoID uuid.UUID, sucursalID uuid.UUID) ([]*models.HistorialPrecios, error)
 }
 
 type storeLogs struct {
@@ -91,4 +96,51 @@ func (s *storeLogs) GetAuditoriaCaja(ctx context.Context, controlID uuid.UUID) (
 		auditorias = append(auditorias, a)
 	}
 	return auditorias, nil
+}
+
+func (s *storeLogs) CreateFacturaAudit(ctx context.Context, a *models.FacturaAudit) error {
+	query := `INSERT INTO factura_audit (id_factura, id_usuario, accion, estado_anterior, estado_nuevo, observaciones, ip_address) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := s.db.ExecContext(ctx, query, a.IDFactura, a.IDUsuario, a.Accion, a.EstadoAnterior, a.EstadoNuevo, a.Observaciones, a.IPAddress)
+	return err
+}
+
+func (s *storeLogs) GetFacturaAudit(ctx context.Context, facturaID uuid.UUID) ([]*models.FacturaAudit, error) {
+	query := `SELECT id_audit, id_factura, id_usuario, accion, estado_anterior, estado_nuevo, observaciones, fecha, ip_address 
+	          FROM factura_audit WHERE id_factura = $1 ORDER BY fecha DESC`
+	rows, err := s.db.QueryContext(ctx, query, facturaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var audits []*models.FacturaAudit
+	for rows.Next() {
+		a := &models.FacturaAudit{}
+		if err := rows.Scan(&a.IDAudit, &a.IDFactura, &a.IDUsuario, &a.Accion, &a.EstadoAnterior, &a.EstadoNuevo, &a.Observaciones, &a.Fecha, &a.IPAddress); err != nil {
+			return nil, err
+		}
+		audits = append(audits, a)
+	}
+	return audits, nil
+}
+
+func (s *storeLogs) GetHistorialPrecios(ctx context.Context, productoID uuid.UUID, sucursalID uuid.UUID) ([]*models.HistorialPrecios, error) {
+	query := `SELECT id_historial, id_producto, id_sucursal, precio_anterior, precio_nuevo, tipo_precio, id_usuario, fecha 
+	          FROM historial_precios WHERE id_producto = $1 AND id_sucursal = $2 ORDER BY fecha DESC`
+	rows, err := s.db.QueryContext(ctx, query, productoID, sucursalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var historial []*models.HistorialPrecios
+	for rows.Next() {
+		h := &models.HistorialPrecios{}
+		if err := rows.Scan(&h.IDHistorial, &h.IDProducto, &h.IDSucursal, &h.PrecioAnterior, &h.PrecioNuevo, &h.TipoPrecio, &h.IDUsuario, &h.Fecha); err != nil {
+			return nil, err
+		}
+		historial = append(historial, h)
+	}
+	return historial, nil
 }

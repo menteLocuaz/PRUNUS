@@ -21,7 +21,7 @@ type OrdenAgregador struct {
 	IDAgregador      uuid.UUID              `json:"id_agregador"`
 	CodigoExterno    string                 `json:"codigo_externo"`
 	DatosAgregador   map[string]interface{} `json:"datos_agregador"` // JSONB
-	Fecha            time.Time              `json:"fecha"`
+	ComisionAgregador float64               `json:"comision_agregador"`
 	CreatedAt        time.Time              `json:"created_at"`
 	UpdatedAt        time.Time              `json:"updated_at"`
 	DeletedAt        *time.Time             `json:"deleted_at,omitempty"`

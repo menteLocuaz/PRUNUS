@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
@@ -12,14 +13,16 @@ import (
 )
 
 type ServiceProducto struct {
-	store  store.StoreProducto
-	logger *slog.Logger
+	store           store.StoreProducto
+	inventarioStore store.StoreInventario
+	logger          *slog.Logger
 }
 
-func NewServiceProducto(s store.StoreProducto, logger *slog.Logger) *ServiceProducto {
+func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, logger *slog.Logger) *ServiceProducto {
 	return &ServiceProducto{
-		store:  s,
-		logger: logger,
+		store:           s,
+		inventarioStore: inv,
+		logger:          logger,
 	}
 }
 
@@ -31,51 +34,77 @@ func (s *ServiceProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*m
 	return s.store.GetProductoByID(ctx, id)
 }
 
-func (s *ServiceProducto) CreateProducto(ctx context.Context, producto models.Producto) (*models.Producto, error) {
-	if err := s.validateProducto(&producto); err != nil {
-		s.logger.WarnContext(ctx, "Fallo de validación al crear producto",
-			slog.String("nombre", producto.Nombre),
+// CreateProducto ahora es una operación coordinada entre Catálogo e Inventario
+func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCreateRequest) (*models.Producto, error) {
+	if req.Nombre == "" {
+		return nil, errors.New("falta el nombre del producto")
+	}
+
+	// 1. Mapear DTO a Modelo de Catálogo
+	producto := &models.Producto{
+		Nombre:           req.Nombre,
+		Descripcion:      req.Descripcion,
+		FechaVencimiento: &req.FechaVencimiento,
+		Imagen:           req.Imagen,
+		IDStatus:         req.IDStatus,
+		IDCategoria:      req.IDCategoria,
+		IDMoneda:         req.IDMoneda,
+		IDUnidad:         req.IDUnidad,
+	}
+
+	// 2. Crear Producto en Catálogo Maestro
+	res, err := s.store.CreateProducto(ctx, producto)
+	if err != nil {
+		return nil, fmt.Errorf("error al crear catálogo de producto: %w", err)
+	}
+
+	// 3. Crear Inventario Inicial para la Sucursal enviada
+	inv := &models.Inventario{
+		IDProducto:   res.IDProducto,
+		IDSucursal:   req.IDSucursal,
+		StockActual:  float64(req.Stock),
+		PrecioCompra: req.PrecioCompra,
+		PrecioVenta:  req.PrecioVenta,
+	}
+
+	_, err = s.inventarioStore.CreateInventario(ctx, inv)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "Catálogo creado pero falló inicialización de inventario",
+			slog.String("id_producto", res.IDProducto.String()),
 			slog.Any("error", err),
 		)
-		return nil, err
+		// Opcional: Podrías realizar un rollback manual borrando el producto
+		return res, fmt.Errorf("producto creado pero sin stock inicial: %w", err)
 	}
 
-	res, err := s.store.CreateProducto(ctx, &producto)
-	if err != nil {
-		return nil, err
-	}
-
-	// Log preventivo: Producto creado con stock inicial bajo
-	if res.Stock < 5 {
-		s.logger.WarnContext(ctx, "Producto creado con stock bajo",
-			slog.String("id_producto", res.IDProducto.String()),
-			slog.String("nombre", res.Nombre),
-			slog.Uint64("stock", uint64(res.Stock)),
-		)
-	}
+	s.logger.InfoContext(ctx, "Producto e inventario creados exitosamente",
+		slog.String("id_producto", res.IDProducto.String()),
+		slog.String("id_sucursal", req.IDSucursal.String()),
+	)
 
 	return res, nil
 }
 
-func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, producto models.Producto) (*models.Producto, error) {
-	if producto.Nombre == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización con nombre vacío",
-			slog.String("id_producto", id.String()),
-		)
+func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, req dto.ProductoUpdateRequest) (*models.Producto, error) {
+	if req.Nombre == "" {
 		return nil, errors.New("falta el nombre del producto")
 	}
 
-	res, err := s.store.UpdateProducto(ctx, id, &producto)
-	if err != nil {
-		return nil, err
+	// Actualizar datos maestros
+	producto := &models.Producto{
+		Nombre:           req.Nombre,
+		Descripcion:      req.Descripcion,
+		FechaVencimiento: &req.FechaVencimiento,
+		Imagen:           req.Imagen,
+		IDStatus:         req.IDStatus,
+		IDCategoria:      req.IDCategoria,
+		IDMoneda:         req.IDMoneda,
+		IDUnidad:         req.IDUnidad,
 	}
 
-	// Log preventivo: Alerta de stock crítico tras actualización
-	if res.Stock == 0 {
-		s.logger.WarnContext(ctx, "Producto con stock agotado tras actualización",
-			slog.String("id_producto", id.String()),
-			slog.String("nombre", res.Nombre),
-		)
+	res, err := s.store.UpdateProducto(ctx, id, producto)
+	if err != nil {
+		return nil, err
 	}
 
 	return res, nil
@@ -83,26 +112,4 @@ func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, prod
 
 func (s *ServiceProducto) DeleteProducto(ctx context.Context, id uuid.UUID) error {
 	return s.store.DeleteProducto(ctx, id)
-}
-
-func (s *ServiceProducto) validateProducto(p *models.Producto) error {
-	if p.Nombre == "" {
-		return errors.New("falta el nombre del producto")
-	}
-	if p.IDSucursal == uuid.Nil {
-		return errors.New("falta el id de la sucursal")
-	}
-	if p.IDCategoria == uuid.Nil {
-		return errors.New("falta el id de la categoria")
-	}
-	if p.IDMoneda == uuid.Nil {
-		return errors.New("falta el id de la moneda")
-	}
-	if p.IDUnidad == uuid.Nil {
-		return errors.New("falta el id de la unidad")
-	}
-	if p.IDStatus == uuid.Nil {
-		return errors.New("falta el id del estatus")
-	}
-	return nil
 }

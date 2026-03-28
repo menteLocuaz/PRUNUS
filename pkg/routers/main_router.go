@@ -45,6 +45,7 @@ func NewMainRouter(h *Handlers) http.Handler {
 	r.Use(middleware.Logger(middleware.ProductionLogConfig()))
 	r.Use(middleware.MaxPayloadSize)
 	r.Use(middleware.SecureHeaders)
+	r.Use(middleware.ClientIP)
 
 	r.Route("/api", func(r chi.Router) {
 		// Rate limiting para toda la API (2 peticiones por segundo con ráfaga de 5 por IP)

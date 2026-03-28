@@ -3,7 +3,6 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -115,11 +114,11 @@ func (h *AgregadoresHandler) CreateOrden(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	o := models.OrdenAgregador{
-		IDOrdenPedido:  req.IDOrdenPedido,
-		IDAgregador:    req.IDAgregador,
-		CodigoExterno:  req.CodigoExterno,
-		DatosAgregador: req.DatosAgregador,
-		Fecha:          time.Now(),
+		IDOrdenPedido:     req.IDOrdenPedido,
+		IDAgregador:       req.IDAgregador,
+		CodigoExterno:     req.CodigoExterno,
+		DatosAgregador:    req.DatosAgregador,
+		ComisionAgregador: req.ComisionAgregador,
 	}
 	resp, err := h.service.CreateOrdenAgregador(r.Context(), o)
 	if err != nil {

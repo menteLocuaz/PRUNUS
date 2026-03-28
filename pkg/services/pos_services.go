@@ -56,7 +56,7 @@ func (s *ServicePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, usrI
 	audit := &models.AuditoriaCaja{
 		IDControlEstacion: ctrlID,
 		TipoMovimiento:    models.EstatusDesmontado,
-		IDUsuario:         0, // El SP original pasaba 0 en el campo numérico
+		IDUsuario:         usrID,
 		Descripcion:       descAudit,
 	}
 
@@ -83,7 +83,7 @@ func (s *ServicePOS) ActualizarValoresDeclarados(ctx context.Context, ctrlID, fo
 	audit := &models.AuditoriaCaja{
 		IDControlEstacion: ctrlID,
 		TipoMovimiento:    models.EstatusDesmontado,
-		IDUsuario:         0,
+		IDUsuario:         userID,
 		Descripcion:       descAudit,
 	}
 

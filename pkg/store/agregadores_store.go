@@ -85,8 +85,8 @@ func (s *storeAgregadores) CreateOrdenAgregador(ctx context.Context, o *models.O
 		return nil, err
 	}
 
-	query := `INSERT INTO orden_agregador (id_orden_pedido, id_agregador, codigo_externo, datos_agregador, fecha) 
+	query := `INSERT INTO orden_agregador (id_orden_pedido, id_agregador, codigo_externo, datos_agregador, comision_agregador) 
 	          VALUES ($1, $2, $3, $4, $5) RETURNING id_orden_agregador, created_at, updated_at`
-	err = s.db.QueryRowContext(ctx, query, o.IDOrdenPedido, o.IDAgregador, o.CodigoExterno, datosJSON, o.Fecha).Scan(&o.IDOrdenAgregador, &o.CreatedAt, &o.UpdatedAt)
+	err = s.db.QueryRowContext(ctx, query, o.IDOrdenPedido, o.IDAgregador, o.CodigoExterno, datosJSON, o.ComisionAgregador).Scan(&o.IDOrdenAgregador, &o.CreatedAt, &o.UpdatedAt)
 	return o, err
 }
