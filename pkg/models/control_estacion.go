@@ -19,6 +19,7 @@ type ControlEstacion struct {
 	IDStatus           uuid.UUID  `json:"id_status"`
 	IDUserPos          uuid.UUID  `json:"id_user_pos"`
 	IDPeriodo          uuid.UUID  `json:"id_periodo"`
+	MotivoDescuadre    string     `json:"motivo_descuadre,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
