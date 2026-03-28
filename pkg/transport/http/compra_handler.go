@@ -74,7 +74,7 @@ func (h *CompraHandler) Create(w http.ResponseWriter, r *http.Request) {
 	for _, d := range req.Detalles {
 		detTotal := d.CantidadPedida * d.PrecioUnitario
 		detImp := detTotal * (d.Impuesto / 100)
-		
+
 		orden.Detalles = append(orden.Detalles, &models.DetalleOrdenCompra{
 			IDProducto:     d.IDProducto,
 			CantidadPedida: d.CantidadPedida,
