@@ -43,7 +43,7 @@ func migrateModulos(db *sql.DB) error {
 		`ALTER TABLE modulo ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;`,
 		`ALTER TABLE modulo ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;`,
 		`ALTER TABLE modulo ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL;`,
-		
+
 		`CREATE INDEX IF NOT EXISTS idx_modulo_id_status ON modulo(id_status);`,
 		`CREATE INDEX IF NOT EXISTS idx_modulo_deleted_at ON modulo(deleted_at);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_modulo_mdl_id ON modulo(mdl_id);`,

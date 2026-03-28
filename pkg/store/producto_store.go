@@ -30,7 +30,7 @@ func NewProducto(db *sql.DB) StoreProducto {
 
 func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.PaginationParams) ([]*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "GetAllProductos", performance.DbThreshold, time.Now())
-	
+
 	if params.Limit <= 0 {
 		params.Limit = dto.DefaultLimit
 	}
@@ -39,9 +39,9 @@ func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.Paginati
 	SELECT
 		p.id_producto,
 		p.nombre,
-		p.descripcion,
+		COALESCE(p.descripcion, ''),
 		p.fecha_vencimiento,
-		p.imagen,
+		COALESCE(p.imagen, ''),
 		p.id_status,
 		p.id_categoria,
 		p.id_moneda,
@@ -64,9 +64,9 @@ func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.Paginati
 	LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
 	WHERE p.deleted_at IS NULL
 	`
-	
+
 	var args []interface{}
-	
+
 	if params.LastDate != nil {
 		query += " AND p.created_at < $1"
 		args = append(args, params.LastDate)
@@ -128,9 +128,9 @@ func (s *storeProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*mod
 	SELECT
 		p.id_producto,
 		p.nombre,
-		p.descripcion,
+		COALESCE(p.descripcion, ''),
 		p.fecha_vencimiento,
-		p.imagen,
+		COALESCE(p.imagen, ''),
 		p.id_status,
 		p.id_categoria,
 		p.id_moneda,
@@ -239,9 +239,9 @@ func (s *storeProducto) UpdateProducto(ctx context.Context, id uuid.UUID, produc
 		RETURNING
 			id_producto,
 			nombre,
-			descripcion,
+			COALESCE(descripcion, ''),
 			fecha_vencimiento,
-			imagen,
+			COALESCE(imagen, ''),
 			id_status,
 			id_categoria,
 			id_moneda,

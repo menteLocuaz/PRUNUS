@@ -39,7 +39,7 @@ func NewInventario(db *sql.DB) StoreInventario {
 
 func (s *storeInventario) GetAllInventario(ctx context.Context, params dto.PaginationParams) ([]*models.Inventario, error) {
 	defer performance.Trace(ctx, "store", "GetAllInventario", performance.DbThreshold, time.Now())
-	
+
 	if params.Limit <= 0 {
 		params.Limit = dto.DefaultLimit
 	}
@@ -269,7 +269,7 @@ func (s *storeInventario) RegistrarMovimientoMasivo(ctx context.Context, idSucur
 
 func (s *storeInventario) GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID, params dto.PaginationParams) ([]*models.MovimientoInventario, error) {
 	defer performance.Trace(ctx, "store", "GetMovimientosByProducto", performance.DbThreshold, time.Now())
-	
+
 	if params.Limit <= 0 {
 		params.Limit = dto.DefaultLimit
 	}
@@ -280,7 +280,7 @@ func (s *storeInventario) GetMovimientosByProducto(ctx context.Context, producto
 		fecha, id_usuario, referencia 
 	FROM movimientos_inventario 
 	WHERE id_producto = $1 AND deleted_at IS NULL`
-	
+
 	var args []interface{}
 	args = append(args, productoID)
 

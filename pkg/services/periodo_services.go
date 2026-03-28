@@ -50,7 +50,7 @@ func (s *ServicePeriodo) FinalizarPeriodo(ctx context.Context, idPeriodo uuid.UU
 	if err != nil {
 		return err
 	}
-	
+
 	if estacionesAbiertas > 0 {
 		return errors.New("no se puede cerrar el periodo: hay cajas o estaciones abiertas")
 	}

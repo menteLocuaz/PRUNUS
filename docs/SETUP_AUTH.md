@@ -1,12 +1,12 @@
 # Guía Rápida: Configurar y Probar Autenticación
 
-Este documento describe los pasos para levantar el servicio y configurar el acceso inicial, considerando que el sistema utiliza **UUID v4** para todos sus identificadores y una base de datos PostgreSQL 15.
+Este documento describe los pasos para levantar el servicio y configurar el acceso inicial, considerando que el sistema utiliza **UUID v4** para todos sus identificadores y una arquitectura de seguridad basada en JWT.
 
 ## Pasos para Configurar el Sistema
 
 ### 1. Configurar Variables de Entorno
 
-Asegúrate de tener un archivo `.env` en la raíz del proyecto con la configuración de la base de datos y JWT:
+Asegúrate de tener un archivo `.env` en la raíz del proyecto:
 
 ```env
 # Database Configuration
@@ -24,17 +24,10 @@ JWT_EXPIRATION_HOURS=24
 
 ### 2. Iniciar el Servidor
 
-El servidor realiza las migraciones automáticas al iniciar.
+El servidor realiza las migraciones automáticas al iniciar, incluyendo la creación de los catálogos maestros de estatus.
 
 ```bash
-go run cmd/main.go
-```
-
-Deberías ver en los logs:
-```
-✅ Conexión a la base de datos establecida
-✅ Migraciones completadas
-✅ Iniciando servidor en puerto :9090
+go run cmd/main.go serve
 ```
 
 ---
@@ -43,101 +36,99 @@ Deberías ver en los logs:
 
 Debido a que el sistema utiliza UUIDs y llaves foráneas, es necesario insertar los datos maestros iniciales (Empresa, Sucursal, Rol) antes de crear el primer usuario.
 
-### Paso 1: Inicializar Datos en la Base de Datos (SQL)
+### Opción A: Inicialización mediante CLI (Recomendado)
 
-Ejecuta el siguiente script en tu cliente de base de datos (psql, DBeaver, etc.):
+Prunus incluye una herramienta CLI integrada para registrar las entidades base de forma segura.
+
+#### 1. Registrar Empresa
+```bash
+go run cmd/main.go register empresa --nombre "Empresa Matriz" --rut "800123456-7" --status "fc273a6a-ab7b-4453-a560-ac62fa64348b"
+```
+
+#### 2. Registrar Sucursal (Usa el ID devuelto arriba)
+```bash
+go run cmd/main.go register sucursal --empresa "<ID_EMPRESA>" --nombre "Sucursal Central" --status "6cf06fbe-b21c-46e3-a34b-b24f5167cd9a"
+```
+
+#### 3. Registrar Rol
+```bash
+go run cmd/main.go register rol --sucursal "<ID_SUCURSAL>" --nombre "Administrador" --status "fc273a6a-ab7b-4453-a560-ac62fa64348b"
+```
+
+#### 4. Registrar Usuario Administrador (Password: Admin123)
+```bash
+go run cmd/main.go register usuario --sucursal "<ID_SUCURSAL>" --rol "<ID_ROL>" --email "admin@prunus.com" --nombre "Admin Master" --dni "12345678" --password "Admin123" --status "3a99d245-b34f-48a5-ac08-a5a010c5822f"
+```
+
+---
+
+### Opción B: Inicialización Manual vía SQL (Directo en DB)
+
+Si prefieres usar un cliente como DBeaver o psql, usa este script sincronizado con los UUIDs de `012_estatus.go`:
 
 ```sql
--- 1. Insertar Empresa (ID: 7f7b...)
+-- 1. Insertar Empresa (Estatus 'Activa': fc273a6a...)
 INSERT INTO empresa (id_empresa, nombre, rut, id_status)
-VALUES ('7f7b0e11-1234-4a21-9591-316279f06742', 'Empresa Matriz', '800123456-7', '59039503-85CF-E511-80C1-000C29C9E0E0');
+VALUES (
+  '7f7b0e11-1234-4a21-9591-316279f06742', 
+  'Empresa Matriz', 
+  '800123456-7', 
+  'fc273a6a-ab7b-4453-a560-ac62fa64348b'
+);
 
--- 2. Insertar Sucursal (ID: a3b4...) vinculado a la Empresa
+-- 2. Insertar Sucursal (Estatus 'Abierta': 6cf06fbe...)
 INSERT INTO sucursal (id_sucursal, id_empresa, nombre_sucursal, id_status)
-VALUES ('a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', '7f7b0e11-1234-4a21-9591-316279f06742', 'Sucursal Central', '59039503-85CF-E511-80C1-000C29C9E0E0');
+VALUES (
+  'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', 
+  '7f7b0e11-1234-4a21-9591-316279f06742', 
+  'Sucursal Central', 
+  '6cf06fbe-b21c-46e3-a34b-b24f5167cd9a'
+);
 
--- 3. Insertar Rol (ID: b4c5...) vinculado a la Sucursal
+-- 3. Insertar Rol (Estatus 'Activa': fc273a6a...)
 INSERT INTO rol (id_rol, nombre_rol, id_sucursal, id_status)
-VALUES ('b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e', 'Administrador', 'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', '59039503-85CF-E511-80C1-000C29C9E0E0');
+VALUES (
+  'b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e', 
+  'Administrador', 
+  'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', 
+  'fc273a6a-ab7b-4453-a560-ac62fa64348b'
+);
 
 -- 4. Crear el usuario administrador (password: Admin123)
--- El hash corresponde a "Admin123" generado con bcrypt
-INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, password, id_status, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket)
+-- El hash corresponde a "Admin123" (Estatus 'Activo': 3a99d245...)
+INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, usu_nombre, usu_dni, password, id_status)
 VALUES (
   'c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f',
   'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d',
   'b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e',
   'admin@prunus.com',
-  'Administrador Sistema',
+  'Admin Master',
   '12345678',
-  '+51999888777',
   '$2a$10$U.sUS/qwAXlDPrJZ9wAaLe78DmRtcnWVY39wFp85YLiL0iIVPVkkK',
-  '59039503-85CF-E511-80C1-000C29C9E0E0',
-  'NFC-ADMIN-001',
-  '1234',
-  'Admin Master'
+  '3a99d245-b34f-48a5-ac08-a5a010c5822f'
 );
-
--- 5. Habilitar acceso a sucursal (Opcional: Relación multi-sucursal)
-INSERT INTO usuario_sucursal_acceso (id_usuario, id_sucursal)
-VALUES ('c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f', 'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d');
 ```
 
 ---
 
-### Paso 2: Hacer Login para Obtener Token
+### Paso 3: Hacer Login para Obtener Token
 
 ```bash
 curl -X POST http://localhost:9090/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@prunus.com",
-    "password": "Admin123"
-  }'
-```
-
-**Respuesta esperada:**
-
-```json
-{
-  "status": "success",
-  "message": "Inicio de sesión exitoso",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "usuario": {
-      "id_usuario": "c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f",
-      "email": "admin@prunus.com",
-      "usu_nombre": "Administrador Sistema"
-    },
-    "expires_at": "2026-03-26T15:00:00Z"
-  }
-}
-```
-
-**Copia el valor del token.**
-
----
-
-### Paso 3: Probar Acceso a Endpoints Protegidos
-
-Reemplaza `<TU_TOKEN>` con el token obtenido:
-
-```bash
-# Listar inventario (requiere token)
-curl -X GET http://localhost:9090/api/v1/inventario \
-  -H "Authorization: Bearer <TU_TOKEN>"
+  -d '{"email": "admin@prunus.com", "password": "Admin123"}'
 ```
 
 ---
 
 ## Verificación de Configuración
 
-### ✅ Checklist de Solución de Problemas
+### ✅ Checklist de Seguridad e Integridad
 
-1. **UUIDs en las peticiones:** Asegúrate de enviar los IDs en formato UUID (ej: `550e8400-e29b-41d4-a716-446655440000`) y no números enteros.
-2. **Estatus ACTIVO:** Todos los registros (Empresa, Sucursal, Rol, Usuario) deben tener el `id_status` correspondiente a `EstatusActivo` (`59039503-85CF-E511-80C1-000C29C9E0E0`).
-3. **JWT_SECRET:** Si cambias esta variable en el `.env`, todos los tokens anteriores dejarán de ser válidos.
-4. **Contexto de Usuario:** El sistema inyecta automáticamente `user_id`, `user_sucursal` y `user_rol` en el contexto después de validar el token.
+1. **Contexto de Usuario:** El sistema inyecta automáticamente `user_id`, `user_sucursal` y `user_rol` tras validar el token.
+2. **Estatus Coherente:** El sistema utiliza disparadores (Triggers) para asegurar que solo se asignen estatus válidos según el módulo.
+3. **Auditoría:** Los cambios críticos se registran en tablas dedicadas (`historial_precios`, `factura_audit`).
+4. **JWT_SECRET:** Si cambias esta variable, todos los tokens anteriores invalidarán.
 
 ---
 

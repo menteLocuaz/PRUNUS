@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/helper"
@@ -175,19 +176,32 @@ func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, email, passwor
 		return nil, errors.New("la contraseña es requerida")
 	}
 
+	// Limpiar email de espacios o caracteres accidentales
+	emailClean := strings.TrimSpace(email)
+
 	// Buscar usuario por email
-	usuario, err := s.store.GetUsuarioByEmail(ctx, email)
+	usuario, err := s.store.GetUsuarioByEmail(ctx, emailClean)
 	if err != nil {
 		// No revelar si el usuario existe o no por seguridad
-		s.logger.WarnContext(ctx, "Login fallido: usuario no encontrado", slog.String("email", email))
+		s.logger.WarnContext(ctx, "Login fallido: usuario no encontrado", slog.String("email", emailClean))
 		return nil, errors.New("credenciales inválidas")
+	}
+
+	// Validar que el usuario esté activo (ID: 3a99d245-b34f-48a5-ac08-a5a010c5822f)
+	// Comparamos contra la constante si está disponible o directo al UUID de la semilla
+	estatusActivo := uuid.MustParse("3a99d245-b34f-48a5-ac08-a5a010c5822f")
+	if usuario.IDStatus != estatusActivo {
+		s.logger.WarnContext(ctx, "Login fallido: usuario inactivo o bloqueado",
+			slog.String("email", emailClean),
+			slog.String("status", usuario.IDStatus.String()))
+		return nil, errors.New("su cuenta no está activa")
 	}
 
 	// Verificar la contraseña usando bcrypt
 	err = helper.CheckPassword(password, usuario.Password)
 	if err != nil {
 		// Password incorrecta
-		s.logger.WarnContext(ctx, "Login fallido: contraseña incorrecta", slog.String("email", email), slog.String("id_usuario", usuario.IDUsuario.String()))
+		s.logger.WarnContext(ctx, "Login fallido: contraseña incorrecta", slog.String("email", emailClean), slog.String("id_usuario", usuario.IDUsuario.String()))
 		return nil, errors.New("credenciales inválidas")
 	}
 

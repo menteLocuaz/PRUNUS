@@ -19,5 +19,5 @@ type OrdenAgregadorCreateRequest struct {
 	IDAgregador       uuid.UUID              `json:"id_agregador" validate:"required"`
 	CodigoExterno     string                 `json:"codigo_externo" validate:"required"`
 	DatosAgregador    map[string]interface{} `json:"datos_agregador" validate:"omitempty"`
-	ComisionAgregador float64               `json:"comision_agregador" validate:"omitempty"`
+	ComisionAgregador float64                `json:"comision_agregador" validate:"omitempty"`
 }

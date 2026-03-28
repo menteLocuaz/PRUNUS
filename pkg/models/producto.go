@@ -21,7 +21,7 @@ type Producto struct {
 	Categoria *Categoria `json:"categoria,omitempty"`
 	Moneda    *Moneda    `json:"moneda,omitempty"`
 	Unidad    *Unidad    `json:"unidad,omitempty"`
-	
+
 	// Información de Inventario (Opcional, poblada vía JOIN)
 	Inventario []*Inventario `json:"inventario,omitempty"`
 

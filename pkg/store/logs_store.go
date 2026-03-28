@@ -44,9 +44,9 @@ func (s *storeLogs) GetAllLogs(ctx context.Context, params dto.PaginationParams)
 	}
 
 	query := `SELECT id_log, id_usuario, accion, tabla, registro_id, ip, fecha FROM log_sistema`
-	
+
 	var args []interface{}
-	
+
 	if params.LastDate != nil {
 		query += " WHERE fecha < $1"
 		args = append(args, params.LastDate)
