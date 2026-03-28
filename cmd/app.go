@@ -42,7 +42,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	empresaServices := services.NewServiceEmpresa(empresaStore, logger)
 	sucursalServices := services.NewServiceSucursal(sucursalStore, logger)
 	rolService := services.NewServiceRol(rolStore, cacheStore, logger)
-	usuarioService := services.NewServiceUsuario(usuarioStore, logger)
+	usuarioService := services.NewServiceUsuario(usuarioStore, logsStore, logger)
 	categoriaService := services.NewServiceCategoria(categoriaStore, cacheStore, logger)
 	clienteService := services.NewServiceCliente(clienteStore, logger)
 	medidaService := services.NewServiceUnidad(medidaStore, logger)

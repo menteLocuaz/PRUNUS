@@ -16,6 +16,11 @@ func migrateUsuario(db *sql.DB) error {
 		usu_telefono  VARCHAR(30),
 		password      TEXT         NOT NULL,
 
+		-- Campos Supermercado / POS
+		usu_tarjeta_nfc VARCHAR(100) UNIQUE,
+		usu_pin_pos     VARCHAR(100),
+		nombre_ticket   VARCHAR(50),
+
 		created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		deleted_at    TIMESTAMP NULL,

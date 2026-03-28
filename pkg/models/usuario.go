@@ -14,6 +14,9 @@ type Usuario struct {
 	UsuNombre   string     `json:"usu_nombre"`
 	UsuDNI      string     `json:"usu_dni"`
 	UsuTelefono string     `json:"usu_telefono"`
+	UsuTarjetaNFC string   `json:"usu_tarjeta_nfc,omitempty"`
+	UsuPinPOS     string   `json:"-"` // PIN cifrado para acceso rápido
+	NombreTicket  string   `json:"nombre_ticket,omitempty"`
 	Password    string     `json:"-"` // Ocultar password de respuestas JSON
 	IDStatus    uuid.UUID  `json:"id_status"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -21,6 +24,7 @@ type Usuario struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 
 	// Relaciones de navegación
-	Rol      *Rol      `json:"rol,omitempty"`
-	Sucursal *Sucursal `json:"sucursal,omitempty"`
+	Rol        *Rol        `json:"rol,omitempty"`
+	Sucursal   *Sucursal   `json:"sucursal,omitempty"`
+	Sucursales []uuid.UUID `json:"sucursales_acceso,omitempty"` // IDs de sucursales habilitadas
 }

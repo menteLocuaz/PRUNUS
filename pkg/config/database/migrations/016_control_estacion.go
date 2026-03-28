@@ -17,6 +17,7 @@ func migrateControlEstacion(db *sql.DB) error {
 		id_status            UUID      NOT NULL,
 		id_user_pos          UUID      NOT NULL,
 		id_periodo           UUID      NOT NULL,
+		ctrc_motivo_descuadre TEXT      NULL,
 
 		created_at           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,

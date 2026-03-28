@@ -14,15 +14,17 @@ import (
 
 // ServiceUsuario servicio que encapsula la lógica de negocio para usuario
 type ServiceUsuario struct {
-	store  store.StoreUsuario
-	logger *slog.Logger
+	store     store.StoreUsuario
+	logsStore store.StoreLogs
+	logger    *slog.Logger
 }
 
 // NewServiceUsuario crea una nueva instancia del servicio de usuario
-func NewServiceUsuario(s store.StoreUsuario, logger *slog.Logger) *ServiceUsuario {
+func NewServiceUsuario(s store.StoreUsuario, l store.StoreLogs, logger *slog.Logger) *ServiceUsuario {
 	return &ServiceUsuario{
-		store:  s,
-		logger: logger,
+		store:     s,
+		logsStore: l,
+		logger:    logger,
 	}
 }
 
@@ -134,6 +136,47 @@ func (s *ServiceUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error 
 		return errors.New("el ID del usuario es requerido")
 	}
 	return s.store.DeleteUsuario(ctx, id)
+}
+
+// AdministrarUsuario gestiona la creación/actualización integral del usuario, incluyendo accesos multi-sucursal (Supermercado)
+func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.Usuario, adminID uuid.UUID) (*models.Usuario, error) {
+	var result *models.Usuario
+	var err error
+
+	// 1. Validar y Procesar Password
+	if usuario.Password != "" {
+		hp, _ := helper.HashPassword(usuario.Password)
+		usuario.Password = hp
+	}
+
+	// 2. Ejecutar Operación Principal (Create o Update)
+	if usuario.IDUsuario == uuid.Nil {
+		result, err = s.store.CreateUsuario(ctx, &usuario)
+	} else {
+		result, err = s.store.UpdateUsuario(ctx, usuario.IDUsuario, &usuario)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Gestionar Accesos Multi-Sucursal
+	if len(usuario.Sucursales) > 0 {
+		if err := s.store.AssignSucursales(ctx, result.IDUsuario, usuario.Sucursales); err != nil {
+			s.logger.ErrorContext(ctx, "Error asignando sucursales", slog.Any("error", err))
+		}
+	}
+
+	// 4. Auditoría
+	s.logsStore.CreateLog(ctx, &models.LogSistema{
+		IDUsuario:  adminID,
+		Accion:     "ADMINISTRAR_USUARIO",
+		Tabla:      "usuario",
+		RegistroID: result.IDUsuario,
+		IP:         "internal",
+	})
+
+	return result, nil
 }
 
 // AuthenticateUsuario valida las credenciales del usuario y retorna el usuario autenticado

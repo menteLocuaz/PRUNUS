@@ -11,7 +11,10 @@ type UsuarioResponse struct {
 	UsuNombre   string    `json:"usu_nombre"`
 	UsuDni      string    `json:"usu_dni"`
 	UsuTelefono string    `json:"usu_telefono"`
+	UsuTarjetaNFC string  `json:"usu_tarjeta_nfc,omitempty"`
+	NombreTicket  string  `json:"nombre_ticket,omitempty"`
 	IDStatus    uuid.UUID `json:"id_status"`
+	SucursalesAcceso []uuid.UUID `json:"sucursales_acceso,omitempty"`
 }
 
 // UsuarioCreateRequest estructura de solicitud para crear un usuario
@@ -23,7 +26,11 @@ type UsuarioCreateRequest struct {
 	UsuDni      string    `json:"usu_dni" validate:"required,min=8,max=15"`
 	UsuTelefono string    `json:"usu_telefono" validate:"omitempty,max=20"`
 	UsuPassword string    `json:"password" validate:"required,min=6"`
+	UsuTarjetaNFC string  `json:"usu_tarjeta_nfc" validate:"omitempty,max=100"`
+	UsuPinPOS     string  `json:"usu_pin_pos" validate:"omitempty,max=10"`
+	NombreTicket  string  `json:"nombre_ticket" validate:"omitempty,max=50"`
 	IDStatus    uuid.UUID `json:"id_status" validate:"required"`
+	SucursalesAcceso []uuid.UUID `json:"sucursales_acceso" validate:"omitempty"`
 }
 
 // UsuarioUpdateRequest estructura de solicitud para actualizar un usuario
@@ -35,5 +42,9 @@ type UsuarioUpdateRequest struct {
 	UsuDni      string    `json:"usu_dni" validate:"required,min=8,max=15"`
 	UsuTelefono string    `json:"usu_telefono" validate:"omitempty,max=20"`
 	UsuPassword string    `json:"password" validate:"omitempty,min=6"`
+	UsuTarjetaNFC string  `json:"usu_tarjeta_nfc" validate:"omitempty,max=100"`
+	UsuPinPOS     string  `json:"usu_pin_pos" validate:"omitempty,max=10"`
+	NombreTicket  string  `json:"nombre_ticket" validate:"omitempty,max=50"`
 	IDStatus    uuid.UUID `json:"id_status" validate:"required"`
+	SucursalesAcceso []uuid.UUID `json:"sucursales_acceso" validate:"omitempty"`
 }
