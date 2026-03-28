@@ -2,7 +2,6 @@ package routers
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prunus/pkg/middleware"
@@ -44,10 +43,12 @@ func NewMainRouter(h *Handlers) http.Handler {
 	r.Use(middleware.CORS())
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger(middleware.ProductionLogConfig()))
+	r.Use(middleware.MaxPayloadSize)
+	r.Use(middleware.SecureHeaders)
 
 	r.Route("/api", func(r chi.Router) {
-		// Rate limiting para toda la API (100 peticiones por minuto por IP)
-		r.Use(middleware.RateLimit(100, 1*time.Minute))
+		// Rate limiting para toda la API (2 peticiones por segundo con ráfaga de 5 por IP)
+		r.Use(middleware.RateLimit(2, 5))
 
 		r.Route("/v1", func(r chi.Router) {
 			// Auth Routes

@@ -66,8 +66,11 @@ var serveCmd = &cobra.Command{
 		}
 
 		srv := &http.Server{
-			Addr:    ":" + finalPort,
-			Handler: router,
+			Addr:         ":" + finalPort,
+			Handler:      router,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  120 * time.Second,
 		}
 
 		// 7. Graceful Shutdown
