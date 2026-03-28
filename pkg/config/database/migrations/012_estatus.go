@@ -21,8 +21,10 @@ func migrateEstatus(db *sql.DB) error {
 	defer tx.Rollback()
 
 	// 1. Definición final de la tabla estatus
-	// Se eliminan pasos intermedios de renombrado histórico para favorecer una estructura limpia.
+	// Se asegura la existencia del esquema public y se define la tabla limpia.
 	query := `
+	CREATE SCHEMA IF NOT EXISTS public;
+
 	CREATE TABLE IF NOT EXISTS public.estatus (
 		id_status       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
 		std_descripcion VARCHAR(255) NOT NULL,

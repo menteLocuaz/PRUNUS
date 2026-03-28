@@ -32,9 +32,7 @@ func migrateStatusConsistencyTriggers(db *sql.DB) error {
 		('producto',     4, 'Módulo Catálogo/Productos', 'system'),
 		('factura',      5, 'Módulo Ventas/Facturas',    'system'),
 		('orden_pedido', 6, 'Módulo Operaciones/Pedidos','system'),
-		('categoria',    4, 'Módulo Catálogo (Asociado a Producto)', 'system'),
-		('moneda',      -1, 'Módulo Global/Transversal', 'system'),
-		('medida',      -1, 'Módulo Global/Transversal', 'system')
+		('moneda',      -1, 'Módulo Global/Transversal', 'system')
 	ON CONFLICT (table_name) DO UPDATE 
 	SET mdl_id = EXCLUDED.mdl_id, 
 	    descripcion = EXCLUDED.descripcion,
@@ -109,9 +107,7 @@ func migrateStatusConsistencyTriggers(db *sql.DB) error {
 	CALL config.sp_aplicar_trigger_validacion('producto');
 	CALL config.sp_aplicar_trigger_validacion('factura');
 	CALL config.sp_aplicar_trigger_validacion('orden_pedido');
-	CALL config.sp_aplicar_trigger_validacion('categoria');
 	CALL config.sp_aplicar_trigger_validacion('moneda');
-	CALL config.sp_aplicar_trigger_validacion('medida');
 	`
 	_, err := db.Exec(query)
 	return err
