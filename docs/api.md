@@ -148,17 +148,7 @@ Controla el stock físico por sucursal, alertas de existencias y valuación.
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | POST | `/abrir` | Abrir una caja (Control Estación) |
-| POST | `/desmontar` | Desmontar/cerrar sesión de un cajero (Back Office) |
 | GET | `/estado/{id}` | Consultar estado de una estación |
-
-**POST /pos/desmontar**
-> Migración de SP `iae_actualizacajeromotivo`. Cierra la sesión activa y actualiza retiros a "Retiro Total".
-```json
-{
-  "id_control_estacion": "uuid",
-  "id_restaurante": "1"
-}
-```
 
 ### Estaciones POS (`/estaciones-pos`)
 Gestión de estaciones físicas de venta.
@@ -202,6 +192,38 @@ Gestión de periféricos (Impresoras, Kioskos, Datáfonos, Scanners).
   "id_estacion": "uuid"
 }
 ```
+ ### Configuración de Impresión (`/configuracion-pos`)
+Endpoints auxiliares para obtener catálogos de hardware y canales de comunicación necesarios para la configuración de
+estaciones de impresión.
+    
+    | Método | Ruta | Descripción |
+    |--------|------|-------------|
+    | GET | `/canales/{chainId}` | Listar canales de impresión activos por ID de cadena |
+    | GET | `/impresoras/{restId}` | Listar impresoras configuradas por ID de restaurante |
+    | GET | `/puertos` | Listar todos los puertos de comunicación (COM/LPT) activos |
+   
+   **GET /configuracion-pos/canales/1**
+    - **Respuesta Exitosa (200 OK):**
+  {
+    "success": true,
+    "message": "Canales obtenidos",
+    "data": [
+      { "id": 1, "descripcion": "Canal Local" },
+      { "id": 2, "descripcion": "Canal Remoto" }
+    ]
+  }
+
+   
+    **GET /configuracion-pos/puertos**
+    - **Respuesta Exitosa (200 OK):**
+  {
+    "success": true,
+    "message": "Puertos obtenidos",
+    "data": [
+      { "id": 1, "descripcion": "COM1" },
+      { "id": 2, "descripcion": "LPT1" }
+    ]
+  }
 
 ### Caja (`/caja`)
 | Método | Ruta | Descripción |
