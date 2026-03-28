@@ -78,6 +78,7 @@ Controla el stock físico por sucursal, alertas de existencias y valuación.
 | POST | `/` | Crear registro de inventario inicial |
 | PUT | `/{id}` | Actualizar stock o precios |
 | POST | `/movimientos` | Registrar un movimiento (ENTRADA, SALIDA, AJUSTE, DEVOLUCION, TRASLADO) |
+| POST | `/movimientos/masivo` | Registrar movimientos masivos de inventario |
 | GET | `/movimientos/{id}` | Listar historial de movimientos (Kardex) de un producto |
 | GET | `/alertas` | Listar productos con stock bajo (Query: `id_sucursal`) |
 | GET | `/valuacion` | Obtener valor total del inventario (Query: `id_sucursal`) |
@@ -104,6 +105,26 @@ Controla el stock físico por sucursal, alertas de existencias y valuación.
   "tipo_movimiento": "ENTRADA",
   "cantidad": 50,
   "referencia": "Compra Proveedor #999"
+}
+```
+
+**POST /inventario/movimientos/masivo**
+> Permite registrar movimientos para múltiples productos en una sola petición.
+```json
+{
+  "id_sucursal": "uuid",
+  "tipo_movimiento": "ENTRADA",
+  "referencia": "Ajuste de inventario anual",
+  "items": [
+    {
+      "id_producto": "uuid",
+      "cantidad": 50
+    },
+    {
+      "id_producto": "uuid",
+      "cantidad": 30
+    }
+  ]
 }
 ```
 
@@ -196,7 +217,9 @@ Gestión de periféricos (Impresoras, Kioskos, Datáfonos, Scanners).
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/` | Listar historial de facturas |
-| POST | `/` | Generar una nueva factura con detalles |
+| POST | `/` | Generar una nueva factura básica |
+| POST | `/completa` | Registrar factura con detalle y pagos |
+| GET | `/{id}` | Obtener detalle de una factura específica |
 | GET | `/impuestos` | Listar catálogo de impuestos |
 | GET | `/formas-pago`| Listar catálogo de formas de pago |
 
@@ -222,9 +245,40 @@ Gestión de periféricos (Impresoras, Kioskos, Datáfonos, Scanners).
 }
 ```
 
----
-
-## 6. Pedidos y Agregadores
+**POST /facturas/completa**
+> Registra una factura con toda su información: cabecera, detalles (items) y formas de pago en una sola transacción atómica.
+```json
+{
+  "cabecera": {
+    "fac_numero": "FAC-002",
+    "subtotal": 100.0,
+    "iva": 19.0,
+    "total": 119.0,
+    "observacion": "Venta de mostrador",
+    "id_estacion": "uuid",
+    "id_cliente": "uuid",
+    "id_periodo": "uuid",
+    "id_control_estacion": "uuid"
+  },
+  "detalles": [
+    {
+      "id_producto": "uuid",
+      "cantidad": 1,
+      "precio": 100.0,
+      "subtotal": 100.0,
+      "impuesto": 19.0,
+      "total": 119.0
+    }
+  ],
+  "pagos": [
+    {
+      "id_forma_pago": "uuid",
+      "valor_billete": 120.0,
+      "total_pagar": 119.0
+    }
+  ]
+}
+```
 
 ### Ordenes (`/ordenes`)
 | Método | Ruta | Descripción |

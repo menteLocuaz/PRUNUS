@@ -1,110 +1,87 @@
 # Guía Rápida: Configurar y Probar Autenticación
 
-## Pasos para Configurar el Sistema de Autenticación
+Este documento describe los pasos para levantar el servicio y configurar el acceso inicial, considerando que el sistema utiliza **UUID v4** para todos sus identificadores y una base de datos PostgreSQL 15.
+
+## Pasos para Configurar el Sistema
 
 ### 1. Configurar Variables de Entorno
 
-Edita tu archivo `.env` y agrega estas líneas:
+Asegúrate de tener un archivo `.env` en la raíz del proyecto con la configuración de la base de datos y JWT:
 
 ```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=prunus_db
+DB_SSLMODE=disable
+
 # JWT Configuration
 JWT_SECRET=cambia_esto_por_una_clave_super_segura_de_al_menos_32_caracteres_random
 JWT_EXPIRATION_HOURS=24
 ```
 
-**IMPORTANTE:** Cambia `JWT_SECRET` por una clave única y segura.
+### 2. Iniciar el Servidor
 
-### 2. Instalar Dependencias
-
-Las dependencias ya están instaladas, pero si necesitas reinstalarlas:
+El servidor realiza las migraciones automáticas al iniciar.
 
 ```bash
-go mod download
-```
-
-### 3. Iniciar el Servidor
-
-```bash
-cd c:\Users\Lenovo\Music\Go\prunus
 go run cmd/main.go
 ```
 
-Deberías ver:
+Deberías ver en los logs:
 ```
-✅ Iniciando servidor
+✅ Conexión a la base de datos establecida
+✅ Migraciones completadas
+✅ Iniciando servidor en puerto :9090
 ```
-
-El servidor estará corriendo en `http://localhost:9090`
 
 ---
 
-## Pruebas Rápidas
+## Pruebas Rápidas e Inicialización de Datos
 
-### Paso 1: Crear un Usuario de Prueba
+Debido a que el sistema utiliza UUIDs y llaves foráneas, es necesario insertar los datos maestros iniciales (Empresa, Sucursal, Rol) antes de crear el primer usuario.
 
-Primero necesitas crear un usuario en la base de datos. Puedes hacerlo de dos formas:
+### Paso 1: Inicializar Datos en la Base de Datos (SQL)
 
-#### Opción A: Usando el endpoint de creación (temporalmente sin protección)
-
-Si necesitas crear el primer usuario admin, temporalmente puedes comentar el middleware de autenticación en `main_router.go`:
-
-```go
-// Comentar temporalmente esta línea:
-// r.Use(middleware.RequireAuth())
-```
-
-Luego crear el usuario:
-
-```bash
-curl -X POST http://localhost:9090/api/v1/usuario \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id_sucursal": 1,
-    "rol": {
-      "id_rol": 1
-    },
-    "usu_email": "admin@prunus.com",
-    "usu_nombre": "Administrador",
-    "usu_dni": "12345678",
-    "usu_telefono": "+51999888777",
-    "usu_password": "Admin123",
-    "estado": 1
-  }'
-```
-
-**No olvides volver a descomentar el middleware después.**
-
-#### Opción B: Directamente en la Base de Datos
+Ejecuta el siguiente script en tu cliente de base de datos (psql, DBeaver, etc.):
 
 ```sql
--- Primero, asegúrate de tener una sucursal y un rol
-INSERT INTO sucursal (nombre_sucursal, direccion, telefono, estado)
-VALUES ('Sucursal Central', 'Av. Principal 123', '+51999000111', 1);
+-- 1. Insertar Empresa (ID: 7f7b...)
+INSERT INTO empresa (id_empresa, nombre, rut, id_status)
+VALUES ('7f7b0e11-1234-4a21-9591-316279f06742', 'Empresa Matriz', '800123456-7', '59039503-85CF-E511-80C1-000C29C9E0E0');
 
-INSERT INTO rol (nombre_rol, id_sucursal, estado)
-VALUES ('Administrador', 1, 1);
+-- 2. Insertar Sucursal (ID: a3b4...) vinculado a la Empresa
+INSERT INTO sucursal (id_sucursal, id_empresa, nombre_sucursal, id_status)
+VALUES ('a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', '7f7b0e11-1234-4a21-9591-316279f06742', 'Sucursal Central', '59039503-85CF-E511-80C1-000C29C9E0E0');
 
--- Luego crea el usuario (password: Admin123)
--- El hash es para "Admin123"
-INSERT INTO usuario (id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, password, estado)
+-- 3. Insertar Rol (ID: b4c5...) vinculado a la Sucursal
+INSERT INTO rol (id_rol, nombre_rol, id_sucursal, id_status)
+VALUES ('b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e', 'Administrador', 'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', '59039503-85CF-E511-80C1-000C29C9E0E0');
+
+-- 4. Crear el usuario administrador (password: Admin123)
+-- El hash corresponde a "Admin123" generado con bcrypt
+INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, password, id_status)
 VALUES (
-  1,
-  1,
+  'c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f',
+  'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d',
+  'b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e',
   'admin@prunus.com',
-  'Administrador',
+  'Administrador Sistema',
   '12345678',
   '+51999888777',
-  '$2a$10$rZ5qX8KYqJxY9vxF8F0qLu.YB8G0qH4vMqXVZ4U3B9K3r5nH6K2Gm',
-  1
+  '$2a$10$U.sUS/qwAXlDPrJZ9wAaLe78DmRtcnWVY39wFp85YLiL0iIVPVkkK',
+  '59039503-85CF-E511-80C1-000C29C9E0E0'
 );
 ```
 
 ---
 
-### Paso 2: Hacer Login
+### Paso 2: Hacer Login para Obtener Token
 
 ```bash
-curl -X POST http://localhost:9090/api/v1/login \
+curl -X POST http://localhost:9090/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@prunus.com",
@@ -116,256 +93,47 @@ curl -X POST http://localhost:9090/api/v1/login \
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "usuario": {
-    "id_usuario": 1,
-    "usu_email": "admin@prunus.com",
-    "usu_nombre": "Administrador",
-    ...
-  },
-  "expires_at": 1735617045
-}
-```
-
-**Copia el token** de la respuesta.
-
----
-
-### Paso 3: Probar Endpoint Protegido
-
-Reemplaza `<TU_TOKEN>` con el token que obtuviste:
-
-```bash
-curl -X GET http://localhost:9090/api/v1/me \
-  -H "Authorization: Bearer <TU_TOKEN>"
-```
-
-**Respuesta esperada:**
-
-```json
-{
-  "id_usuario": 1,
-  "usu_email": "admin@prunus.com",
-  "usu_nombre": "Administrador",
-  ...
-}
-```
-
----
-
-### Paso 4: Probar Acceso sin Token (Debe Fallar)
-
-```bash
-curl -X GET http://localhost:9090/api/v1/empresas
-```
-
-**Respuesta esperada:**
-
-```
-Token de autenticación requerido
-```
-
-Status: `401 Unauthorized`
-
----
-
-### Paso 5: Probar Acceso con Token
-
-```bash
-curl -X GET http://localhost:9090/api/v1/empresas \
-  -H "Authorization: Bearer <TU_TOKEN>"
-```
-
-**Respuesta esperada:**
-
-```json
-[
-  {
-    "id_empresa": 1,
-    "nombre_empresa": "...",
-    ...
+  "status": "success",
+  "message": "Inicio de sesión exitoso",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "usuario": {
+      "id_usuario": "c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f",
+      "email": "admin@prunus.com",
+      "usu_nombre": "Administrador Sistema"
+    },
+    "expires_at": "2026-03-26T15:00:00Z"
   }
-]
+}
+```
+
+**Copia el valor del token.**
+
+---
+
+### Paso 3: Probar Acceso a Endpoints Protegidos
+
+Reemplaza `<TU_TOKEN>` con el token obtenido:
+
+```bash
+# Listar inventario (requiere token)
+curl -X GET http://localhost:9090/api/v1/inventario \
+  -H "Authorization: Bearer <TU_TOKEN>"
 ```
 
 ---
 
 ## Verificación de Configuración
 
-### ✅ Checklist
+### ✅ Checklist de Solución de Problemas
 
-- [ ] Archivo `.env` tiene `JWT_SECRET` configurado
-- [ ] Archivo `.env` tiene `JWT_EXPIRATION_HOURS` configurado
-- [ ] Servidor inicia sin errores
-- [ ] Existe al menos un usuario en la BD
-- [ ] Usuario tiene un rol asignado
-- [ ] Rol está activo (`estado = 1`)
-- [ ] Usuario está activo (`estado = 1`)
-- [ ] Login retorna un token válido
-- [ ] Endpoint `/api/v1/me` funciona con token
-- [ ] Endpoints protegidos rechazan requests sin token
+1. **UUIDs en las peticiones:** Asegúrate de enviar los IDs en formato UUID (ej: `550e8400-e29b-41d4-a716-446655440000`) y no números enteros.
+2. **Estatus ACTIVO:** Todos los registros (Empresa, Sucursal, Rol, Usuario) deben tener el `id_status` correspondiente a `EstatusActivo` (`59039503-85CF-E511-80C1-000C29C9E0E0`).
+3. **JWT_SECRET:** Si cambias esta variable en el `.env`, todos los tokens anteriores dejarán de ser válidos.
+4. **Contexto de Usuario:** El sistema inyecta automáticamente `user_id`, `user_sucursal` y `user_rol` en el contexto después de validar el token.
 
 ---
 
-## Endpoints Disponibles
-
-### Públicos (Sin Token)
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| POST | `/api/v1/login` | Iniciar sesión |
-
-### Protegidos (Requieren Token)
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/v1/me` | Información del usuario actual |
-| POST | `/api/v1/logout` | Cerrar sesión |
-| POST | `/api/v1/refresh-token` | Renovar token |
-| GET | `/api/v1/empresas` | Listar empresas |
-| POST | `/api/v1/empresas` | Crear empresa |
-| GET | `/api/v1/empresas/{id}` | Obtener empresa |
-| PUT | `/api/v1/empresas/{id}` | Actualizar empresa |
-| DELETE | `/api/v1/empresas/{id}` | Eliminar empresa |
-| ... | `/api/v1/sucursal/*` | CRUD sucursales |
-| ... | `/api/v1/rol/*` | CRUD roles |
-| ... | `/api/v1/usuario/*` | CRUD usuarios |
-
----
-
-## Ejemplo Completo: Flujo de Trabajo
-
-```bash
-# 1. Login
-LOGIN_RESPONSE=$(curl -s -X POST http://localhost:9090/api/v1/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@prunus.com","password":"Admin123"}')
-
-# 2. Extraer token (requiere jq)
-TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.token')
-
-echo "Token: $TOKEN"
-
-# 3. Obtener información del usuario actual
-curl -X GET http://localhost:9090/api/v1/me \
-  -H "Authorization: Bearer $TOKEN"
-
-# 4. Listar empresas
-curl -X GET http://localhost:9090/api/v1/empresas \
-  -H "Authorization: Bearer $TOKEN"
-
-# 5. Crear nueva empresa
-curl -X POST http://localhost:9090/api/v1/empresas \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nombre_empresa": "Mi Empresa",
-    "ruc": "20123456789",
-    "direccion": "Av. Test 123",
-    "telefono": "+51999888777",
-    "estado": 1
-  }'
-
-# 6. Logout
-curl -X POST http://localhost:9090/api/v1/logout \
-  -H "Authorization: Bearer $TOKEN"
-```
-
----
-
-## Solución de Problemas Comunes
-
-### "JWT_SECRET no configurado"
-
-**Solución:**
-1. Abre `.env`
-2. Agrega: `JWT_SECRET=tu_clave_secreta_aqui`
-3. Reinicia el servidor
-
-### "Credenciales inválidas"
-
-**Causas:**
-- Email o password incorrectos
-- Usuario no existe
-- Usuario inactivo
-- Rol inactivo
-
-**Solución:**
-```sql
--- Verificar usuario
-SELECT u.*, r.*
-FROM usuario u
-LEFT JOIN rol r ON u.id_rol = r.id_rol
-WHERE u.email = 'admin@prunus.com';
-
--- Debe retornar el usuario con estado=1 y rol con estado=1
-```
-
-### "Token de autenticación requerido"
-
-**Causa:** No se envió el token o está mal formado
-
-**Solución:**
-- Asegúrate de incluir el header: `Authorization: Bearer <token>`
-- Verifica que no haya espacios extras
-- El formato correcto es: `Bearer ` + token (con un espacio)
-
-### "Token inválido"
-
-**Causas:**
-- Token manipulado
-- JWT_SECRET diferente al usado para generarlo
-- Token mal formado
-
-**Solución:**
-- Hacer login de nuevo para obtener un token válido
-- Verificar que JWT_SECRET sea el mismo
-
-### "Token expirado"
-
-**Causa:** El token excedió las 24 horas
-
-**Solución:**
-- Hacer login de nuevo
-- O usar `/refresh-token` antes de que expire
-
----
-
-## Siguiente Paso
-
-Una vez que todo funciona correctamente:
-
-1. **Crear más usuarios** con diferentes roles
-2. **Implementar autorización por roles** usando `middleware.RequireRole()`
-3. **Configurar CORS** si vas a usar desde un frontend
-4. **Configurar HTTPS** en producción
-5. **Implementar rate limiting** en el endpoint de login
-
----
-
-## Documentación Completa
-
-Para más detalles, consulta:
-- [AUTENTICACION.md](./AUTENTICACION.md) - Documentación completa del sistema
-
----
-
-## Características Implementadas
-
-✅ Login con email y password
-✅ Generación de JWT tokens
-✅ Validación de tokens
-✅ Rutas protegidas con middleware
-✅ Endpoint de usuario actual (/me)
-✅ Logout
-✅ Refresh token
-✅ Middleware opcional de roles
-✅ Verificación de estado de usuario y rol
-✅ Passwords hasheadas con bcrypt
-✅ Claims personalizados en JWT
-✅ Extracción de IP del cliente
-✅ Manejo de errores de autenticación
-
----
-
-**¡Sistema de autenticación completamente funcional! 🎉**
+## Documentación Adicional
+- [API.md](./api.md) - Referencia completa de endpoints.
+- [DATABASE.md](./DATABASE.md) - Esquema y diseño de tablas.
