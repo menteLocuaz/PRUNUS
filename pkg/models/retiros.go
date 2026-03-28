@@ -21,6 +21,7 @@ type Retiro struct {
 	PosCalculado           float64    `json:"pos_calculado"`
 	DiferenciaValor        float64    `json:"diferencia_valor"`
 	RetiroValor            float64    `json:"retiro_valor"`
+	TPEnvID                int        `json:"tpenv_id"`
 	CreatedAt              time.Time  `json:"created_at"`
 	UpdatedAt              time.Time  `json:"updated_at"`
 	DeletedAt              *time.Time `json:"deleted_at,omitempty"`

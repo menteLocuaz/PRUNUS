@@ -27,6 +27,9 @@ type StorePOS interface {
 
 	// Desmontar (Migración SP)
 	DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID, motivoDescuadre string) error
+
+	// Actualizar Valores Declarados (Migración SP)
+	UpdateValoresDeclarados(ctx context.Context, ctrlID, formaPagoID, userID uuid.UUID, valor float64, tpEnvID int, idStatusRetiroEfectivo, idStatusRetiroTotal, idStatusDesmontado uuid.UUID) error
 }
 
 type storePOS struct {
@@ -149,6 +152,68 @@ func (s *storePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStat
 	queryRet := `UPDATE retiros SET id_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id_control_estacion = $2 AND id_status = $3 AND deleted_at IS NULL`
 	if _, err := tx.ExecContext(ctx, queryRet, idStatusRetiroTotal, ctrlID, idStatusDesmontado); err != nil {
 		return fmt.Errorf("error al actualizar retiros: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (s *storePOS) UpdateValoresDeclarados(ctx context.Context, ctrlID, formaPagoID, userID uuid.UUID, valor float64, tpEnvID int, idStatusRetiroEfectivo, idStatusRetiroTotal, idStatusDesmontado uuid.UUID) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Obtener suma de retiros previos (Solo los realizados durante la sesión activa en efectivo)
+	var sumRetiros float64
+	querySum := `SELECT COALESCE(SUM(retiro_valor), 0) FROM retiros 
+	             WHERE id_status = $1 AND id_control_estacion = $2 AND id_forma_pago = $3 AND tpenv_id = $4`
+
+	if err := tx.QueryRowContext(ctx, querySum, idStatusRetiroEfectivo, ctrlID, formaPagoID, tpEnvID).Scan(&sumRetiros); err != nil {
+		return fmt.Errorf("error al obtener suma de retiros: %w", err)
+	}
+
+	// 2. Actualizar registro de arqueo
+	var queryUpdate string
+	var args []interface{}
+
+	if tpEnvID == -1 {
+		// EFECTIVO
+		queryUpdate = `
+			UPDATE retiros 
+			SET arc_valor = $1, 
+			    usuario_inicia = $2, 
+			    usuario_finaliza = $2, 
+			    fecha_inicio = CURRENT_TIMESTAMP, 
+			    fecha_finaliza = CURRENT_TIMESTAMP, 
+			    retiro_valor = $1, 
+			    diferencia_valor = ($3 + $1) - pos_calculado,
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id_status = $4 
+			  AND id_control_estacion = $5 
+			  AND id_forma_pago = $6`
+		args = append(args, valor, userID, sumRetiros, idStatusRetiroTotal, ctrlID, formaPagoID)
+	} else {
+		// TARJETAS / OTROS
+		queryUpdate = `
+			UPDATE retiros 
+			SET arc_valor = $1, 
+			    usuario_inicia = $2, 
+			    usuario_finaliza = $2, 
+			    fecha_inicio = CURRENT_TIMESTAMP, 
+			    fecha_finaliza = CURRENT_TIMESTAMP, 
+			    retiro_valor = $1, 
+			    diferencia_valor = ($3 + $1) - pos_calculado,
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id_status IN ($4, $5)
+			  AND id_control_estacion = $6 
+			  AND id_forma_pago = $7
+			  AND tpenv_id = $8`
+		args = append(args, valor, userID, sumRetiros, idStatusRetiroTotal, idStatusDesmontado, ctrlID, formaPagoID, tpEnvID)
+	}
+
+	if _, err := tx.ExecContext(ctx, queryUpdate, args...); err != nil {
+		return fmt.Errorf("error al actualizar valores declarados: %w", err)
 	}
 
 	return tx.Commit()

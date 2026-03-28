@@ -67,6 +67,33 @@ func (s *ServicePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, usrI
 	return nil
 }
 
+// ActualizarValoresDeclarados actualiza el arqueo de caja para una forma de pago (Migración de SP)
+func (s *ServicePOS) ActualizarValoresDeclarados(ctx context.Context, ctrlID, formaPagoID, userID uuid.UUID, valor float64, tpEnvID int) error {
+	err := s.store.UpdateValoresDeclarados(ctx, ctrlID, formaPagoID, userID, valor, tpEnvID,
+		models.EstatusRetiroEfectivo, models.EstatusRetiroTotal, models.EstatusDesmontado)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "Error al actualizar valores declarados", slog.Any("error", err), slog.String("ctrl_id", ctrlID.String()))
+		return err
+	}
+
+	// Auditoría
+	descAudit := fmt.Sprintf("ACTUALIZA VALORES DECLARADOS - Valor: %.2f, IdFormaPago: %s, Cod Usuario: %s, Control_Estación: %s",
+		valor, formaPagoID.String(), userID.String(), ctrlID.String())
+
+	audit := &models.AuditoriaCaja{
+		IDControlEstacion: ctrlID,
+		TipoMovimiento:    models.EstatusDesmontado,
+		IDUsuario:         0,
+		Descripcion:       descAudit,
+	}
+
+	if err := s.logsStore.CreateAuditoriaCaja(ctx, audit); err != nil {
+		s.logger.ErrorContext(ctx, "Error al registrar auditoría de valores declarados", slog.Any("error", err))
+	}
+
+	return nil
+}
+
 // AbrirCaja realiza la apertura de una estación de POS
 func (s *ServicePOS) AbrirCaja(ctx context.Context, input dto.AbrirCajaDTO, idUsuario uuid.UUID) (*models.ControlEstacion, error) {
 	// 1. Validar que la estación existe

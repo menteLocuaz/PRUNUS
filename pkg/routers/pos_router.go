@@ -15,6 +15,7 @@ func POSRouter(handler *transport.POSHandler) chi.Router {
 
 		r.Post("/abrir", handler.AbrirCajaHandler)
 		r.Post("/desmontar", handler.DesmontarCajeroHandler)
+		r.Post("/actualizar-valores", handler.ActualizarValoresDeclaradosHandler)
 		r.Get("/estado/{id}", handler.GetEstadoCajaHandler)
 	})
 

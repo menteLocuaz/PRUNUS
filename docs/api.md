@@ -149,6 +149,7 @@ Controla el stock físico por sucursal, alertas de existencias y valuación.
 |--------|------|-------------|
 | POST | `/abrir` | Abrir una caja (Control Estación) |
 | POST | `/desmontar` | Desmontar/cerrar sesión de un cajero (Back Office) |
+| POST | `/actualizar-valores` | Actualizar arqueo de caja por forma de pago |
 | GET | `/estado/{id}` | Consultar estado de una estación |
 
 **POST /pos/desmontar**
@@ -166,6 +167,19 @@ Controla el stock físico por sucursal, alertas de existencias y valuación.
   - `1`: Cierre normal (por defecto).
   - `2`: Desmontado por administrador.
   - `3`: Desmontado con motivo de descuadre.
+
+**POST /pos/actualizar-valores**
+> Migración de SP `iae_actualizavaloresdeclarados`. Permite declarar el efectivo o cupones físicos al final del turno. Calcula automáticamente la diferencia contra el valor esperado.
+- **Body:**
+```json
+{
+  "id_control_estacion": "uuid",
+  "id_forma_pago": "uuid",
+  "valor": 150.50,
+  "tpenv_id": -1 
+}
+```
+> `tpenv_id`: `-1` para Efectivo, otros IDs para proveedores de tarjetas o cupones.
 
 ### Estaciones POS (`/estaciones-pos`)
 Gestión de estaciones físicas de venta.

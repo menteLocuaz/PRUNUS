@@ -87,6 +87,45 @@ func (h *POSHandler) DesmontarCajeroHandler(w http.ResponseWriter, r *http.Reque
 	response.Success(w, "Cajero desmontado correctamente", nil)
 }
 
+// ActualizarValoresDeclaradosHandler maneja la actualización del arqueo por forma de pago
+func (h *POSHandler) ActualizarValoresDeclaradosHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		IDControlEstacion uuid.UUID `json:"id_control_estacion" validate:"required"`
+		IDFormaPago       uuid.UUID `json:"id_forma_pago" validate:"required"`
+		Valor             float64   `json:"valor"`
+		TPEnvID           int       `json:"tpenv_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		response.BadRequest(w, "Formato de petición inválido")
+		return
+	}
+
+	if err := validator.Validate.Struct(input); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
+	idUsuario, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		response.Unauthorized(w, "Usuario no autenticado")
+		return
+	}
+
+	// Si no se envía tpenv_id, se asume efectivo (-1)
+	if input.TPEnvID == 0 {
+		input.TPEnvID = -1
+	}
+
+	err := h.service.ActualizarValoresDeclarados(r.Context(), input.IDControlEstacion, input.IDFormaPago, idUsuario, input.Valor, input.TPEnvID)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+
+	response.Success(w, "Valores declarados actualizados correctamente", nil)
+}
+
 // GetEstadoCajaHandler obtiene el estado actual de una estación
 func (h *POSHandler) GetEstadoCajaHandler(w http.ResponseWriter, r *http.Request) {
 	idEstacionStr := chi.URLParam(r, "id")
