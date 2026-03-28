@@ -19,7 +19,7 @@ var (
 	mu       sync.Mutex
 )
 
-// getLimiter devuelve el limitador para una IP específica, creándolo si no existe
+// getLimiter devuelve el limitador para una IP específica, creándolo si no existe o actualizándolo si los parámetros cambian
 func getLimiter(ip string, r rate.Limit, b int) *rate.Limiter {
 	mu.Lock()
 	defer mu.Unlock()
@@ -28,7 +28,12 @@ func getLimiter(ip string, r rate.Limit, b int) *rate.Limiter {
 	if !exists {
 		limiter = rate.NewLimiter(r, b)
 		visitors[ip] = limiter
+		return limiter
 	}
+
+	// Actualizar el límite y ráfaga por si cambiaron en la configuración
+	limiter.SetLimit(r)
+	limiter.SetBurst(b)
 
 	return limiter
 }
