@@ -19,6 +19,7 @@ func migrateRetiros(db *sql.DB) error {
 		pos_calculado            DECIMAL(18,2) NOT NULL DEFAULT 0,
 		diferencia_valor         DECIMAL(18,2) NOT NULL DEFAULT 0,
 		retiro_valor             DECIMAL(18,2) NOT NULL DEFAULT 0,
+		tpenv_id                 INTEGER       NOT NULL DEFAULT -1,
 
 		created_at               TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at               TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
