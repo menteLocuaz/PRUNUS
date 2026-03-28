@@ -24,6 +24,9 @@ type StorePOS interface {
 	// Periodos
 	GetActivePeriodo(ctx context.Context) (*models.Periodo, error)
 	GetTotalActiveControls(ctx context.Context) (int, error)
+
+	// Desmontar (Migración SP)
+	DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID) error
 }
 
 type storePOS struct {
@@ -125,4 +128,26 @@ func (s *storePOS) GetActivePeriodo(ctx context.Context) (*models.Periodo, error
 		return nil, fmt.Errorf("no hay un periodo activo abierto")
 	}
 	return p, err
+}
+
+func (s *storePOS) DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Cerrar sesión en Control_Estacion
+	queryCtrl := `UPDATE control_estacion SET id_status = $1, fecha_salida = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id_control_estacion = $2 AND deleted_at IS NULL`
+	if _, err := tx.ExecContext(ctx, queryCtrl, idStatusInactivo, ctrlID); err != nil {
+		return fmt.Errorf("error al cerrar sesión en control_estacion: %w", err)
+	}
+
+	// 2. Actualizar retiros a "Retiro Total"
+	queryRet := `UPDATE retiros SET id_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id_control_estacion = $2 AND id_status = $3 AND deleted_at IS NULL`
+	if _, err := tx.ExecContext(ctx, queryRet, idStatusRetiroTotal, ctrlID, idStatusDesmontado); err != nil {
+		return fmt.Errorf("error al actualizar retiros: %w", err)
+	}
+
+	return tx.Commit()
 }

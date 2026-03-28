@@ -36,6 +36,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	compraStore := store.NewCompra(db)
 	periodoStore := store.NewPeriodoStore(db)
 	configuracionStore := store.NewConfiguracion(db)
+	logsStore := store.NewLogs(db)
 
 	// 2. Services (Lógica de Negocio)
 	empresaServices := services.NewServiceEmpresa(empresaStore, logger)
@@ -49,7 +50,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	productoService := services.NewServiceProducto(productoStore, logger)
 	proveedorService := services.NewServiceProveedor(proveedorStore, logger)
 	estatusService := services.NewServiceEstatus(estatusStore, cacheStore, logger)
-	posService := services.NewServicePOS(posStore, logger)
+	posService := services.NewServicePOS(posStore, logsStore, logger)
 	inventarioService := services.NewServiceInventario(inventarioStore, logger)
 	agregadoresService := services.NewServiceAgregadores(agregadoresStore, logger)
 	cajaService := services.NewServiceCaja(cajaStore, logger)

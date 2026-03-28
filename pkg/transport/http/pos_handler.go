@@ -48,6 +48,38 @@ func (h *POSHandler) AbrirCajaHandler(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, "Caja abierta exitosamente", result)
 }
 
+// DesmontarCajeroHandler maneja la petición de desmontar/cerrar sesión de un cajero (Back Office)
+func (h *POSHandler) DesmontarCajeroHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		IDControlEstacion uuid.UUID `json:"id_control_estacion" validate:"required"`
+		IDRestaurante     string    `json:"id_restaurante" validate:"required"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		response.BadRequest(w, "Formato de petición inválido")
+		return
+	}
+
+	if err := validator.Validate.Struct(input); err != nil {
+		response.ValidationError(w, validator.FormatErrors(err))
+		return
+	}
+
+	idUsuario, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		response.Unauthorized(w, "Usuario no autenticado")
+		return
+	}
+
+	err := h.service.DesmontarCajero(r.Context(), input.IDControlEstacion, idUsuario, input.IDRestaurante)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+
+	response.Success(w, "Cajero desmontado correctamente", nil)
+}
+
 // GetEstadoCajaHandler obtiene el estado actual de una estación
 func (h *POSHandler) GetEstadoCajaHandler(w http.ResponseWriter, r *http.Request) {
 	idEstacionStr := chi.URLParam(r, "id")
