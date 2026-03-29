@@ -61,7 +61,9 @@ func migrateEstatus(db *sql.DB) error {
     ('e69d8b1d-d267-47ab-b0ef-507ed6382cd3', 'Conciliado',                 'CONTABLE',     7),
     ('59039503-85cf-e511-80c1-000c29c9e0e0', 'Activo',                     'SESION',       8),
     ('5a039503-85cf-e511-80c1-000c29c9e0e0', 'Inactivo',                   'SESION',       8),
-    ('99039503-85cf-e511-80c1-000c29c9e0e0', 'Fondo Asignado',             'APERTURA',     8)
+    ('99039503-85cf-e511-80c1-000c29c9e0e0', 'Fondo Asignado',             'APERTURA',     8),
+    ('7f7b0e11-1234-4a21-9591-316279f06742', 'Activo',                     'GENERAL',     -1),
+    ('8f8b0e11-1234-4a21-9591-316279f06743', 'Inactivo',                   'GENERAL',     -1)
 	ON CONFLICT (id_status) DO UPDATE SET 
 		std_descripcion = EXCLUDED.std_descripcion,
 		std_tipo_estado = EXCLUDED.std_tipo_estado,

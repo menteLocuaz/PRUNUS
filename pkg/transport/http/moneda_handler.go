@@ -63,9 +63,17 @@ func (h *MonedaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Obtener IDSucursal del contexto si no se proporciona en la solicitud
+	idSucursal := req.IDSucursal
+	if idSucursal == uuid.Nil {
+		if val, ok := r.Context().Value("user_sucursal").(uuid.UUID); ok {
+			idSucursal = val
+		}
+	}
+
 	moneda := models.Moneda{
 		Nombre:     req.Nombre,
-		IDSucursal: req.IDSucursal,
+		IDSucursal: idSucursal,
 		IDStatus:   req.IDStatus,
 	}
 

@@ -87,9 +87,10 @@ func (s *ServiceMoneda) CreateMoneda(ctx context.Context, moneda models.Moneda) 
 		s.logger.WarnContext(ctx, "Intento de creación de moneda sin sucursal", slog.String("nombre", moneda.Nombre))
 		return nil, errors.New("falta el id de la sucursal")
 	}
+
+	// Asignar estatus automático si no se proporciona
 	if moneda.IDStatus == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de moneda sin estatus", slog.String("nombre", moneda.Nombre))
-		return nil, errors.New("falta el id del estatus")
+		moneda.IDStatus = models.EstatusGlobalActivo
 	}
 
 	res, err := s.store.CreateMoneda(ctx, &moneda)

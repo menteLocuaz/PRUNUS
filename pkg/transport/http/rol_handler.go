@@ -76,10 +76,18 @@ func (h *RolHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Obtener IDSucursal del contexto si no se proporciona
+	idSucursal := req.IDSucursal
+	if idSucursal == uuid.Nil {
+		if val, ok := r.Context().Value("user_sucursal").(uuid.UUID); ok {
+			idSucursal = val
+		}
+	}
+
 	// Convertir DTO a modelo
 	rol := models.Rol{
 		RolNombre:  req.RolNombre,
-		IDSucursal: req.IDSucursal,
+		IDSucursal: idSucursal,
 		IDStatus:   req.IDStatus,
 	}
 
