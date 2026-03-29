@@ -4,8 +4,8 @@ import "github.com/google/uuid"
 
 type MonedaCreateRequest struct {
 	Nombre     string    `json:"nombre" validate:"required,min=1,max=100"`
-	IDSucursal uuid.UUID `json:"id_sucursal" validate:"required"`
-	IDStatus   uuid.UUID `json:"id_status" validate:"required"`
+	IDSucursal uuid.UUID `json:"id_sucursal"`
+	IDStatus   uuid.UUID `json:"id_status"`
 }
 
 type MonedaUpdateRequest struct {

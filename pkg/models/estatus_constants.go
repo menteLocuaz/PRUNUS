@@ -19,4 +19,8 @@ var (
 	EstatusFondoActivo       = uuid.MustParse("A864475F-0D34-E711-80C1-000C29C9E0E0")
 	EstatusFondoRetirado     = uuid.MustParse("2160B065-0D34-E711-80C1-000C29C9E0E0")
 	EstatusFondoPorConfirmar = uuid.MustParse("5E8DD0FB-5550-E711-80C1-000C29C9E0E0")
+
+	// Estatus Globales (Módulo -1)
+	EstatusGlobalActivo   = uuid.MustParse("7f7b0e11-1234-4a21-9591-316279f06742")
+	EstatusGlobalInactivo = uuid.MustParse("8f8b0e11-1234-4a21-9591-316279f06743")
 )

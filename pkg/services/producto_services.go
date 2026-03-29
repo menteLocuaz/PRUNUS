@@ -41,12 +41,19 @@ func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCr
 	}
 
 	// 1. Mapear DTO a Modelo de Catálogo
+	// Asignar estatus automático si no se envía
+	idStatus := req.IDStatus
+	if idStatus == uuid.Nil {
+		// Estatus 'Disponible' para Módulo Producto (ID según catálogo)
+		idStatus = uuid.MustParse("31f4e127-e7e1-414d-aaef-6e92e4c5d970")
+	}
+
 	producto := &models.Producto{
 		Nombre:           req.Nombre,
 		Descripcion:      req.Descripcion,
 		FechaVencimiento: &req.FechaVencimiento,
 		Imagen:           req.Imagen,
-		IDStatus:         req.IDStatus,
+		IDStatus:         idStatus,
 		IDCategoria:      req.IDCategoria,
 		IDMoneda:         req.IDMoneda,
 		IDUnidad:         req.IDUnidad,

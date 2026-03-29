@@ -14,7 +14,7 @@ type ProductoCreateRequest struct {
 	Stock            uint      `json:"stock" validate:"required,gte=0"`
 	FechaVencimiento time.Time `json:"fecha_vencimiento" validate:"omitempty"`
 	Imagen           string    `json:"imagen" validate:"omitempty"`
-	IDStatus         uuid.UUID `json:"id_status" validate:"required"`
+	IDStatus         uuid.UUID `json:"id_status"`
 	IDSucursal       uuid.UUID `json:"id_sucursal" validate:"required"`
 	IDCategoria      uuid.UUID `json:"id_categoria" validate:"required"`
 	IDMoneda         uuid.UUID `json:"id_moneda" validate:"required"`

@@ -94,9 +94,10 @@ func (s *ServiceRol) CreateRol(ctx context.Context, rol models.Rol) (*models.Rol
 		s.logger.WarnContext(ctx, "Intento de creación de rol sin sucursal", slog.String("nombre", rol.RolNombre))
 		return nil, errors.New("el ID de la sucursal es requerido")
 	}
+
+	// Asignar estatus automático si no se proporciona
 	if rol.IDStatus == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de rol sin estatus", slog.String("nombre", rol.RolNombre))
-		return nil, errors.New("el ID del estatus es requerido")
+		rol.IDStatus = models.EstatusActivo
 	}
 
 	result, err := s.store.CreateRol(ctx, &rol)
