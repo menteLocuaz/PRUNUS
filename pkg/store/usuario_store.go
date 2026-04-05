@@ -287,28 +287,30 @@ func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*mo
 // CreateUsuario crea un nuevo usuario en la base de datos
 func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuario) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "CreateUsuario", performance.DbThreshold, time.Now())
-	query := `
-		INSERT INTO usuario (id_sucursal, id_rol, username, email, usu_nombre, usu_dni, usu_telefono, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket, password, id_status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		RETURNING id_usuario, created_at, updated_at
-	`
 
-	err := s.db.QueryRowContext(
-		ctx,
-		query,
-		usuario.IDSucursal,
-		usuario.IDRol,
-		usuario.Username,
-		usuario.Email,
-		usuario.UsuNombre,
-		usuario.UsuDNI,
-		usuario.UsuTelefono,
-		usuario.UsuTarjetaNFC,
-		usuario.UsuPinPOS,
-		usuario.NombreTicket,
-		usuario.Password,
-		usuario.IDStatus,
-	).Scan(&usuario.IDUsuario, &usuario.CreatedAt, &usuario.UpdatedAt)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			INSERT INTO usuario (id_sucursal, id_rol, username, email, usu_nombre, usu_dni, usu_telefono, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket, password, id_status)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			RETURNING id_usuario, created_at, updated_at
+		`
+		return tx.QueryRowContext(
+			ctx,
+			query,
+			usuario.IDSucursal,
+			usuario.IDRol,
+			usuario.Username,
+			usuario.Email,
+			usuario.UsuNombre,
+			usuario.UsuDNI,
+			usuario.UsuTelefono,
+			usuario.UsuTarjetaNFC,
+			usuario.UsuPinPOS,
+			usuario.NombreTicket,
+			usuario.Password,
+			usuario.IDStatus,
+		).Scan(&usuario.IDUsuario, &usuario.CreatedAt, &usuario.UpdatedAt)
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("error al crear usuario: %w", err)
@@ -320,78 +322,77 @@ func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuari
 // UpdateUsuario actualiza un usuario existente en la base de datos
 func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario *models.Usuario) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "UpdateUsuario", performance.DbThreshold, time.Now())
-	query := `
-		UPDATE usuario
-		SET
-			id_sucursal = $1,
-			id_rol = $2,
-			username = $3,
-			email = $4,
-			usu_nombre = $5,
-			usu_dni = $6,
-			usu_telefono = $7,
-			usu_tarjeta_nfc = $8,
-			usu_pin_pos = $9,
-			nombre_ticket = $10,
-			password = CASE WHEN $11 <> '' THEN $11 ELSE password END,
-			id_status = $12,
-			updated_at = CURRENT_TIMESTAMP
-		WHERE id_usuario = $13 AND deleted_at IS NULL
-		RETURNING
-			id_usuario,
-			id_sucursal,
-			id_rol,
-			username,
-			email,
-			usu_nombre,
-			usu_dni,
-			COALESCE(usu_telefono, ''),
-			COALESCE(usu_tarjeta_nfc, ''),
-			COALESCE(usu_pin_pos, ''),
-			COALESCE(nombre_ticket, ''),
-			password,
-			id_status,
-			created_at,
-			updated_at
-	`
 
-	err := s.db.QueryRowContext(
-		ctx,
-		query,
-		usuario.IDSucursal,
-		usuario.IDRol,
-		usuario.Username,
-		usuario.Email,
-		usuario.UsuNombre,
-		usuario.UsuDNI,
-		usuario.UsuTelefono,
-		usuario.UsuTarjetaNFC,
-		usuario.UsuPinPOS,
-		usuario.NombreTicket,
-		usuario.Password,
-		usuario.IDStatus,
-		id,
-	).Scan(
-		&usuario.IDUsuario,
-		&usuario.IDSucursal,
-		&usuario.IDRol,
-		&usuario.Username,
-		&usuario.Email,
-		&usuario.UsuNombre,
-		&usuario.UsuDNI,
-		&usuario.UsuTelefono,
-		&usuario.UsuTarjetaNFC,
-		&usuario.UsuPinPOS,
-		&usuario.NombreTicket,
-		&usuario.Password,
-		&usuario.IDStatus,
-		&usuario.CreatedAt,
-		&usuario.UpdatedAt,
-	)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			UPDATE usuario
+			SET
+				id_sucursal = $1,
+				id_rol = $2,
+				username = $3,
+				email = $4,
+				usu_nombre = $5,
+				usu_dni = $6,
+				usu_telefono = $7,
+				usu_tarjeta_nfc = $8,
+				usu_pin_pos = $9,
+				nombre_ticket = $10,
+				password = CASE WHEN $11 <> '' THEN $11 ELSE password END,
+				id_status = $12,
+				updated_at = CURRENT_TIMESTAMP
+			WHERE id_usuario = $13 AND deleted_at IS NULL
+			RETURNING
+				id_usuario,
+				id_sucursal,
+				id_rol,
+				username,
+				email,
+				usu_nombre,
+				usu_dni,
+				COALESCE(usu_telefono, ''),
+				COALESCE(usu_tarjeta_nfc, ''),
+				COALESCE(usu_pin_pos, ''),
+				COALESCE(nombre_ticket, ''),
+				password,
+				id_status,
+				created_at,
+				updated_at
+		`
+		return tx.QueryRowContext(
+			ctx,
+			query,
+			usuario.IDSucursal,
+			usuario.IDRol,
+			usuario.Username,
+			usuario.Email,
+			usuario.UsuNombre,
+			usuario.UsuDNI,
+			usuario.UsuTelefono,
+			usuario.UsuTarjetaNFC,
+			usuario.UsuPinPOS,
+			usuario.NombreTicket,
+			usuario.Password,
+			usuario.IDStatus,
+			id,
+		).Scan(
+			&usuario.IDUsuario,
+			&usuario.IDSucursal,
+			&usuario.IDRol,
+			&usuario.Username,
+			&usuario.Email,
+			&usuario.UsuNombre,
+			&usuario.UsuDNI,
+			&usuario.UsuTelefono,
+			&usuario.UsuTarjetaNFC,
+			&usuario.UsuPinPOS,
+			&usuario.NombreTicket,
+			&usuario.Password,
+			&usuario.IDStatus,
+			&usuario.CreatedAt,
+			&usuario.UpdatedAt,
+		)
+	})
 
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("usuario con ID %s no encontrado", id)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar usuario: %w", err)
 	}
@@ -402,52 +403,47 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 // DeleteUsuario realiza un soft delete del usuario (actualiza deleted_at)
 func (s *storeUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteUsuario", performance.DbThreshold, time.Now())
-	query := `
-		UPDATE usuario
-		SET deleted_at = $1
-		WHERE id_usuario = $2 AND deleted_at IS NULL
-	`
 
-	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
-	if err != nil {
-		return fmt.Errorf("error al eliminar usuario: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("error al verificar filas afectadas: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("usuario con ID %s no encontrado", id)
-	}
-
-	return nil
+	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			UPDATE usuario
+			SET deleted_at = $1
+			WHERE id_usuario = $2 AND deleted_at IS NULL
+		`
+		result, err := tx.ExecContext(ctx, query, time.Now(), id)
+		if err != nil {
+			return err
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rowsAffected == 0 {
+			return fmt.Errorf("usuario con ID %s no encontrado", id)
+		}
+		return nil
+	})
 }
 
 func (s *storeUsuario) AssignSucursales(ctx context.Context, userID uuid.UUID, sucursales []uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "AssignSucursales", performance.DbThreshold, time.Now())
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 
-	// 1. Limpiar accesos previos
-	queryDelete := `DELETE FROM usuario_sucursal_acceso WHERE id_usuario = $1`
-	if _, err := tx.ExecContext(ctx, queryDelete, userID); err != nil {
-		return fmt.Errorf("error al eliminar accesos previos: %w", err)
-	}
-
-	// 2. Insertar nuevos accesos
-	queryInsert := `INSERT INTO usuario_sucursal_acceso (id_usuario, id_sucursal) VALUES ($1, $2)`
-	for _, sucursalID := range sucursales {
-		if _, err := tx.ExecContext(ctx, queryInsert, userID, sucursalID); err != nil {
-			return fmt.Errorf("error al insertar acceso a sucursal %s: %w", sucursalID, err)
+	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		// 1. Limpiar accesos previos
+		queryDelete := `DELETE FROM usuario_sucursal_acceso WHERE id_usuario = $1`
+		if _, err := tx.ExecContext(ctx, queryDelete, userID); err != nil {
+			return fmt.Errorf("error al eliminar accesos previos: %w", err)
 		}
-	}
 
-	return tx.Commit()
+		// 2. Insertar nuevos accesos
+		queryInsert := `INSERT INTO usuario_sucursal_acceso (id_usuario, id_sucursal) VALUES ($1, $2)`
+		for _, sucursalID := range sucursales {
+			if _, err := tx.ExecContext(ctx, queryInsert, userID, sucursalID); err != nil {
+				return fmt.Errorf("error al insertar acceso a sucursal %s: %w", sucursalID, err)
+			}
+		}
+		return nil
+	})
 }
 
 func (s *storeUsuario) GetSucursalesAcceso(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {

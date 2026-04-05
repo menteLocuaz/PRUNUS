@@ -2,6 +2,7 @@ package routers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prunus/pkg/middleware"
@@ -42,6 +43,7 @@ func NewMainRouter(h *Handlers) http.Handler {
 	// Middleware Global
 	r.Use(middleware.CORS())
 	r.Use(middleware.RequestID)
+	r.Use(middleware.Timeout(10 * time.Second)) // Timeout global de 10 segundos
 	r.Use(middleware.Logger(middleware.ProductionLogConfig()))
 	r.Use(middleware.MaxPayloadSize)
 	r.Use(middleware.SecureHeaders)

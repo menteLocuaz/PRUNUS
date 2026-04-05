@@ -122,3 +122,4 @@ Para asegurar que Prunus se inicie automáticamente tras un reinicio del servido
    # Ver logs en tiempo real
    sudo journalctl -u prunus -f
    ```
+go run ./cmd/ cache clear

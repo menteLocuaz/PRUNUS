@@ -63,6 +63,13 @@ func RunMigrations(db *sql.DB) error {
 		{"057_lotes", migrateLotes},
 		{"058_inventory_performance_indexes", migrateInventoryPerformanceIndexes},
 		{"059_fix_trigger_stock_sync", migrateFixTriggerStockSync},
+		{"060_robust_inventory_trigger", migrateRobustInventoryTrigger},
+		{"061_cascading_soft_delete", migrateCascadingSoftDelete},
+		{"062_fix_hardcoded_status", migrateFixHardcodedStatus},
+		{"063_pos_secuenciales", migratePosSecuenciales},
+		{"064_fix_facturacion_secuencial", migrateFixFacturacionSecuencial},
+		{"065_concurrency_control", migrateConcurrencyControl},
+		{"066_master_auditing", migrateMasterAuditing},
 	}
 
 	for _, s := range steps {
