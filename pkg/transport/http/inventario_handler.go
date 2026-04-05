@@ -32,6 +32,23 @@ func (h *InventarioHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, "Inventario obtenido correctamente", resp)
 }
 
+func (h *InventarioHandler) GetBySucursal(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID de sucursal inválido")
+		return
+	}
+
+	params := utils.ParsePaginationParams(r)
+	resp, err := h.service.GetInventarioBySucursal(r.Context(), id, params)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Inventario de la sucursal obtenido correctamente", resp)
+}
+
 func (h *InventarioHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)

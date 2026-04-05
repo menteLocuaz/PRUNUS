@@ -16,6 +16,7 @@ import (
 type StoreInventario interface {
 	GetAllInventario(ctx context.Context, params dto.PaginationParams) ([]*models.Inventario, error)
 	GetInventarioByID(ctx context.Context, id uuid.UUID) (*models.Inventario, error)
+	GetInventarioBySucursal(ctx context.Context, idSucursal uuid.UUID, params dto.PaginationParams) ([]*models.Inventario, error)
 	GetInventarioByProductoYSucursal(ctx context.Context, idProducto, idSucursal uuid.UUID) (*models.Inventario, error)
 	CreateInventario(ctx context.Context, inventario *models.Inventario) (*models.Inventario, error)
 	UpdateInventario(ctx context.Context, id uuid.UUID, inventario *models.Inventario) (*models.Inventario, error)
@@ -27,6 +28,7 @@ type StoreInventario interface {
 	GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID, params dto.PaginationParams) ([]*models.MovimientoInventario, error)
 	GetAlertasStock(ctx context.Context, sucursalID uuid.UUID) ([]*models.Inventario, error)
 	GetValuacion(ctx context.Context, sucursalID uuid.UUID, metodo string) (float64, error)
+	GetAnalisisRotacion(ctx context.Context, sucursalID uuid.UUID) (map[string][]uuid.UUID, error)
 
 	// Lotes
 	CreateLote(ctx context.Context, lote *models.Lote) (*models.Lote, error)
@@ -70,6 +72,53 @@ func (s *storeInventario) GetAllInventario(ctx context.Context, params dto.Pagin
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener inventario: %w", err)
+	}
+	defer rows.Close()
+
+	var inventarios []*models.Inventario
+	for rows.Next() {
+		i := &models.Inventario{}
+		if err := rows.Scan(
+			&i.IDInventario, &i.IDProducto, &i.IDSucursal, &i.StockActual, &i.StockMinimo,
+			&i.StockMaximo, &i.PrecioCompra, &i.PrecioVenta, &i.CreatedAt, &i.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("error al escanear inventario: %w", err)
+		}
+		inventarios = append(inventarios, i)
+	}
+
+	return inventarios, nil
+}
+
+func (s *storeInventario) GetInventarioBySucursal(ctx context.Context, idSucursal uuid.UUID, params dto.PaginationParams) ([]*models.Inventario, error) {
+	defer performance.Trace(ctx, "store", "GetInventarioBySucursal", performance.DbThreshold, time.Now())
+
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
+	query := `
+		SELECT 
+			id_inventario, id_producto, id_sucursal, stock_actual, stock_minimo, 
+			stock_maximo, precio_compra, precio_venta, created_at, updated_at
+		FROM inventario
+		WHERE id_sucursal = $1 AND deleted_at IS NULL
+	`
+
+	var args []interface{}
+	args = append(args, idSucursal)
+
+	if params.LastDate != nil {
+		query += " AND created_at < $2"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener inventario por sucursal: %w", err)
 	}
 	defer rows.Close()
 
@@ -370,6 +419,49 @@ func (s *storeInventario) GetValuacion(ctx context.Context, sucursalID uuid.UUID
 		return 0, err
 	}
 	return total, nil
+}
+
+func (s *storeInventario) GetAnalisisRotacion(ctx context.Context, sucursalID uuid.UUID) (map[string][]uuid.UUID, error) {
+	defer performance.Trace(ctx, "store", "GetAnalisisRotacion", performance.DbThreshold, time.Now())
+
+	query := `
+		WITH ranking_productos AS (
+			SELECT 
+				id_producto,
+				(stock_actual * precio_compra) as valor_total,
+				SUM(stock_actual * precio_compra) OVER (ORDER BY (stock_actual * precio_compra) DESC) as acumulado,
+				SUM(stock_actual * precio_compra) OVER () as total
+			FROM inventario
+			WHERE id_sucursal = $1 AND deleted_at IS NULL AND stock_actual > 0
+		)
+		SELECT 
+			id_producto,
+			CASE 
+				WHEN (acumulado / NULLIF(total, 0)) <= 0.80 THEN 'A'
+				WHEN (acumulado / NULLIF(total, 0)) <= 0.95 THEN 'B'
+				ELSE 'C'
+			END as clase
+		FROM ranking_productos
+		ORDER BY valor_total DESC;
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID)
+	if err != nil {
+		return nil, fmt.Errorf("error al ejecutar análisis ABC: %w", err)
+	}
+	defer rows.Close()
+
+	abc := make(map[string][]uuid.UUID)
+	for rows.Next() {
+		var id uuid.UUID
+		var clase string
+		if err := rows.Scan(&id, &clase); err != nil {
+			return nil, err
+		}
+		abc[clase] = append(abc[clase], id)
+	}
+
+	return abc, nil
 }
 
 func (s *storeInventario) CreateLote(ctx context.Context, lote *models.Lote) (*models.Lote, error) {

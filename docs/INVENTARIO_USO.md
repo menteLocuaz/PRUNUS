@@ -30,6 +30,10 @@ Esta guía detalla cómo utilizar las nuevas funcionalidades del sistema de inve
 **Endpoint:** `GET /api/productos/buscar/{codigo}`
 **Descripción:** Busca un producto utilizando su código de barras de 13 dígitos o su SKU interno. Ideal para integración con escáneres.
 
+### Obtener Inventario por Sucursal
+**Endpoint:** `GET /api/v1/inventario/sucursal/{id_sucursal}`
+**Descripción:** Obtiene todos los registros de inventario (productos y sus stocks) asociados a una sucursal específica. Soporta paginación.
+
 ---
 
 ## 2. Trazabilidad por Lotes
