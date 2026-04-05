@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -30,9 +31,13 @@ func InitDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("error al abrir la base de datos: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(time.Hour)
+	maxOpenConns, _ := strconv.Atoi(config.GetDefault("DB_POOL_MAX_OPEN", "25"))
+	maxIdleConns, _ := strconv.Atoi(config.GetDefault("DB_POOL_MAX_IDLE", "5"))
+	connMaxLifetimeMin, _ := strconv.Atoi(config.GetDefault("DB_POOL_CONN_MAX_LIFETIME_MIN", "60"))
+
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	db.SetConnMaxLifetime(time.Duration(connMaxLifetimeMin) * time.Minute)
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("error al conectar (ping) a PostgreSQL: %w", err)
