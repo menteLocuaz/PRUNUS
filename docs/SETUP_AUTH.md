@@ -96,12 +96,13 @@ VALUES (
 
 -- 4. Crear el usuario administrador (password: Admin123)
 -- El hash corresponde a "Admin123" (Estatus 'Activo': 3a99d245...)
-INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, usu_nombre, usu_dni, password, id_status)
+INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, username, usu_nombre, usu_dni, password, id_status)
 VALUES (
   'c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f',
   'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d',
   'b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e',
   'admin@prunus.com',
+  'admin',
   'Admin Master',
   '12345678',
   '$2a$10$U.sUS/qwAXlDPrJZ9wAaLe78DmRtcnWVY39wFp85YLiL0iIVPVkkK',

@@ -1,199 +1,566 @@
-# API - Referencia Detallada de Endpoints
+# API — Referencia de Endpoints
 
 Base URL: `http://localhost:9090/api/v1`
 
-> **Nota:** Todos los endpoints que modifican datos requieren `Content-Type: application/json`.
-> La mayoría de los endpoints requieren autenticación mediante un token JWT en el header `Authorization: Bearer <token>`.
+**Autenticación:** `Authorization: Bearer <token>` en todos los endpoints marcados con 🔒.  
+**Content-Type:** `application/json` en todas las peticiones con body.
 
 ---
 
-## 1. Autenticación y Sistema
+## Respuesta estándar
+
+```json
+{ "status": "success", "message": "...", "data": { } }
+```
+Errores devuelven el código HTTP correspondiente:
+```json
+{ "status": "error", "message": "Descripción del error" }
+```
+
+## Paginación (cursor-based)
+
+Los endpoints de listado aceptan:
+
+| Param       | Tipo    | Descripción                                  |
+|-------------|---------|----------------------------------------------|
+| `limit`     | int     | Registros por página (default 20)            |
+| `last_id`   | UUID    | ID del último ítem recibido                  |
+| `last_date` | RFC3339 | Fecha del último ítem (ISO 8601 con timezone)|
+
+---
+
+## 1. Autenticación (`/auth`)
 
 ### POST /auth/login
-Inicia sesión en el sistema.
-- **Body:**
 ```json
-{
-  "email": "admin@prunus.com",
-  "password": "password123"
-}
+{ "email": "admin@prunus.com", "password": "Admin123" }
 ```
-- **Respuesta Exitosa (200 OK):**
+**200:**
 ```json
 {
-  "status": "success",
-  "message": "Inicio de sesión exitoso",
   "data": {
-    "token": "jwt_token_here",
-    "usuario": { ... },
-    "expires_at": "2026-03-15T15:00:00Z"
+    "token": "jwt...",
+    "usuario": { },
+    "expires_at": 1234567890
   }
 }
 ```
 
-### GET /estatus/catalogo
-Obtiene el catálogo maestro de estados agrupado por módulo. **Ideal para carga inicial del frontend.**
-- **Respuesta Exitosa (200 OK):**
-```json
-{
-  "status": "success",
-  "data": {
-    "1": {
-      "modulo": "Empresa",
-      "items": [
-        { "id": "uuid", "descripcion": "Activa", "tipo": "GENERAL" }
-      ]
-    },
-    "4": {
-      "modulo": "Producto",
-      "items": [
-        { "id": "uuid", "descripcion": "Disponible", "tipo": "STOCK" }
-      ]
-    }
-  }
-}
-```
+### GET /auth/me 🔒
+Devuelve el usuario autenticado.
+
+### POST /auth/refresh-token 🔒
+No requiere body. Devuelve `{ "token": "...", "expires_at": 1234567890 }`.
+
+### POST /auth/logout 🔒
+No requiere body.
 
 ---
 
-## 2. Administración de Usuarios y Roles
+## 2. Usuarios (`/usuarios`) 🔒
 
-### Usuarios (`/usuarios`)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/` | Listar todos los usuarios |
-| POST | `/` | Crear un nuevo usuario |
-| POST | `/administrar` | Gestión integral (NFC, PIN, Multi-Sucursal) |
-| GET | `/{id}` | Obtener usuario por ID |
+| GET | `/` | Listar (paginado) |
+| POST | `/` | Crear usuario |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+| POST | `/administrar` | Crear con accesos multi-sucursal |
+| POST | `/administrar/{id}` | Actualizar con accesos multi-sucursal |
 
-**POST /usuarios/administrar**
-> Diseñado para entornos de alta rotación. Permite configurar accesos rápidos y movilidad de personal.
-- **Body:**
+**Body (POST / PUT):**
 ```json
 {
-  "email": "cajero01@super.com",
+  "id_sucursal": "uuid",
+  "id_rol": "uuid",
+  "username": "cajero01",
+  "email": "cajero01@empresa.com",
   "usu_nombre": "Juan Pérez",
   "usu_dni": "12345678",
+  "usu_telefono": "099999999",
+  "password": "MiPassword1",
+  "usu_tarjeta_nfc": "NFC_CODE",
   "usu_pin_pos": "1234",
-  "id_sucursal": "uuid_base",
-  "id_rol": "uuid_rol",
-  "id_status": "uuid_status",
-  "sucursales_acceso": ["uuid_1", "uuid_2"]
+  "nombre_ticket": "Juan",
+  "id_status": "uuid",
+  "sucursales_acceso": ["uuid1", "uuid2"]
 }
 ```
-### Roles (`/roles`)
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/` | Listar todos los roles |
-| POST | `/` | Crear un nuevo rol |
----
-
-## 3. Administración Contable (Periodos)
-Gestiona los ciclos contables. **Es obligatorio tener un periodo abierto para operar.**
-
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| POST | `/periodos/abrir` | Iniciar un nuevo periodo contable |
-| POST | `/periodos/cerrar/{id}` | Finalizar el periodo |
-| GET | `/periodos/activo` | Obtener el periodo actual |
+`username` (4–50), `email`, `usu_nombre` (3–100), `usu_dni` (8–15) y `password` (mín 6) son requeridos en POST. En PUT `password` es opcional.
 
 ---
 
-## 4. Inventario y Stock
-
-### Inventario (`/inventario`)
-Controla el stock físico y precios por sucursal.
+## 3. Roles (`/roles`) 🔒
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/` | Listar registros de inventario |
-| POST | `/` | Crear registro de inventario inicial |
-| PUT | `/{id}` | Actualizar stock o precios |
-| POST | `/movimientos` | Registrar un movimiento (VENTA, COMPRA, AJUSTE, DEVOLUCION) |
-| GET | `/movimientos/{prod_id}` | Historial (Kardex) de un producto |
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
 
-**POST /inventario**
+**Body:**
+```json
+{ "nombre_rol": "Cajero", "id_sucursal": "uuid", "id_status": "uuid" }
+```
+`nombre_rol` (3–100) requerido.
+
+---
+
+## 4. Empresas (`/empresas`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**Body:**
+```json
+{ "nombre": "Empresa S.A.", "rut": "800123456-7", "id_status": "uuid" }
+```
+
+---
+
+## 5. Sucursales (`/sucursales`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**Body:**
+```json
+{ "id_empresa": "uuid", "nombre_sucursal": "Sucursal Central", "id_status": "uuid" }
+```
+
+---
+
+## 6. Productos (`/productos`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar (paginado) |
+| POST | `/` | Crear producto + inventario inicial |
+| GET | `/{id}` | Obtener por ID |
+| GET | `/buscar/{codigo}` | Buscar por código de barras o SKU |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**Body POST:**
+```json
+{
+  "nombre": "Aceite Oliva 1L",
+  "descripcion": "Prensado en frío",
+  "codigo_barras": "7501234567890",
+  "sku": "ACE-OLV-001",
+  "precio_compra": 85.50,
+  "precio_venta": 120.00,
+  "stock": 50,
+  "fecha_vencimiento": "2027-12-31T00:00:00Z",
+  "imagen": "url_o_base64",
+  "id_status": "uuid",
+  "id_sucursal": "uuid",
+  "id_categoria": "uuid",
+  "id_moneda": "uuid",
+  "id_unidad": "uuid"
+}
+```
+`nombre`, `precio_compra`, `precio_venta`, `stock`, `id_sucursal`, `id_categoria`, `id_moneda`, `id_unidad` requeridos. Crear producto crea automáticamente su registro en inventario.
+
+**Body PUT:** igual que POST pero sin `stock` ni `id_sucursal`.
+
+---
+
+## 7. Categorías (`/categorias`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**Body:** `{ "nombre": "Lácteos", "id_sucursal": "uuid" }`
+
+---
+
+## 8. Clientes (`/clientes`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**Body:**
+```json
+{
+  "empresa_cliente": "Corporación XYZ",
+  "nombre": "María López",
+  "ruc": "1234567890001",
+  "direccion": "Av. Principal 123",
+  "telefono": "0991234567",
+  "email": "maria@xyz.com",
+  "id_status": "uuid"
+}
+```
+Todos los campos son requeridos.
+
+---
+
+## 9. Estatus (`/estatus`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar todos |
+| GET | `/catalogo` | Catálogo completo agrupado por módulo — **usar en carga inicial del frontend** |
+| GET | `/tipo/{tipo}` | Filtrar por tipo (ej. `STOCK`, `GENERAL`) |
+| GET | `/modulo/{moduloID}` | Filtrar por ID de módulo |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**GET /estatus/catalogo — respuesta:**
+```json
+{
+  "data": {
+    "1": { "modulo": "Empresa", "items": [{ "id": "uuid", "descripcion": "Activa", "tipo": "GENERAL" }] },
+    "4": { "modulo": "Producto", "items": [{ "id": "uuid", "descripcion": "Disponible", "tipo": "STOCK" }] }
+  }
+}
+```
+
+---
+
+## 10. Inventario (`/inventario`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar (paginado) |
+| POST | `/` | Crear registro manual de inventario |
+| GET | `/{id}` | Obtener por ID |
+| GET | `/sucursal/{id}` | Inventario de una sucursal (paginado) |
+| PUT | `/{id}` | Actualizar stock / precios |
+| DELETE | `/{id}` | Eliminar (204) |
+| POST | `/movimientos` | Registrar movimiento individual |
+| POST | `/movimientos/masivo` | Registrar movimientos para múltiples productos |
+| GET | `/movimientos/{id_producto}` | Historial (Kardex) de un producto (paginado) |
+| GET | `/alertas?id_sucursal={uuid}` | Productos con stock ≤ stock_mínimo |
+| GET | `/valuacion?id_sucursal={uuid}&metodo={peps\|ueps\|promedio}` | Valor contable del inventario |
+| GET | `/rotacion?id_sucursal={uuid}` | Análisis ABC de rotación |
+
+> Si `id_sucursal` se omite en alertas/valuacion/rotacion, se toma del token JWT.
+
+**Body POST /inventario:**
+```json
+{
+  "id_producto": "uuid", "id_sucursal": "uuid",
+  "stock_actual": 50.0, "stock_minimo": 5.0, "stock_maximo": 200.0,
+  "precio_compra": 85.50, "precio_venta": 120.00
+}
+```
+
+**Body POST /inventario/movimientos:**
 ```json
 {
   "id_producto": "uuid",
   "id_sucursal": "uuid",
-  "stock_actual": 100,
-  "precio_compra": 50.0,
-  "precio_venta": 85.0
+  "tipo_movimiento": "AJUSTE",
+  "cantidad": 5.0,
+  "referencia": "Producto dañado"
 }
 ```
-> **Nota:** El sistema ahora registra automáticamente cada cambio de precio en la tabla de auditoría `historial_precios`.
+`tipo_movimiento` válidos: `ENTRADA` | `SALIDA` | `AJUSTE` | `DEVOLUCION` | `TRASLADO`
+
+**Body POST /inventario/movimientos/masivo:**
+```json
+{
+  "id_sucursal": "uuid",
+  "tipo_movimiento": "ENTRADA",
+  "referencia": "Recepción OC-001",
+  "items": [
+    { "id_producto": "uuid", "cantidad": 25.0 },
+    { "id_producto": "uuid", "cantidad": 10.0 }
+  ]
+}
+```
 
 ---
 
-## 5. Ventas y Pedidos
+## 11. Proveedores (`/proveedores`) 🔒
 
-### Órdenes (`/ordenes`)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/` | Listar todas las órdenes |
-| POST | `/` | Crear una nueva orden de pedido |
-| GET | `/{id}` | Detalle de la orden |
-| PUT | `/{id}/status` | Cambiar estatus de la orden |
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
 
-**POST /ordenes**
+**Body:**
 ```json
 {
-  "odp_observacion": "Sin cebolla",
-  "id_user_pos": "uuid",
-  "id_periodo": "uuid",
-  "id_estacion": "uuid",
+  "nombre": "Distribuidora Norte",
+  "ruc": "1234567890001",
+  "telefono": "0991234567",
+  "direccion": "Calle 1 y Av. 2",
+  "email": "contacto@norte.com",
   "id_status": "uuid",
-  "canal": "DELIVERY",
-  "odp_total": 45.50
+  "id_sucursal": "uuid",
+  "id_empresa": "uuid"
 }
 ```
 
-### Agregadores (`/agregadores`)
-Integración con UberEats, Rappi, etc.
+---
+
+## 12. Compras (`/compras`) 🔒
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/` | Registrar nueva plataforma |
-| POST | `/orden` | Vincular orden con ID externo y comisión |
+| GET | `/` | Listar órdenes de compra |
+| POST | `/` | Crear orden de compra |
+| GET | `/{id}` | Detalle de orden de compra |
+| POST | `/recepcion` | Recibir mercancía (genera Lotes y actualiza stock) |
 
-**POST /agregadores/orden**
+**Body POST /compras:**
+```json
+{
+  "numero_orden": "OC-2024-001",
+  "id_proveedor": "uuid",
+  "id_sucursal": "uuid",
+  "id_moneda": "uuid",
+  "id_status": "uuid",
+  "observaciones": "Urgente",
+  "detalles": [
+    { "id_producto": "uuid", "cantidad_pedida": 50.0, "precio_unitario": 85.50, "impuesto": 0.0 }
+  ]
+}
+```
+
+**Body POST /compras/recepcion:**
+```json
+{
+  "id_orden_compra": "uuid",
+  "id_status": "uuid",
+  "items": [
+    { "id_detalle_compra": "uuid", "id_producto": "uuid", "cantidad_recibida": 25.0 }
+  ]
+}
+```
+La recepción actualiza stock en inventario y genera un `Lote` por producto con el código `[NumeroOrden]-[FragmentoIDProducto]`.
+
+---
+
+## 13. Períodos (`/periodos`) 🔒
+
+**Obligatorio tener un período abierto para operar facturas y POS.**
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/abrir` | Abrir nuevo período contable |
+| POST | `/cerrar/{id}` | Cerrar período |
+| GET | `/activo` | Obtener período activo actual |
+
+No requieren body.
+
+---
+
+## 14. POS (`/pos`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/abrir` | Apertura de sesión de cajero con fondo base |
+| POST | `/desmontar` | Cierre de sesión de cajero |
+| POST | `/actualizar-valores` | Declaración de arqueo (efectivo / tarjetas) |
+| GET | `/estado/{id}` | Estado actual de una estación |
+
+**Body POST /pos/abrir:**
+```json
+{ "id_estacion": "uuid", "fondo_base": 100.00, "id_user_pos": "uuid" }
+```
+
+**Body POST /pos/desmontar:**
+```json
+{ "id_control_estacion": "uuid", "id_restaurante": "uuid", "motivo_descuadre": "..." }
+```
+
+**Body POST /pos/actualizar-valores:**
+```json
+{ "id_control_estacion": "uuid", "id_forma_pago": "uuid", "valor": 500.00 }
+```
+
+---
+
+## 15. Caja (`/caja`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar cajas |
+| POST | `/` | Crear caja |
+| GET | `/{id}` | Obtener por ID |
+| POST | `/abrir` | Abrir sesión de caja |
+| POST | `/cerrar/{id}` | Cerrar sesión de caja |
+
+---
+
+## 16. Facturas (`/facturas`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar (paginado) |
+| GET | `/{id}` | Detalle de factura con ítems |
+| POST | `/completa` | Registro atómico: factura + detalles + pagos |
+| GET | `/impuestos` | Catálogo de impuestos disponibles |
+| GET | `/formas-pago` | Catálogo de formas de pago |
+
+**Body POST /facturas/completa:**
+```json
+{
+  "cabecera": {
+    "fac_numero": "FAC-0001",
+    "subtotal": 100.00,
+    "iva": 15.00,
+    "total": 115.00,
+    "observacion": "...",
+    "id_estacion": "uuid",
+    "id_orden_pedido": "uuid",
+    "id_cliente": "uuid",
+    "id_periodo": "uuid",
+    "id_control_estacion": "uuid",
+    "base_impuesto": 100.00,
+    "impuesto": 0.15,
+    "valor_impuesto": 15.00,
+    "metadata": { }
+  },
+  "detalles": [
+    { "id_producto": "uuid", "cantidad": 2.0, "precio": 50.00, "subtotal": 100.00, "impuesto": 15.00, "total": 115.00 }
+  ],
+  "pagos": [
+    { "id_forma_pago": "uuid", "valor_billete": 120.00, "total_pagar": 115.00 }
+  ]
+}
+```
+
+---
+
+## 17. Órdenes de Pedido (`/ordenes`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar |
+| POST | `/` | Crear orden |
+| GET | `/{id}` | Detalle |
+| PUT | `/{id}/status` | Cambiar estado |
+
+**Body PUT /ordenes/{id}/status:**
+```json
+{ "id_status": "uuid" }
+```
+
+---
+
+## 18. Agregadores (`/agregadores`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listar plataformas |
+| POST | `/` | Registrar plataforma |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+| POST | `/orden` | Vincular orden con plataforma externa |
+
+**Body POST /agregadores/orden:**
 ```json
 {
   "id_orden_pedido": "uuid",
   "id_agregador": "uuid",
   "codigo_externo": "UBER-12345",
   "comision_agregador": 5.20,
-  "datos_agregador": {
-    "repartidor": "Carlos P.",
-    "tiempo_estimado": "20 min"
-  }
+  "datos_agregador": { "repartidor": "Carlos P.", "tiempo_estimado": "20 min" }
 }
 ```
 
-### Facturación (`/facturas`)
+---
+
+## 19. Medidas / Unidades (`/medidas`) 🔒
+
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/completa` | Registro atómico de factura, detalles y pagos |
-| GET | `/{id}` | Detalle de factura |
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**Body:** `{ "nombre": "Kilogramo", "id_sucursal": "uuid" }`
 
 ---
 
-## 6. Punto de Venta (POS)
+## 20. Monedas (`/monedas`) 🔒
 
-### POS (`/pos`)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| POST | `/abrir` | Apertura de caja (Fondo Base) |
-| POST | `/desmontar` | Cierre de sesión de cajero |
-| POST | `/actualizar-valores` | Declaración de arqueo (Efectivo/Tarjetas) |
+| GET | `/` | Listar |
+| POST | `/` | Crear |
+| GET | `/{id}` | Obtener por ID |
+| PUT | `/{id}` | Actualizar |
+| DELETE | `/{id}` | Eliminar (204) |
+
+**Body:** `{ "nombre": "Dólar", "id_sucursal": "uuid", "id_status": "uuid" }`
 
 ---
 
-## Casos de Uso del Frontend
-1. **Carga Inicial:** Llamar a `GET /estatus/catalogo` para mapear IDs de estados a nombres legibles.
-2. **Venta Delivery:**
-    - Crear orden: `POST /ordenes`.
-    - Vincular plataforma: `POST /agregadores/orden`.
-    - Facturar: `POST /facturas/completa`.
-3. **Auditoría:** Los cambios de precios y estados de facturas se registran en tablas de auditoría dedicadas para mayor seguridad.
+## 21. Dispositivos POS (`/dispositivos-pos`) 🔒
+
+CRUD estándar: `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
+
+---
+
+## 22. Estaciones POS (`/estaciones-pos`) 🔒
+
+CRUD estándar: `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
+
+---
+
+## 23. Configuración POS (`/configuracion-pos`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/canales/{chainId}` | Canales disponibles para una cadena |
+| GET | `/impresoras/{restId}` | Impresoras configuradas |
+| GET | `/puertos` | Puertos disponibles |
+
+---
+
+## Flujos típicos del frontend
+
+### Carga inicial
+1. `POST /auth/login` → guardar token
+2. `GET /estatus/catalogo` → mapear IDs de estado a etiquetas legibles
+3. `GET /periodos/activo` → validar que hay un período contable abierto
+
+### Venta con agregador (delivery)
+1. `POST /ordenes` → crear orden
+2. `POST /agregadores/orden` → vincular con plataforma externa
+3. `POST /facturas/completa` → facturar
+
+### Recepción de mercancía
+1. `POST /compras` → crear orden de compra
+2. `POST /compras/recepcion` → recibir ítems → actualiza stock e inventario automáticamente
+
+### Ajuste de inventario
+- `POST /inventario/movimientos` con `tipo_movimiento: "AJUSTE"` para correcciones individuales
+- `POST /inventario/movimientos/masivo` para múltiples productos a la vez

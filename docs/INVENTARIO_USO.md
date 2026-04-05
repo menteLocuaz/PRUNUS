@@ -1,102 +1,292 @@
-# Documentación del Sistema de Inventario - Prunus
+# API de Inventario — Referencia para Frontend
 
-Esta guía detalla cómo utilizar las nuevas funcionalidades del sistema de inventario, incluyendo la gestión de productos por código de barras, trazabilidad por lotes, valuación avanzada y análisis de rotación.
+Base URL: `/api/v1/inventario`
 
-## 1. Gestión de Productos (Catálogo)
-
-### Crear Producto con Inventario Inicial
-**Endpoint:** `POST /api/productos`
-**Descripción:** Registra un producto en el catálogo maestro y crea automáticamente su registro de inventario inicial en la sucursal especificada.
-
-**JSON Body:**
-```json
-{
-  "nombre": "Aceite de Oliva Extra Virgen 1L",
-  "descripcion": "Aceite de prensado en frío",
-  "codigo_barras": "7501234567890",
-  "sku": "ACE-OLV-001",
-  "precio_compra": 85.50,
-  "precio_venta": 120.00,
-  "stock": 50,
-  "id_sucursal": "uuid-sucursal",
-  "id_categoria": "uuid-categoria",
-  "id_moneda": "uuid-moneda",
-  "id_unidad": "uuid-unidad",
-  "fecha_vencimiento": "2027-12-31T00:00:00Z"
-}
+Todos los endpoints requieren autenticación:
 ```
-
-### Buscar Producto por Código de Barras o SKU
-**Endpoint:** `GET /api/productos/buscar/{codigo}`
-**Descripción:** Busca un producto utilizando su código de barras de 13 dígitos o su SKU interno. Ideal para integración con escáneres.
-
-### Obtener Inventario por Sucursal
-**Endpoint:** `GET /api/v1/inventario/sucursal/{id_sucursal}`
-**Descripción:** Obtiene todos los registros de inventario (productos y sus stocks) asociados a una sucursal específica. Soporta paginación.
+Authorization: Bearer <token>
+```
 
 ---
 
-## 2. Trazabilidad por Lotes
+## Paginación (cursor-based)
 
-El sistema ahora genera automáticamente un **Lote** cada vez que se recibe mercancía a través de una Orden de Compra. Esto permite rastrear costos específicos y fechas de vencimiento por cada entrada.
+Los endpoints que devuelven listas aceptan estos query params:
 
-### Recepción de Mercancía (Generación de Lotes)
-**Endpoint:** `POST /api/compras/recepcion`
-**Descripción:** Registra la entrada física de productos solicitados en una Orden de Compra (OC). Este proceso es crítico para la trazabilidad, ya que vincula la mercancía recibida con un costo específico y una fecha de entrada.
+| Parámetro  | Tipo   | Descripción                                      |
+|------------|--------|--------------------------------------------------|
+| `limit`    | int    | Cantidad de registros a retornar (default: 20)   |
+| `last_id`  | UUID   | ID del último registro recibido (para siguiente página) |
+| `last_date`| RFC3339| Fecha del último registro (ISO 8601, con timezone) |
 
-**Comportamiento del Sistema:**
-1.  **Actualización de OC**: Incrementa la `cantidad_recibida` en los detalles de la orden de compra.
-2.  **Aumento de Stock**: Suma la cantidad recibida al `stock_actual` en la tabla de inventario de la sucursal.
-3.  **Movimiento Histórico**: Registra un movimiento de tipo `ENTRADA` con la referencia de la OC.
-4.  **Generación de Lote**: Crea un nuevo registro en la tabla `lotes`. El código del lote se genera automáticamente como `[NumeroOrden]-[FragmentoIDProducto]`.
+---
 
-**JSON Body:**
+## Respuesta estándar
+
 ```json
 {
-  "id_orden_compra": "uuid-de-la-orden",
-  "id_status": "uuid-estatus-recibido",
-  "items": [
+  "status": "success",
+  "message": "Descripción del resultado",
+  "data": { }
+}
+```
+
+Errores devuelven el código HTTP correspondiente con:
+```json
+{
+  "status": "error",
+  "message": "Descripción del error"
+}
+```
+
+---
+
+## Endpoints
+
+### 1. Listar todo el inventario
+`GET /api/v1/inventario/`
+
+Soporta paginación.
+
+**Respuesta `200`:**
+```json
+{
+  "status": "success",
+  "message": "Inventario obtenido correctamente",
+  "data": [
     {
-      "id_detalle_compra": "uuid-detalle-oc-item1",
-      "id_producto": "uuid-producto-1",
-      "cantidad_recibida": 25.0
-    },
-    {
-      "id_detalle_compra": "uuid-detalle-oc-item2",
-      "id_producto": "uuid-producto-2",
-      "cantidad_recibida": 10.0
+      "id_inventario": "uuid",
+      "id_producto": "uuid",
+      "id_sucursal": "uuid",
+      "stock_actual": 50.0,
+      "stock_minimo": 5.0,
+      "stock_maximo": 200.0,
+      "precio_compra": 85.50,
+      "precio_venta": 120.00,
+      "ubicacion": "Pasillo A",
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-01-15T10:00:00Z"
     }
   ]
 }
 ```
 
-**Notas importantes:**
-*   Se permite recepción parcial (recibir menos de lo pedido).
-*   El costo capturado en el Lote será el `precio_unitario` definido en la Orden de Compra original.
-*   Si el producto tiene fecha de vencimiento global, esta se heredará al lote (o puede ser extendida en futuras versiones).
+---
+
+### 2. Obtener inventario por sucursal
+`GET /api/v1/inventario/sucursal/{id_sucursal}`
+
+Soporta paginación.
+
+**Respuesta `200`:** misma forma que listar todo.
+
+**Errores:**
+- `400` — ID de sucursal inválido
 
 ---
 
-## 3. Valuación de Inventario
+### 3. Obtener registro por ID
+`GET /api/v1/inventario/{id}`
 
-Permite conocer el valor contable de las existencias en una sucursal utilizando diferentes metodologías.
+**Respuesta `200`:** objeto `Inventario` individual.
 
-**Endpoint:** `GET /api/inventario/valuacion?id_sucursal={uuid}&metodo={peps|ueps|promedio}`
+**Errores:**
+- `400` — ID inválido
+- `404` — Inventario no encontrado
 
-### Parámetros:
-*   `id_sucursal`: Identificador de la sucursal a valuar.
-*   `metodo`:
-    *   `promedio`: (Por defecto) Calcula `stock_actual * precio_compra_promedio`.
-    *   `peps`: (FIFO) Valúa basándose en el costo de los lotes más antiguos que aún tienen stock.
-    *   `ueps`: (LIFO) Valúa basándose en el costo de los lotes más recientes.
+---
 
-**Respuesta Exitosa:**
+### 4. Crear registro de inventario
+`POST /api/v1/inventario/`
+
+Crea un registro de inventario para un producto en una sucursal. Solo puede existir un registro por combinación `(id_producto, id_sucursal)`.
+
+**Body:**
+```json
+{
+  "id_producto": "uuid",
+  "id_sucursal": "uuid",
+  "stock_actual": 50.0,
+  "stock_minimo": 5.0,
+  "stock_maximo": 200.0,
+  "precio_compra": 85.50,
+  "precio_venta": 120.00
+}
+```
+
+Todos los campos son requeridos. Los valores numéricos deben ser `>= 0`.
+
+**Respuesta `201`:** objeto `Inventario` creado.
+
+**Errores:**
+- `400` — JSON inválido, validación fallida, o ya existe un registro para ese producto en esa sucursal
+
+---
+
+### 5. Actualizar registro de inventario
+`PUT /api/v1/inventario/{id}`
+
+**Body:**
+```json
+{
+  "stock_actual": 45.0,
+  "stock_minimo": 5.0,
+  "stock_maximo": 200.0,
+  "precio_compra": 85.50,
+  "precio_venta": 120.00
+}
+```
+
+Todos los campos son requeridos. No se puede cambiar `id_producto` ni `id_sucursal`.
+
+**Respuesta `200`:** objeto `Inventario` actualizado.
+
+---
+
+### 6. Eliminar registro de inventario
+`DELETE /api/v1/inventario/{id}`
+
+**Respuesta `204`:** sin cuerpo.
+
+**Errores:**
+- `404` — Inventario no encontrado
+
+---
+
+### 7. Registrar movimiento individual
+`POST /api/v1/inventario/movimientos`
+
+**Body:**
+```json
+{
+  "id_producto": "uuid",
+  "id_sucursal": "uuid",
+  "tipo_movimiento": "AJUSTE",
+  "cantidad": 5.0,
+  "referencia": "Producto dañado en exhibición"
+}
+```
+
+**`tipo_movimiento` — valores válidos:**
+
+| Valor       | Descripción                        |
+|-------------|------------------------------------|
+| `ENTRADA`   | Ingreso de mercancía               |
+| `SALIDA`    | Egreso de mercancía                |
+| `AJUSTE`    | Corrección de inventario (±)       |
+| `DEVOLUCION`| Devolución de cliente o proveedor  |
+| `TRASLADO`  | Transferencia entre sucursales     |
+
+- `cantidad` debe ser `> 0`
+- `referencia` es opcional
+- `id_usuario` se toma automáticamente del token JWT
+
+**Respuesta `201`:**
+```json
+{
+  "status": "success",
+  "message": "Movimiento de inventario registrado correctamente",
+  "data": {
+    "id_movimiento": "uuid",
+    "id_producto": "uuid",
+    "id_sucursal": "uuid",
+    "tipo_movimiento": "AJUSTE",
+    "cantidad": 5.0,
+    "costo_unitario": 85.50,
+    "precio_unitario": 120.00,
+    "stock_anterior": 50.0,
+    "stock_posterior": 45.0,
+    "fecha": "2024-01-15T10:00:00Z",
+    "id_usuario": "uuid",
+    "referencia": "Producto dañado en exhibición",
+    "created_at": "2024-01-15T10:00:00Z",
+    "updated_at": "2024-01-15T10:00:00Z"
+  }
+}
+```
+
+---
+
+### 8. Registrar movimientos masivos
+`POST /api/v1/inventario/movimientos/masivo`
+
+Registra el mismo tipo de movimiento para múltiples productos en una sola operación.
+
+**Body:**
+```json
+{
+  "id_sucursal": "uuid",
+  "tipo_movimiento": "ENTRADA",
+  "referencia": "Recepción OC-2024-001",
+  "items": [
+    { "id_producto": "uuid-producto-1", "cantidad": 25.0 },
+    { "id_producto": "uuid-producto-2", "cantidad": 10.0 }
+  ]
+}
+```
+
+- `items` requiere al menos 1 elemento
+- Los mismos valores válidos de `tipo_movimiento` aplican aquí
+
+**Respuesta `201`:** array de objetos `MovimientoInventario`.
+
+---
+
+### 9. Historial de movimientos de un producto
+`GET /api/v1/inventario/movimientos/{id_producto}`
+
+Retorna el historial de movimientos para un producto específico. Soporta paginación.
+
+**Respuesta `200`:** array de objetos `MovimientoInventario`.
+
+**Errores:**
+- `400` — ID de producto inválido
+
+---
+
+### 10. Alertas de stock bajo
+`GET /api/v1/inventario/alertas?id_sucursal={uuid}`
+
+Retorna los productos cuyo `stock_actual <= stock_minimo`.
+
+- Si no se envía `id_sucursal`, se usa la sucursal del token JWT.
+
+**Respuesta `200`:** array de objetos `Inventario`.
+
+**Errores:**
+- `400` — `id_sucursal` no proporcionado ni disponible en token
+
+---
+
+### 11. Valuación de inventario
+`GET /api/v1/inventario/valuacion?id_sucursal={uuid}&metodo={peps|ueps|promedio}`
+
+Calcula el valor contable del inventario de una sucursal.
+
+**Query params:**
+
+| Parámetro    | Requerido | Default    | Descripción                         |
+|--------------|-----------|------------|-------------------------------------|
+| `id_sucursal`| No*       | —          | UUID de la sucursal                 |
+| `metodo`     | No        | `promedio` | Método de valuación                 |
+
+*Si no se envía, se toma del token JWT.
+
+**Métodos disponibles:**
+
+| Valor      | Descripción                                                         |
+|------------|---------------------------------------------------------------------|
+| `promedio` | `stock_actual × precio_compra` (costo promedio ponderado)           |
+| `peps`     | FIFO — valúa con el costo de los lotes más antiguos con stock       |
+| `ueps`     | LIFO — valúa con el costo de los lotes más recientes con stock      |
+
+**Respuesta `200`:**
 ```json
 {
   "status": "success",
   "message": "Valuación de inventario calculada correctamente",
   "data": {
-    "id_sucursal": "uuid-sucursal",
+    "id_sucursal": "uuid",
     "metodo": "peps",
     "total_valor": 15420.50
   }
@@ -105,51 +295,39 @@ Permite conocer el valor contable de las existencias en una sucursal utilizando 
 
 ---
 
-## 4. Análisis de Rotación ABC
+### 12. Análisis de rotación ABC
+`GET /api/v1/inventario/rotacion?id_sucursal={uuid}`
 
-Clasifica los productos de una sucursal según su importancia económica (Principio de Pareto).
+Clasifica los productos por importancia económica (Principio de Pareto).
 
-**Endpoint:** `GET /api/inventario/rotacion?id_sucursal={uuid}`
+- Si no se envía `id_sucursal`, se usa la sucursal del token JWT.
 
-### Categorías de Salida:
-*   **Clase A**: Productos que representan el ~80% del valor total (Alta inversión, requieren control estricto).
-*   **Clase B**: Productos que representan el siguiente ~15% del valor.
-*   **Clase C**: Productos de baja inversión (~5% del valor), representan el mayor volumen de ítems pero menor impacto financiero.
+**Categorías:**
 
-**Respuesta:**
+| Clase | Representa                | Acción recomendada              |
+|-------|---------------------------|---------------------------------|
+| A     | ~80% del valor total      | Control estricto, reorden rápido|
+| B     | ~15% del valor total      | Control moderado                |
+| C     | ~5% del valor total       | Control básico                  |
+
+**Respuesta `200`:**
 ```json
 {
   "status": "success",
+  "message": "Análisis de rotación ABC obtenido correctamente",
   "data": {
     "A": ["uuid-prod-1", "uuid-prod-2"],
-    "B": ["uuid-prod-3", "uuid-prod-4", "uuid-prod-5"],
-    "C": ["uuid-prod-6", "...", "uuid-prod-100"]
+    "B": ["uuid-prod-3", "uuid-prod-4"],
+    "C": ["uuid-prod-5", "uuid-prod-6"]
   }
 }
 ```
 
 ---
 
-## 5. Movimientos de Inventario
+## Notas para el frontend
 
-### Registrar Movimiento Manual (Ajuste/Dañado)
-**Endpoint:** `POST /api/inventario/movimientos`
-**JSON Body:**
-```json
-{
-  "id_producto": "uuid-producto",
-  "id_sucursal": "uuid-sucursal",
-  "tipo_movimiento": "AJUSTE_NEGATIVO",
-  "cantidad": 5,
-  "referencia": "Producto dañado en exhibición"
-}
-```
-
----
-
-## Casos Límite y Validaciones
-
-1.  **Stock Negativo**: El sistema permite registros negativos en ajustes, pero las ventas validan disponibilidad según la configuración de la estación.
-2.  **Lotes Agotados**: Los métodos PEPS/UEPS ignoran automáticamente lotes con `cantidad_actual = 0`.
-3.  **Códigos Duplicados**: El sistema validará que el `codigo_barras` sea único por empresa para evitar colisiones en el escaneo.
-4.  **Fechas de Vencimiento**: Si un producto no tiene fecha de vencimiento, el campo debe enviarse como `null` o emitirse en el JSON.
+- **Lotes y trazabilidad**: Se generan automáticamente al recibir mercancía vía `POST /api/v1/compras/recepcion`. Los lotes con `cantidad_actual = 0` son ignorados en valuación PEPS/UEPS.
+- **Búsqueda por código de barras/SKU**: `GET /api/v1/productos/buscar/{codigo}` — devuelve el producto independientemente de la sucursal.
+- **Stock negativo**: El sistema lo permite en ajustes manuales; las ventas validan disponibilidad según configuración de estación POS.
+- **`deleted_at`**: Solo aparece en la respuesta si tiene valor (soft delete). Filtra registros activos verificando `deleted_at == null` o ausente.
