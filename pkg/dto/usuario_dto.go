@@ -7,6 +7,7 @@ type UsuarioResponse struct {
 	IDUsuario        uuid.UUID   `json:"id_usuario"`
 	IDSucursal       uuid.UUID   `json:"id_sucursal"`
 	IDRol            uuid.UUID   `json:"id_rol"`
+	Username         string      `json:"username"`
 	UsuEmail         string      `json:"email"`
 	UsuNombre        string      `json:"usu_nombre"`
 	UsuDni           string      `json:"usu_dni"`
@@ -21,6 +22,7 @@ type UsuarioResponse struct {
 type UsuarioCreateRequest struct {
 	IDSucursal       uuid.UUID   `json:"id_sucursal" validate:"required"`
 	IDRol            uuid.UUID   `json:"id_rol" validate:"required"`
+	Username         string      `json:"username" validate:"required,min=4,max=50"`
 	UsuEmail         string      `json:"email" validate:"required,email"`
 	UsuNombre        string      `json:"usu_nombre" validate:"required,min=3,max=100"`
 	UsuDni           string      `json:"usu_dni" validate:"required,min=8,max=15"`
@@ -37,6 +39,7 @@ type UsuarioCreateRequest struct {
 type UsuarioUpdateRequest struct {
 	IDSucursal       uuid.UUID   `json:"id_sucursal" validate:"required"`
 	IDRol            uuid.UUID   `json:"id_rol" validate:"required"`
+	Username         string      `json:"username" validate:"required,min=4,max=50"`
 	UsuEmail         string      `json:"email" validate:"required,email"`
 	UsuNombre        string      `json:"usu_nombre" validate:"required,min=3,max=100"`
 	UsuDni           string      `json:"usu_dni" validate:"required,min=8,max=15"`

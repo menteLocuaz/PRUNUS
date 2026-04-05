@@ -10,6 +10,8 @@ type Producto struct {
 	IDProducto       uuid.UUID  `json:"id_producto"`
 	Nombre           string     `json:"nombre"`
 	Descripcion      string     `json:"descripcion"`
+	CodigoBarras     string     `json:"codigo_barras"`
+	SKU              string     `json:"sku"`
 	FechaVencimiento *time.Time `json:"fecha_vencimiento,omitempty"`
 	Imagen           string     `json:"imagen"`
 	IDStatus         uuid.UUID  `json:"id_status"`

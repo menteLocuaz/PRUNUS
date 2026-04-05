@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
@@ -34,6 +35,10 @@ func (s *ServiceProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*m
 	return s.store.GetProductoByID(ctx, id)
 }
 
+func (s *ServiceProducto) GetProductoByCodigo(ctx context.Context, codigo string) (*models.Producto, error) {
+	return s.store.GetProductoByCodigo(ctx, codigo)
+}
+
 // CreateProducto ahora es una operación coordinada entre Catálogo e Inventario
 func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCreateRequest) (*models.Producto, error) {
 	if req.Nombre == "" {
@@ -48,10 +53,18 @@ func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCr
 		idStatus = uuid.MustParse("31f4e127-e7e1-414d-aaef-6e92e4c5d970")
 	}
 
+	// Manejar fecha de vencimiento opcional (si es zero value en Go, se guarda como nil en BD)
+	var fechaVencimiento *time.Time
+	if !req.FechaVencimiento.IsZero() {
+		fechaVencimiento = &req.FechaVencimiento
+	}
+
 	producto := &models.Producto{
 		Nombre:           req.Nombre,
 		Descripcion:      req.Descripcion,
-		FechaVencimiento: &req.FechaVencimiento,
+		CodigoBarras:     req.CodigoBarras,
+		SKU:              req.SKU,
+		FechaVencimiento: fechaVencimiento,
 		Imagen:           req.Imagen,
 		IDStatus:         idStatus,
 		IDCategoria:      req.IDCategoria,
@@ -80,7 +93,7 @@ func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCr
 			slog.String("id_producto", res.IDProducto.String()),
 			slog.Any("error", err),
 		)
-		// Opcional: Podrías realizar un rollback manual borrando el producto
+		// Retornamos el producto pero informamos del error de inventario
 		return res, fmt.Errorf("producto creado pero sin stock inicial: %w", err)
 	}
 
@@ -89,7 +102,8 @@ func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCr
 		slog.String("id_sucursal", req.IDSucursal.String()),
 	)
 
-	return res, nil
+	// 4. Retornar el producto completamente poblado (con relaciones) para consistencia con el frontend
+	return s.store.GetProductoByID(ctx, res.IDProducto)
 }
 
 func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, req dto.ProductoUpdateRequest) (*models.Producto, error) {
@@ -97,11 +111,19 @@ func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, req 
 		return nil, errors.New("falta el nombre del producto")
 	}
 
+	// Manejar fecha de vencimiento opcional
+	var fechaVencimiento *time.Time
+	if !req.FechaVencimiento.IsZero() {
+		fechaVencimiento = &req.FechaVencimiento
+	}
+
 	// Actualizar datos maestros
 	producto := &models.Producto{
 		Nombre:           req.Nombre,
 		Descripcion:      req.Descripcion,
-		FechaVencimiento: &req.FechaVencimiento,
+		CodigoBarras:     req.CodigoBarras,
+		SKU:              req.SKU,
+		FechaVencimiento: fechaVencimiento,
 		Imagen:           req.Imagen,
 		IDStatus:         req.IDStatus,
 		IDCategoria:      req.IDCategoria,
@@ -114,7 +136,8 @@ func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, req 
 		return nil, err
 	}
 
-	return res, nil
+	// Retornar el producto completamente poblado (con relaciones)
+	return s.store.GetProductoByID(ctx, res.IDProducto)
 }
 
 func (s *ServiceProducto) DeleteProducto(ctx context.Context, id uuid.UUID) error {

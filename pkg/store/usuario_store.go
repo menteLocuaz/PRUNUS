@@ -43,6 +43,7 @@ func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, e
 			u.id_usuario,
 			u.id_sucursal,
 			u.id_rol,
+			u.username,
 			u.email,
 			u.usu_nombre,
 			u.usu_dni,
@@ -88,6 +89,7 @@ func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, e
 			&usuario.IDUsuario,
 			&usuario.IDSucursal,
 			&usuario.IDRol,
+			&usuario.Username,
 			&usuario.Email,
 			&usuario.UsuNombre,
 			&usuario.UsuDNI,
@@ -129,6 +131,7 @@ func (s *storeUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*model
 			u.id_usuario,
 			u.id_sucursal,
 			u.id_rol,
+			u.username,
 			u.email,
 			u.usu_nombre,
 			u.usu_dni,
@@ -165,6 +168,7 @@ func (s *storeUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*model
 		&usuario.IDUsuario,
 		&usuario.IDSucursal,
 		&usuario.IDRol,
+		&usuario.Username,
 		&usuario.Email,
 		&usuario.UsuNombre,
 		&usuario.UsuDNI,
@@ -208,6 +212,7 @@ func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*mo
 			u.id_usuario,
 			u.id_sucursal,
 			u.id_rol,
+			u.username,
 			u.email,
 			u.usu_nombre,
 			u.usu_dni,
@@ -244,6 +249,7 @@ func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*mo
 		&usuario.IDUsuario,
 		&usuario.IDSucursal,
 		&usuario.IDRol,
+		&usuario.Username,
 		&usuario.Email,
 		&usuario.UsuNombre,
 		&usuario.UsuDNI,
@@ -282,8 +288,8 @@ func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*mo
 func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuario) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "CreateUsuario", performance.DbThreshold, time.Now())
 	query := `
-		INSERT INTO usuario (id_sucursal, id_rol, email, usu_nombre, usu_dni, usu_telefono, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket, password, id_status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO usuario (id_sucursal, id_rol, username, email, usu_nombre, usu_dni, usu_telefono, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket, password, id_status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id_usuario, created_at, updated_at
 	`
 
@@ -292,6 +298,7 @@ func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuari
 		query,
 		usuario.IDSucursal,
 		usuario.IDRol,
+		usuario.Username,
 		usuario.Email,
 		usuario.UsuNombre,
 		usuario.UsuDNI,
@@ -318,21 +325,23 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 		SET
 			id_sucursal = $1,
 			id_rol = $2,
-			email = $3,
-			usu_nombre = $4,
-			usu_dni = $5,
-			usu_telefono = $6,
-			usu_tarjeta_nfc = $7,
-			usu_pin_pos = $8,
-			nombre_ticket = $9,
-			password = $10,
-			id_status = $11,
+			username = $3,
+			email = $4,
+			usu_nombre = $5,
+			usu_dni = $6,
+			usu_telefono = $7,
+			usu_tarjeta_nfc = $8,
+			usu_pin_pos = $9,
+			nombre_ticket = $10,
+			password = CASE WHEN $11 <> '' THEN $11 ELSE password END,
+			id_status = $12,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id_usuario = $12 AND deleted_at IS NULL
+		WHERE id_usuario = $13 AND deleted_at IS NULL
 		RETURNING
 			id_usuario,
 			id_sucursal,
 			id_rol,
+			username,
 			email,
 			usu_nombre,
 			usu_dni,
@@ -351,6 +360,7 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 		query,
 		usuario.IDSucursal,
 		usuario.IDRol,
+		usuario.Username,
 		usuario.Email,
 		usuario.UsuNombre,
 		usuario.UsuDNI,
@@ -365,6 +375,7 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 		&usuario.IDUsuario,
 		&usuario.IDSucursal,
 		&usuario.IDRol,
+		&usuario.Username,
 		&usuario.Email,
 		&usuario.UsuNombre,
 		&usuario.UsuDNI,

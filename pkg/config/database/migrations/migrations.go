@@ -59,6 +59,7 @@ func RunMigrations(db *sql.DB) error {
 		{"052_status_consistency_triggers", migrateStatusConsistencyTriggers},
 		{"053_refactor_orden_agregador", migrateRefactorOrdenAgregador},
 		{"054_specialized_auditing", migrateSpecializedAuditing},
+		{"055_add_username_to_usuario", migrateAddUsernameToUsuario},
 	}
 
 	for _, s := range steps {

@@ -51,6 +51,22 @@ func (h *ProductoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, "Producto obtenido correctamente", resp)
 }
 
+// GetByCodigo obtiene un producto por su código de barras o SKU
+func (h *ProductoHandler) GetByCodigo(w http.ResponseWriter, r *http.Request) {
+	codigo := chi.URLParam(r, "codigo")
+	if codigo == "" {
+		response.BadRequest(w, "Código inválido")
+		return
+	}
+
+	resp, err := h.service.GetProductoByCodigo(r.Context(), codigo)
+	if err != nil {
+		response.NotFound(w, "Producto no encontrado")
+		return
+	}
+	response.Success(w, "Producto obtenido correctamente", resp)
+}
+
 // Create crea un nuevo producto a partir del JSON recibido
 func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.ProductoCreateRequest
