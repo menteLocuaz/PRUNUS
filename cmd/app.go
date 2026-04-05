@@ -19,6 +19,9 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	rolStore := store.NewRol(db)
 	usuarioStore := store.NewUsuario(db)
 	categoriaStore := store.NewCategoria(db)
+	if cacheStore != nil {
+		categoriaStore = store.NewCategoriaCacheDecorator(categoriaStore, cacheStore)
+	}
 	clienteStore := store.NewCliente(db)
 	medidaStore := store.NewUnidad(db)
 	monedaStore := store.NewMoneda(db)
@@ -30,6 +33,9 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	agregadoresStore := store.NewAgregadores(db)
 	cajaStore := store.NewCaja(db)
 	facturaStore := store.NewFactura(db)
+	if cacheStore != nil {
+		facturaStore = store.NewFacturaCacheDecorator(facturaStore, cacheStore)
+	}
 	ordenPedidoStore := store.NewOrdenPedido(db)
 	dispositivoPosStore := store.NewDispositivoPosStore(db)
 	estacionPosStore := store.NewEstacionPosStore(db)
@@ -43,7 +49,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	sucursalServices := services.NewServiceSucursal(sucursalStore, logger)
 	rolService := services.NewServiceRol(rolStore, cacheStore, logger)
 	usuarioService := services.NewServiceUsuario(usuarioStore, logsStore, logger)
-	categoriaService := services.NewServiceCategoria(categoriaStore, cacheStore, logger)
+	categoriaService := services.NewServiceCategoria(categoriaStore, logger)
 	clienteService := services.NewServiceCliente(clienteStore, logger)
 	medidaService := services.NewServiceUnidad(medidaStore, cacheStore, logger)
 	monedaService := services.NewServiceMoneda(monedaStore, cacheStore, logger)
@@ -54,7 +60,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	inventarioService := services.NewServiceInventario(inventarioStore, logger)
 	agregadoresService := services.NewServiceAgregadores(agregadoresStore, logger)
 	cajaService := services.NewServiceCaja(cajaStore, logger)
-	facturaService := services.NewServiceFactura(facturaStore, cacheStore, logger)
+	facturaService := services.NewServiceFactura(facturaStore, logger)
 	ordenPedidoService := services.NewServiceOrdenPedido(ordenPedidoStore, logger)
 	dispositivoPosService := services.NewServiceDispositivoPos(dispositivoPosStore, logger)
 	estacionPosService := services.NewServiceEstacionPos(estacionPosStore, logger)
