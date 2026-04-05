@@ -10,6 +10,7 @@ type Usuario struct {
 	IDUsuario     uuid.UUID  `json:"id_usuario"`
 	IDSucursal    uuid.UUID  `json:"id_sucursal"`
 	IDRol         uuid.UUID  `json:"id_rol"`
+	Username      string     `json:"username"`
 	Email         string     `json:"email"`
 	UsuNombre     string     `json:"usu_nombre"`
 	UsuDNI        string     `json:"usu_dni"`

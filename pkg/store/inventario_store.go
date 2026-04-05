@@ -26,7 +26,12 @@ type StoreInventario interface {
 	RegistrarMovimientoMasivo(ctx context.Context, idSucursal, idUsuario uuid.UUID, tipoMov, referencia string, items []models.MovimientoItem) ([]*models.MovimientoInventario, error)
 	GetMovimientosByProducto(ctx context.Context, productoID uuid.UUID, params dto.PaginationParams) ([]*models.MovimientoInventario, error)
 	GetAlertasStock(ctx context.Context, sucursalID uuid.UUID) ([]*models.Inventario, error)
-	GetValuacion(ctx context.Context, sucursalID uuid.UUID) (float64, error)
+	GetValuacion(ctx context.Context, sucursalID uuid.UUID, metodo string) (float64, error)
+
+	// Lotes
+	CreateLote(ctx context.Context, lote *models.Lote) (*models.Lote, error)
+	GetLotesByProducto(ctx context.Context, idProducto, idSucursal uuid.UUID) ([]*models.Lote, error)
+	UpdateLoteCantidad(ctx context.Context, idLote uuid.UUID, cantidad float64) error
 }
 
 type storeInventario struct {
@@ -343,13 +348,89 @@ func (s *storeInventario) GetAlertasStock(ctx context.Context, sucursalID uuid.U
 	return alertas, nil
 }
 
-func (s *storeInventario) GetValuacion(ctx context.Context, sucursalID uuid.UUID) (float64, error) {
+func (s *storeInventario) GetValuacion(ctx context.Context, sucursalID uuid.UUID, metodo string) (float64, error) {
 	defer performance.Trace(ctx, "store", "GetValuacion", performance.DbThreshold, time.Now())
-	query := `SELECT COALESCE(SUM(stock_actual * precio_compra), 0) FROM inventario WHERE id_sucursal = $1 AND deleted_at IS NULL`
+
+	var query string
+	switch metodo {
+	case "promedio":
+		query = `SELECT COALESCE(SUM(stock_actual * precio_compra), 0) FROM inventario WHERE id_sucursal = $1 AND deleted_at IS NULL`
+	case "peps", "ueps":
+		// Para PEPS y UEPS usaremos la tabla de lotes si está disponible,
+		// o una aproximación basada en el historial de movimientos.
+		// Por ahora, usaremos los lotes.
+		query = `SELECT COALESCE(SUM(cantidad_actual * costo_compra), 0) FROM lotes WHERE id_sucursal = $1 AND deleted_at IS NULL AND cantidad_actual > 0`
+	default:
+		query = `SELECT COALESCE(SUM(stock_actual * precio_compra), 0) FROM inventario WHERE id_sucursal = $1 AND deleted_at IS NULL`
+	}
+
 	var total float64
 	err := s.db.QueryRowContext(ctx, query, sucursalID).Scan(&total)
 	if err != nil {
 		return 0, err
 	}
 	return total, nil
+}
+
+func (s *storeInventario) CreateLote(ctx context.Context, lote *models.Lote) (*models.Lote, error) {
+	defer performance.Trace(ctx, "store", "CreateLote", performance.DbThreshold, time.Now())
+	query := `
+		INSERT INTO lotes (
+			id_producto, id_sucursal, codigo_lote, cantidad_inicial, 
+			cantidad_actual, costo_compra, fecha_vencimiento, fecha_recepcion
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id_lote, created_at, updated_at
+	`
+
+	err := s.db.QueryRowContext(ctx, query,
+		lote.IDProducto, lote.IDSucursal, lote.CodigoLote, lote.CantidadInicial,
+		lote.CantidadActual, lote.CostoCompra, lote.FechaVencimiento, lote.FechaRecepcion,
+	).Scan(&lote.IDLote, &lote.CreatedAt, &lote.UpdatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("error al crear lote: %w", err)
+	}
+
+	return lote, nil
+}
+
+func (s *storeInventario) GetLotesByProducto(ctx context.Context, idProducto, idSucursal uuid.UUID) ([]*models.Lote, error) {
+	defer performance.Trace(ctx, "store", "GetLotesByProducto", performance.DbThreshold, time.Now())
+	query := `
+		SELECT 
+			id_lote, id_producto, id_sucursal, codigo_lote, cantidad_inicial, 
+			cantidad_actual, costo_compra, fecha_vencimiento, fecha_recepcion,
+			created_at, updated_at
+		FROM lotes
+		WHERE id_producto = $1 AND id_sucursal = $2 AND deleted_at IS NULL AND cantidad_actual > 0
+		ORDER BY fecha_recepcion ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, idProducto, idSucursal)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lotes []*models.Lote
+	for rows.Next() {
+		l := &models.Lote{}
+		if err := rows.Scan(
+			&l.IDLote, &l.IDProducto, &l.IDSucursal, &l.CodigoLote, &l.CantidadInicial,
+			&l.CantidadActual, &l.CostoCompra, &l.FechaVencimiento, &l.FechaRecepcion,
+			&l.CreatedAt, &l.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		lotes = append(lotes, l)
+	}
+	return lotes, nil
+}
+
+func (s *storeInventario) UpdateLoteCantidad(ctx context.Context, idLote uuid.UUID, cantidad float64) error {
+	defer performance.Trace(ctx, "store", "UpdateLoteCantidad", performance.DbThreshold, time.Now())
+	query := `UPDATE lotes SET cantidad_actual = $1, updated_at = CURRENT_TIMESTAMP WHERE id_lote = $2`
+	_, err := s.db.ExecContext(ctx, query, cantidad, idLote)
+	return err
 }

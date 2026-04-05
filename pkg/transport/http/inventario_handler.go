@@ -234,6 +234,11 @@ func (h *InventarioHandler) GetAllAlertas(w http.ResponseWriter, r *http.Request
 
 func (h *InventarioHandler) GetValuacion(w http.ResponseWriter, r *http.Request) {
 	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	metodo := r.URL.Query().Get("metodo") // peps, ueps, promedio
+	if metodo == "" {
+		metodo = "promedio"
+	}
+
 	if sucursalIDStr == "" {
 		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
 		if !ok {
@@ -249,7 +254,7 @@ func (h *InventarioHandler) GetValuacion(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	total, err := h.service.GetValuacion(r.Context(), sucursalID)
+	total, err := h.service.GetValuacion(r.Context(), sucursalID, metodo)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -257,7 +262,34 @@ func (h *InventarioHandler) GetValuacion(w http.ResponseWriter, r *http.Request)
 
 	data := map[string]interface{}{
 		"id_sucursal": sucursalID,
+		"metodo":      metodo,
 		"total_valor": total,
 	}
 	response.Success(w, "Valuación de inventario calculada correctamente", data)
+}
+
+func (h *InventarioHandler) GetRotacion(w http.ResponseWriter, r *http.Request) {
+	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	if sucursalIDStr == "" {
+		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
+		if !ok {
+			response.BadRequest(w, "Debe proporcionar id_sucursal")
+			return
+		}
+		sucursalIDStr = ctxSucursal.String()
+	}
+
+	sucursalID, err := uuid.Parse(sucursalIDStr)
+	if err != nil {
+		response.BadRequest(w, "id_sucursal inválido")
+		return
+	}
+
+	abc, err := h.service.GetAnalisisRotacion(r.Context(), sucursalID)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+
+	response.Success(w, "Análisis de rotación ABC obtenido correctamente", abc)
 }

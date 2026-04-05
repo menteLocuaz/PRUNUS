@@ -66,6 +66,7 @@ func (h *UsuarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 	usuario := models.Usuario{
 		IDSucursal:    req.IDSucursal,
 		IDRol:         req.IDRol,
+		Username:      req.Username,
 		Email:         req.UsuEmail,
 		UsuNombre:     req.UsuNombre,
 		UsuDNI:        req.UsuDni,
@@ -109,6 +110,7 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 	usuario := models.Usuario{
 		IDSucursal:    req.IDSucursal,
 		IDRol:         req.IDRol,
+		Username:      req.Username,
 		Email:         req.UsuEmail,
 		UsuNombre:     req.UsuNombre,
 		UsuDNI:        req.UsuDni,
@@ -159,6 +161,7 @@ func (h *UsuarioHandler) Administrar(w http.ResponseWriter, r *http.Request) {
 		IDUsuario:     userID,
 		IDSucursal:    req.IDSucursal,
 		IDRol:         req.IDRol,
+		Username:      req.Username,
 		Email:         req.UsuEmail,
 		UsuNombre:     req.UsuNombre,
 		UsuDNI:        req.UsuDni,

@@ -21,6 +21,7 @@ func InventarioRouter(h *transport.InventarioHandler) chi.Router {
 		r.Get("/movimientos/{id}", h.GetMovimientos)
 		r.Get("/alertas", h.GetAllAlertas)
 		r.Get("/valuacion", h.GetValuacion)
+		r.Get("/rotacion", h.GetRotacion)
 	})
 
 	return r

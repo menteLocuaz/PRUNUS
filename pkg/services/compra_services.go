@@ -66,6 +66,21 @@ func (s *ServiceCompra) ProcesarRecepcion(ctx context.Context, idCompra uuid.UUI
 		if _, err := s.invService.RegistrarMovimiento(ctx, mov); err != nil {
 			return fmt.Errorf("error al registrar abastecimiento de producto %s: %w", item.IDProducto, err)
 		}
+
+		// CREAR LOTE PARA TRAZABILIDAD
+		lote := models.Lote{
+			IDProducto:      item.IDProducto,
+			IDSucursal:      orden.IDSucursal,
+			CodigoLote:      fmt.Sprintf("%s-%s", orden.NumeroOrden, item.IDProducto.String()[:8]),
+			CantidadInicial: item.CantidadRecibida,
+			CantidadActual:  item.CantidadRecibida,
+			CostoCompra:     item.PrecioUnitario,
+			FechaRecepcion:  now,
+		}
+
+		if _, err := s.invService.CreateLote(ctx, lote); err != nil {
+			return fmt.Errorf("error al crear lote para producto %s: %w", item.IDProducto, err)
+		}
 	}
 
 	// 3. Actualizar estado de la orden a "RECIBIDO"
