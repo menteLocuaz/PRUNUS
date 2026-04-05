@@ -58,7 +58,22 @@ Prunus utiliza comandos dedicados para la administración del esquema de base de
 
 ---
 
-## 4. Referencia y Ayuda
+## 4. Gestión de Caché
+
+Prunus utiliza Redis para el almacenamiento de caché de catálogos y sesiones. Puede gestionar la limpieza de la base de datos de caché de forma manual.
+
+### Limpiar Caché (FlushDB)
+```bash
+# Ejecución con go run
+go run ./cmd/ cache clear
+
+# Con el binario compilado
+./prunus cache clear
+```
+
+---
+
+## 5. Referencia y Ayuda
 
 La CLI es autodocumentada. Puede consultar la ayuda global o específica de cada comando en cualquier momento.
 
@@ -71,6 +86,7 @@ La CLI es autodocumentada. Puede consultar la ayuda global o específica de cada
 ```bash
 ./prunus serve --help
 ./prunus migrate --help
+./prunus cache --help
 ```
 
 ---
@@ -85,7 +101,7 @@ La CLI es autodocumentada. Puede consultar la ayuda global o específica de cada
 
 ---
 
-## 5. Configuración en Debian (systemd)
+## 6. Configuración en Debian (systemd)
 
 Para asegurar que Prunus se inicie automáticamente tras un reinicio del servidor y se mantenga en ejecución, utilice el archivo de servicio de `systemd` incluido en `deployment/systemd/prunus.service`.
 

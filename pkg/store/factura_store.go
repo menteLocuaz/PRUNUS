@@ -33,44 +33,56 @@ func NewFactura(db *sql.DB) StoreFactura {
 }
 
 func (s *storeFactura) CreateFactura(ctx context.Context, f *models.Factura, items []*models.DetalleFactura) (*models.Factura, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	metadataJSON, _ := json.Marshal(f.Metadata)
-
-	queryFac := `INSERT INTO factura (
-		fac_numero, cfac_subtotal, cfac_iva, cfac_total, cfac_observacion, 
-		id_user_pos, id_estacion, id_orden_pedido, id_cliente, id_periodo, 
-		id_control_estacion, id_status, fecha_operacion, base_impuesto, 
-		impuesto, valor_impuesto, metadata
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
-	RETURNING id_factura, cfac_fecha_creacion, created_at, updated_at`
-
-	err = tx.QueryRowContext(ctx, queryFac,
-		f.FacNumero, f.CfacSubtotal, f.CfacIVA, f.CfacTotal, f.CfacObservacion,
-		f.IDUserPos, f.IDEstacion, f.IDOrdenPedido, f.IDCliente, f.IDPeriodo,
-		f.IDControlEstacion, f.IDStatus, f.FechaOperacion, f.BaseImpuesto,
-		f.Impuesto, f.ValorImpuesto, metadataJSON,
-	).Scan(&f.IDFactura, &f.CfacFechaCreacion, &f.CreatedAt, &f.UpdatedAt)
-
-	if err != nil {
-		return nil, fmt.Errorf("error al insertar factura: %w", err)
-	}
-
-	queryDet := `INSERT INTO detalle_factura (id_factura, id_producto, cantidad, precio, subtotal, impuesto, total) 
-	             VALUES ($1, $2, $3, $4, $5, $6, $7)`
-
-	for _, item := range items {
-		_, err = tx.ExecContext(ctx, queryDet, f.IDFactura, item.IDProducto, item.Cantidad, item.Precio, item.Subtotal, item.Impuesto, item.Total)
-		if err != nil {
-			return nil, fmt.Errorf("error al insertar detalle: %w", err)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		// Si el número de factura viene vacío, la base de datos (o la lógica del store) lo manejará
+		if f.FacNumero == "" {
+			f.FacNumero = "AUTO"
 		}
-	}
 
-	if err := tx.Commit(); err != nil {
+		// Si f.FacNumero es "AUTO", intentamos generar el secuencial antes de insertar
+		// Nota: El trigger/función en BD ya lo hace, pero aquí aseguramos que se envíe el valor correcto
+		if f.FacNumero == "AUTO" {
+			querySec := `SELECT fn_get_next_secuencial($1, 'FACTURA')`
+			err := tx.QueryRowContext(ctx, querySec, f.IDEstacion).Scan(&f.FacNumero)
+			if err != nil {
+				return fmt.Errorf("error al generar secuencial automático: %w", err)
+			}
+		}
+
+		metadataJSON, _ := json.Marshal(f.Metadata)
+
+		queryFac := `INSERT INTO factura (
+			fac_numero, cfac_subtotal, cfac_iva, cfac_total, cfac_observacion, 
+			id_user_pos, id_estacion, id_orden_pedido, id_cliente, id_periodo, 
+			id_control_estacion, id_status, fecha_operacion, base_impuesto, 
+			impuesto, valor_impuesto, metadata
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
+		RETURNING id_factura, cfac_fecha_creacion, created_at, updated_at`
+
+		err := tx.QueryRowContext(ctx, queryFac,
+			f.FacNumero, f.CfacSubtotal, f.CfacIVA, f.CfacTotal, f.CfacObservacion,
+			f.IDUserPos, f.IDEstacion, f.IDOrdenPedido, f.IDCliente, f.IDPeriodo,
+			f.IDControlEstacion, f.IDStatus, f.FechaOperacion, f.BaseImpuesto,
+			f.Impuesto, f.ValorImpuesto, metadataJSON,
+		).Scan(&f.IDFactura, &f.CfacFechaCreacion, &f.CreatedAt, &f.UpdatedAt)
+
+		if err != nil {
+			return fmt.Errorf("error al insertar factura: %w", err)
+		}
+
+		queryDet := `INSERT INTO detalle_factura (id_factura, id_producto, cantidad, precio, subtotal, impuesto, total) 
+		             VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+		for _, item := range items {
+			_, err = tx.ExecContext(ctx, queryDet, f.IDFactura, item.IDProducto, item.Cantidad, item.Precio, item.Subtotal, item.Impuesto, item.Total)
+			if err != nil {
+				return fmt.Errorf("error al insertar detalle: %w", err)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -78,34 +90,42 @@ func (s *storeFactura) CreateFactura(ctx context.Context, f *models.Factura, ite
 }
 
 func (s *storeFactura) RegistrarFacturaCompleta(ctx context.Context, req dto.FacturaCompletaRequest, idUsuario uuid.UUID) (*dto.FacturaResponse, error) {
-	cabeceraJSON, err := json.Marshal(req.Cabecera)
-	if err != nil {
-		return nil, fmt.Errorf("error al serializar cabecera: %w", err)
-	}
+	// Usamos ExecAudited para asegurar que el SET LOCAL app.current_user_id se ejecute
+	var res dto.FacturaResponse
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		// Aseguramos que si no viene número, la función interna de la BD genere uno
+		if req.Cabecera.FacNumero == "" {
+			req.Cabecera.FacNumero = "AUTO"
+		}
 
-	detallesJSON, err := json.Marshal(req.Detalles)
-	if err != nil {
-		return nil, fmt.Errorf("error al serializar detalles: %w", err)
-	}
+		cabeceraJSON, err := json.Marshal(req.Cabecera)
+		if err != nil {
+			return fmt.Errorf("error al serializar cabecera: %w", err)
+		}
 
-	pagosJSON, err := json.Marshal(req.Pagos)
-	if err != nil {
-		return nil, fmt.Errorf("error al serializar pagos: %w", err)
-	}
+		detallesJSON, err := json.Marshal(req.Detalles)
+		if err != nil {
+			return fmt.Errorf("error al serializar detalles: %w", err)
+		}
 
-	query := `SELECT id_factura, fac_numero, total, status_msg 
-	          FROM factura_registrar_completa($1, $2, $3, $4)`
+		pagosJSON, err := json.Marshal(req.Pagos)
+		if err != nil {
+			return fmt.Errorf("error al serializar pagos: %w", err)
+		}
 
-	res := &dto.FacturaResponse{}
-	err = s.db.QueryRowContext(ctx, query, cabeceraJSON, detallesJSON, pagosJSON, idUsuario).Scan(
-		&res.IDFactura, &res.FacNumero, &res.Total, &res.StatusMsg,
-	)
+		query := `SELECT id_factura, fac_numero, total, status_msg 
+		          FROM factura_registrar_completa($1, $2, $3, $4)`
+
+		return tx.QueryRowContext(ctx, query, cabeceraJSON, detallesJSON, pagosJSON, idUsuario).Scan(
+			&res.IDFactura, &res.FacNumero, &res.Total, &res.StatusMsg,
+		)
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("error al registrar factura completa: %w", err)
 	}
 
-	return res, nil
+	return &res, nil
 }
 
 func (s *storeFactura) GetFacturaByID(ctx context.Context, id uuid.UUID) (*models.Factura, []*models.DetalleFactura, error) {

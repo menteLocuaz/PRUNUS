@@ -191,19 +191,21 @@ func (s *storeInventario) GetInventarioByProductoYSucursal(ctx context.Context, 
 
 func (s *storeInventario) CreateInventario(ctx context.Context, inventario *models.Inventario) (*models.Inventario, error) {
 	defer performance.Trace(ctx, "store", "CreateInventario", performance.DbThreshold, time.Now())
-	query := `
-		INSERT INTO inventario (
-			id_producto, id_sucursal, stock_actual, stock_minimo, 
-			stock_maximo, precio_compra, precio_venta
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id_inventario, created_at, updated_at
-	`
 
-	err := s.db.QueryRowContext(ctx, query,
-		inventario.IDProducto, inventario.IDSucursal, inventario.StockActual, inventario.StockMinimo,
-		inventario.StockMaximo, inventario.PrecioCompra, inventario.PrecioVenta,
-	).Scan(&inventario.IDInventario, &inventario.CreatedAt, &inventario.UpdatedAt)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			INSERT INTO inventario (
+				id_producto, id_sucursal, stock_actual, stock_minimo, 
+				stock_maximo, precio_compra, precio_venta
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING id_inventario, created_at, updated_at
+		`
+		return tx.QueryRowContext(ctx, query,
+			inventario.IDProducto, inventario.IDSucursal, inventario.StockActual, inventario.StockMinimo,
+			inventario.StockMaximo, inventario.PrecioCompra, inventario.PrecioVenta,
+		).Scan(&inventario.IDInventario, &inventario.CreatedAt, &inventario.UpdatedAt)
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("error al crear inventario: %w", err)
@@ -214,23 +216,22 @@ func (s *storeInventario) CreateInventario(ctx context.Context, inventario *mode
 
 func (s *storeInventario) UpdateInventario(ctx context.Context, id uuid.UUID, inventario *models.Inventario) (*models.Inventario, error) {
 	defer performance.Trace(ctx, "store", "UpdateInventario", performance.DbThreshold, time.Now())
-	query := `
-		UPDATE inventario
-		SET 
-			stock_actual = $1, stock_minimo = $2, stock_maximo = $3, 
-			precio_compra = $4, precio_venta = $5, updated_at = CURRENT_TIMESTAMP
-		WHERE id_inventario = $6 AND deleted_at IS NULL
-		RETURNING id_inventario, id_producto, id_sucursal, created_at, updated_at
-	`
 
-	err := s.db.QueryRowContext(ctx, query,
-		inventario.StockActual, inventario.StockMinimo, inventario.StockMaximo,
-		inventario.PrecioCompra, inventario.PrecioVenta, id,
-	).Scan(&inventario.IDInventario, &inventario.IDProducto, &inventario.IDSucursal, &inventario.CreatedAt, &inventario.UpdatedAt)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			UPDATE inventario
+			SET 
+				stock_actual = $1, stock_minimo = $2, stock_maximo = $3, 
+				precio_compra = $4, precio_venta = $5, updated_at = CURRENT_TIMESTAMP
+			WHERE id_inventario = $6 AND deleted_at IS NULL
+			RETURNING id_inventario, id_producto, id_sucursal, created_at, updated_at
+		`
+		return tx.QueryRowContext(ctx, query,
+			inventario.StockActual, inventario.StockMinimo, inventario.StockMaximo,
+			inventario.PrecioCompra, inventario.PrecioVenta, id,
+		).Scan(&inventario.IDInventario, &inventario.IDProducto, &inventario.IDSucursal, &inventario.CreatedAt, &inventario.UpdatedAt)
+	})
 
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("inventario con ID %s no encontrado", id)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar inventario: %w", err)
 	}
@@ -240,38 +241,38 @@ func (s *storeInventario) UpdateInventario(ctx context.Context, id uuid.UUID, in
 
 func (s *storeInventario) DeleteInventario(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteInventario", performance.DbThreshold, time.Now())
-	query := `UPDATE inventario SET deleted_at = CURRENT_TIMESTAMP WHERE id_inventario = $1 AND deleted_at IS NULL`
 
-	result, err := s.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return fmt.Errorf("error al eliminar inventario: %w", err)
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rows == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
+	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `UPDATE inventario SET deleted_at = CURRENT_TIMESTAMP WHERE id_inventario = $1 AND deleted_at IS NULL`
+		result, err := tx.ExecContext(ctx, query, id)
+		if err != nil {
+			return err
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rows == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 }
 
 func (s *storeInventario) RegistrarMovimiento(ctx context.Context, m *models.MovimientoInventario) (*models.MovimientoInventario, error) {
 	defer performance.Trace(ctx, "store", "RegistrarMovimiento", performance.DbThreshold, time.Now())
 
-	// Creamos el JSON de items para la función almacenada.
-	// Aunque el modelo actual solo tiene un producto, la función soporta múltiples.
-	itemsJSON := fmt.Sprintf(`[{"id_producto": "%s", "cantidad": %f}]`, m.IDProducto, m.Cantidad)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		// Creamos el JSON de items para la función almacenada.
+		itemsJSON := fmt.Sprintf(`[{"id_producto": "%s", "cantidad": %f}]`, m.IDProducto, m.Cantidad)
 
-	query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
-	          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
+		query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
+		          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
 
-	err := s.db.QueryRowContext(ctx, query,
-		m.IDSucursal, m.IDUsuario, m.TipoMovimiento, m.Referencia, itemsJSON,
-	).Scan(&m.IDMovimiento, &m.IDProducto, &m.StockAnterior, &m.Cantidad, &m.StockPosterior)
+		return tx.QueryRowContext(ctx, query,
+			m.IDSucursal, m.IDUsuario, m.TipoMovimiento, m.Referencia, itemsJSON,
+		).Scan(&m.IDMovimiento, &m.IDProducto, &m.StockAnterior, &m.Cantidad, &m.StockPosterior)
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("error al registrar movimiento mediante función: %w", err)
@@ -292,30 +293,37 @@ func (s *storeInventario) RegistrarMovimientoMasivo(ctx context.Context, idSucur
 		return nil, fmt.Errorf("error al serializar items: %w", err)
 	}
 
-	query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
-	          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
+	var resultados []*models.MovimientoInventario
+	err = ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
+		          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
 
-	rows, err := s.db.QueryContext(ctx, query, idSucursal, idUsuario, tipoMov, referencia, itemsJSON)
+		rows, err := tx.QueryContext(ctx, query, idSucursal, idUsuario, tipoMov, referencia, itemsJSON)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			m := &models.MovimientoInventario{
+				IDSucursal:     idSucursal,
+				IDUsuario:      idUsuario,
+				TipoMovimiento: tipoMov,
+				Referencia:     referencia,
+				Fecha:          time.Now(),
+			}
+			if err := rows.Scan(&m.IDMovimiento, &m.IDProducto, &m.StockAnterior, &m.Cantidad, &m.StockPosterior); err != nil {
+				return err
+			}
+			m.CreatedAt = m.Fecha
+			m.UpdatedAt = m.Fecha
+			resultados = append(resultados, m)
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil, fmt.Errorf("error al ejecutar movimiento masivo: %w", err)
-	}
-	defer rows.Close()
-
-	var resultados []*models.MovimientoInventario
-	for rows.Next() {
-		m := &models.MovimientoInventario{
-			IDSucursal:     idSucursal,
-			IDUsuario:      idUsuario,
-			TipoMovimiento: tipoMov,
-			Referencia:     referencia,
-			Fecha:          time.Now(),
-		}
-		if err := rows.Scan(&m.IDMovimiento, &m.IDProducto, &m.StockAnterior, &m.Cantidad, &m.StockPosterior); err != nil {
-			return nil, fmt.Errorf("error al escanear resultado de movimiento: %w", err)
-		}
-		m.CreatedAt = m.Fecha
-		m.UpdatedAt = m.Fecha
-		resultados = append(resultados, m)
 	}
 
 	return resultados, nil

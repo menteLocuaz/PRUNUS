@@ -22,9 +22,17 @@ JWT_SECRET=cambia_esto_por_una_clave_super_segura_de_al_menos_32_caracteres_rand
 JWT_EXPIRATION_HOURS=24
 ```
 
-### 2. Iniciar el Servidor
+### 2. Ejecutar Migraciones de Base de Datos
 
-El servidor realiza las migraciones automáticas al iniciar, incluyendo la creación de los catálogos maestros de estatus.
+Antes de iniciar el servidor por primera vez o tras una actualización, debes ejecutar las migraciones para preparar el esquema y los datos maestros (estatus, módulos, etc.).
+
+```bash
+go run cmd/main.go migrate
+```
+
+### 3. Iniciar el Servidor
+
+Una vez completadas las migraciones, puedes levantar el servicio API:
 
 ```bash
 go run cmd/main.go serve
@@ -112,7 +120,7 @@ VALUES (
 
 ---
 
-### Paso 3: Hacer Login para Obtener Token
+### Paso 4: Hacer Login para Obtener Token
 
 ```bash
 curl -X POST http://localhost:9090/api/v1/auth/login \
@@ -128,8 +136,9 @@ curl -X POST http://localhost:9090/api/v1/auth/login \
 
 1. **Contexto de Usuario:** El sistema inyecta automáticamente `user_id`, `user_sucursal` y `user_rol` tras validar el token.
 2. **Estatus Coherente:** El sistema utiliza disparadores (Triggers) para asegurar que solo se asignen estatus válidos según el módulo.
-3. **Auditoría:** Los cambios críticos se registran en tablas dedicadas (`historial_precios`, `factura_audit`).
-4. **JWT_SECRET:** Si cambias esta variable, todos los tokens anteriores invalidarán.
+3. **Auditoría Maestra:** Cada cambio en tablas principales (usuario, producto, empresa, etc.) se registra en `auditoria_maestra` con el estado anterior y nuevo.
+4. **Sincronización de Stock:** Los triggers garantizan que el stock sea exacto incluso en ventas simultáneas o anulaciones.
+5. **JWT_SECRET:** Si cambias esta variable, todos los tokens anteriores se invalidarán automáticamente.
 
 ---
 
