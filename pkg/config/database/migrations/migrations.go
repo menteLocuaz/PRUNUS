@@ -41,7 +41,6 @@ func RunMigrations(db *sql.DB) error {
 		{"029_agregadores", migrateAgregadores},
 		{"030_orden_agregador", migrateOrdenAgregador},
 		{"031_dispositivos_pos", migrateDispositivosPos},
-		{"032_update_movimientos_inventario", migrateUpdateMovimientosInventario},
 		{"033_orden_compra", migrateOrdenCompra},
 		{"034_trigger_updated_at", migrateTriggerUpdatedAt},
 		{"035_trigger_stock_sync", migrateTriggerStockSync},
@@ -60,6 +59,9 @@ func RunMigrations(db *sql.DB) error {
 		{"053_refactor_orden_agregador", migrateRefactorOrdenAgregador},
 		{"054_specialized_auditing", migrateSpecializedAuditing},
 		{"055_add_username_to_usuario", migrateAddUsernameToUsuario},
+		{"056_add_product_codes_and_inventory_location", migrateAddProductCodesAndInventoryLocation},
+		{"057_lotes", migrateLotes},
+		{"058_inventory_performance_indexes", migrateInventoryPerformanceIndexes},
 	}
 
 	for _, s := range steps {

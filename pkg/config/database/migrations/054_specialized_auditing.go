@@ -36,20 +36,7 @@ func migrateSpecializedAuditing(db *sql.DB) error {
 		CONSTRAINT fk_historial_sucursal FOREIGN KEY (id_sucursal) REFERENCES sucursal(id_sucursal)
 	);
 
-	-- 3. Refinar Movimientos de Inventario (Multisede)
-	DO $$ 
-	BEGIN 
-		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='movimientos_inventario' AND column_name='id_sucursal') THEN
-			ALTER TABLE movimientos_inventario ADD COLUMN id_sucursal UUID;
-			-- Intentar poblar desde la tabla inventario si es posible (mejor esfuerzo)
-			UPDATE movimientos_inventario m
-			SET id_sucursal = i.id_sucursal
-			FROM inventario i
-			WHERE m.id_producto = i.id_producto;
-		END IF;
-	END $$;
-
-	-- 4. Triggers para Automatización
+	-- 3. Triggers para Automatización
 	
 	-- Función para auditar precios
 	CREATE OR REPLACE FUNCTION fn_audit_precios()
@@ -79,10 +66,9 @@ func migrateSpecializedAuditing(db *sql.DB) error {
 	AFTER UPDATE OF precio_venta, precio_compra ON inventario
 	FOR EACH ROW EXECUTE FUNCTION fn_audit_precios();
 
-	-- 5. Índices de Rendimiento
+	-- 4. Índices de Rendimiento
 	CREATE INDEX IF NOT EXISTS idx_factura_audit_id_factura ON factura_audit(id_factura);
 	CREATE INDEX IF NOT EXISTS idx_historial_precios_producto ON historial_precios(id_producto, id_sucursal);
-	CREATE INDEX IF NOT EXISTS idx_movimientos_sucursal ON movimientos_inventario(id_sucursal);
 	`
 	_, err := db.Exec(query)
 	return err

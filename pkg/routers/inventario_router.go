@@ -14,6 +14,7 @@ func InventarioRouter(h *transport.InventarioHandler) chi.Router {
 		r.Get("/", h.GetAll)
 		r.Post("/", h.Create)
 		r.Get("/{id}", h.GetByID)
+		r.Get("/sucursal/{id}", h.GetBySucursal)
 		r.Put("/{id}", h.Update)
 		r.Delete("/{id}", h.Delete)
 		r.Post("/movimientos", h.RegistrarMovimiento)

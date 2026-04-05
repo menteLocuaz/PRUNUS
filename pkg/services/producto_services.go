@@ -16,13 +16,15 @@ import (
 type ServiceProducto struct {
 	store           store.StoreProducto
 	inventarioStore store.StoreInventario
+	cache           models.CacheStore
 	logger          *slog.Logger
 }
 
-func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, logger *slog.Logger) *ServiceProducto {
+func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, c models.CacheStore, logger *slog.Logger) *ServiceProducto {
 	return &ServiceProducto{
 		store:           s,
 		inventarioStore: inv,
+		cache:           c,
 		logger:          logger,
 	}
 }
