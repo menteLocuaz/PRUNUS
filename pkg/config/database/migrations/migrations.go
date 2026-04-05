@@ -62,6 +62,7 @@ func RunMigrations(db *sql.DB) error {
 		{"056_add_product_codes_and_inventory_location", migrateAddProductCodesAndInventoryLocation},
 		{"057_lotes", migrateLotes},
 		{"058_inventory_performance_indexes", migrateInventoryPerformanceIndexes},
+		{"059_fix_trigger_stock_sync", migrateFixTriggerStockSync},
 	}
 
 	for _, s := range steps {
