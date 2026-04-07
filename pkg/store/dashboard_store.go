@@ -15,6 +15,8 @@ type StoreDashboard interface {
 	GetVentasVsCompras(ctx context.Context, sucursalID uuid.UUID) ([]dto.VentasComprasDTO, error)
 	GetRentabilidadTop(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error)
 	GetAntiguedadDeuda(ctx context.Context, sucursalID uuid.UUID) ([]dto.AntiguedadDeudaDTO, error)
+	GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]dto.InventarioCategoriaDTO, error)
+	GetMermas(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error)
 }
 
 type dashboardStore struct {
@@ -113,8 +115,55 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 		SELECT COALESCE($2 / NULLIF(margen, 0), 0) FROM MargenPromedio`
 	err = s.db.QueryRowContext(ctx, queryPE, sucursalID, resumen.GastosMensuales).Scan(&resumen.PuntoEquilibrio)
 	if err != nil {
-		// Si no hay ventas, no podemos calcular margen real, usamos 0 o un default
 		resumen.PuntoEquilibrio = 0
+	}
+
+	// 8. Ciclo de Conversión de Efectivo (CCC = DIO + DSO - DPO)
+	// Calculado sobre los últimos 90 días para mayor estabilidad
+	queryCCC := `
+		WITH Periodo AS (
+			SELECT 90 as dias
+		),
+		Metricas AS (
+			-- COGS: Costo de Ventas
+			SELECT COALESCE(SUM(m.costo_unitario * m.cantidad), 0) as cogs
+			FROM movimientos_inventario m
+			WHERE m.id_sucursal = $1 
+			  AND m.tipo_movimiento = 'VENTA' 
+			  AND m.fecha >= current_date - interval '90 days'
+		),
+		InventarioPromedio AS (
+			SELECT COALESCE(AVG(valor_total), 0) as avg_inv
+			FROM inventario_historico
+			WHERE id_sucursal = $1 AND fecha_snapshot >= current_date - interval '90 days'
+		),
+		VentasCredito AS (
+			-- Asumimos ventas a crédito las facturas con fecha_vencimiento
+			SELECT COALESCE(SUM(cfac_total), 0) as total_ventas,
+			       COALESCE(AVG(cfac_total), 0) as avg_ar
+			FROM factura f
+			JOIN control_estacion ce ON f.id_control_estacion = ce.id_control_estacion
+			WHERE ce.id_sucursal = $1 
+			  AND f.cfac_fecha_creacion >= current_date - interval '90 days'
+			  AND f.fecha_vencimiento IS NOT NULL
+		),
+		ComprasCredito AS (
+			SELECT COALESCE(SUM(total), 0) as total_compras,
+			       COALESCE(AVG(total), 0) as avg_ap
+			FROM orden_compra
+			WHERE id_sucursal = $1 
+			  AND fecha_emision >= current_date - interval '90 days'
+			  AND fecha_vencimiento IS NOT NULL
+		)
+		SELECT 
+			COALESCE((i.avg_inv / NULLIF(m.cogs, 0)) * p.dias, 0) as dio,
+			COALESCE((v.avg_ar / NULLIF(v.total_ventas, 0)) * p.dias, 0) as dso,
+			COALESCE((c.avg_ap / NULLIF(c.total_compras, 0)) * p.dias, 0) as dpo
+		FROM Periodo p, Metricas m, InventarioPromedio i, VentasCredito v, ComprasCredito c`
+	
+	err = s.db.QueryRowContext(ctx, queryCCC, sucursalID).Scan(&resumen.DIO, &resumen.DSO, &resumen.DPO)
+	if err == nil {
+		resumen.CicloConversionEfectivo = resumen.DIO + resumen.DSO - resumen.DPO
 	}
 
 	return resumen, nil
@@ -260,6 +309,77 @@ func (s *dashboardStore) GetAntiguedadDeuda(ctx context.Context, sucursalID uuid
 	for rows.Next() {
 		var item dto.AntiguedadDeudaDTO
 		if err := rows.Scan(&item.Rango, &item.Monto); err != nil {
+			return nil, err
+		}
+		results = append(results, item)
+	}
+	return results, nil
+}
+
+func (s *dashboardStore) GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]dto.InventarioCategoriaDTO, error) {
+	query := `
+		WITH StockValores AS (
+			SELECT 
+				c.std_descripcion as categoria,
+				SUM(i.stock_actual * i.precio_compra) as valor
+			FROM inventario i
+			JOIN producto p ON i.id_producto = p.id_producto
+			JOIN categoria c ON p.id_categoria = c.id_categoria
+			WHERE i.id_sucursal = $1 AND i.deleted_at IS NULL
+			GROUP BY c.id_categoria, c.std_descripcion
+		),
+		Total AS (
+			SELECT SUM(valor) as gran_total FROM StockValores
+		)
+		SELECT 
+			categoria, 
+			valor, 
+			COALESCE((valor / NULLIF(gran_total, 0)) * 100, 0) as porcentaje
+		FROM StockValores, Total
+		ORDER BY valor DESC`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []dto.InventarioCategoriaDTO
+	for rows.Next() {
+		var item dto.InventarioCategoriaDTO
+		if err := rows.Scan(&item.Categoria, &item.Valor, &item.Porcentaje); err != nil {
+			return nil, err
+		}
+		results = append(results, item)
+	}
+	return results, nil
+}
+
+func (s *dashboardStore) GetMermas(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error) {
+	query := `
+		SELECT 
+			p.nombre,
+			SUM(m.cantidad) as total_cantidad,
+			SUM(m.costo_unitario * m.cantidad) as total_perdida
+		FROM movimientos_inventario m
+		JOIN producto p ON m.id_producto = p.id_producto
+		WHERE m.id_sucursal = $1 
+		  AND m.tipo_movimiento IN ('MERMA', 'CADUCADO')
+		  AND m.fecha >= date_trunc('month', current_date)
+		GROUP BY p.id_producto, p.nombre
+		ORDER BY total_perdida DESC
+		LIMIT 10`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []dto.TopProductoDTO
+	for rows.Next() {
+		var item dto.TopProductoDTO
+		if err := rows.Scan(&item.Nombre, &item.Cantidad, &item.Rentabilidad); err != nil {
 			return nil, err
 		}
 		results = append(results, item)

@@ -16,6 +16,8 @@ func DashboardRouter(h *transport.DashboardHandler) http.Handler {
 
 	r.Get("/resumen", h.GetResumen)
 	r.Get("/antiguedad-deuda", h.GetAntiguedadDeuda)
+	r.Get("/composicion-categoria", h.GetComposicionCategoria)
+	r.Get("/mermas", h.GetMermas)
 
 	return r
 }

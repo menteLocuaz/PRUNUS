@@ -12,6 +12,8 @@ import (
 type ServiceDashboard interface {
 	GetDashboardData(ctx context.Context, sucursalID uuid.UUID) (*dto.DashboardResumen, error)
 	GetAntiguedadDeuda(ctx context.Context, sucursalID uuid.UUID) ([]dto.AntiguedadDeudaDTO, error)
+	GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]dto.InventarioCategoriaDTO, error)
+	GetMermas(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error)
 }
 
 type dashboardService struct {
@@ -43,4 +45,12 @@ func (s *dashboardService) GetDashboardData(ctx context.Context, sucursalID uuid
 
 func (s *dashboardService) GetAntiguedadDeuda(ctx context.Context, sucursalID uuid.UUID) ([]dto.AntiguedadDeudaDTO, error) {
 	return s.store.GetAntiguedadDeuda(ctx, sucursalID)
+}
+
+func (s *dashboardService) GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]dto.InventarioCategoriaDTO, error) {
+	return s.store.GetComposicionCategoria(ctx, sucursalID)
+}
+
+func (s *dashboardService) GetMermas(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error) {
+	return s.store.GetMermas(ctx, sucursalID)
 }
