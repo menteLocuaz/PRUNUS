@@ -23,6 +23,7 @@ type Factura struct {
 	IDControlEstacion uuid.UUID              `json:"id_control_estacion"`
 	IDStatus          uuid.UUID              `json:"id_status"`
 	FechaOperacion    time.Time              `json:"fecha_operacion"`
+	FechaVencimiento  *time.Time             `json:"fecha_vencimiento,omitempty"`
 	BaseImpuesto      float64                `json:"base_impuesto"`
 	Impuesto          float64                `json:"impuesto"`
 	ValorImpuesto     float64                `json:"valor_impuesto"`

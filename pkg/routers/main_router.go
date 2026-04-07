@@ -34,6 +34,7 @@ type Handlers struct {
 	Compra         *transport.CompraHandler
 	Periodo        *transport.PeriodoHandler
 	Configuracion  *transport.ConfiguracionHandler
+	Dashboard      *transport.DashboardHandler
 }
 
 // NewMainRouter crea el router principal que combina todos los recursos
@@ -83,6 +84,7 @@ func NewMainRouter(h *Handlers) http.Handler {
 			r.Mount("/compras", CompraRouter(h.Compra))
 			r.Mount("/periodos", PeriodoRouter(h.Periodo))
 			r.Mount("/configuracion-pos", ConfiguracionPosRouter(h.Configuracion))
+			r.Mount("/dashboard", DashboardRouter(h.Dashboard))
 		})
 	})
 
