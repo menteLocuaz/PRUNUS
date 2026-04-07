@@ -26,6 +26,11 @@ func InventarioRouter(h *transport.InventarioHandler) chi.Router {
 		r.Get("/rotacion", h.GetRotacion)
 		r.Get("/rotacion/detalle", h.GetRotacionDetalle)
 		r.Get("/composicion-categoria", h.GetComposicionCategoria)
+		// Estado financiero
+		r.Post("/historico/snapshot", h.CapturarSnapshot)
+		r.Get("/historico", h.GetValorHistorico)
+		r.Get("/perdidas", h.GetPerdidas)
+		r.Get("/margen", h.GetMargenGanancia)
 	})
 
 	return r

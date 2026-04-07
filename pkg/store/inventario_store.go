@@ -39,6 +39,12 @@ type StoreInventario interface {
 	GetRotacionDetalle(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.RotacionProductoResponse, error)
 	GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]*dto.ComposicionCategoriaResponse, error)
 	GetAlertasStockDetalle(ctx context.Context, sucursalID uuid.UUID) ([]*dto.AlertaStockResponse, error)
+
+	// Estado financiero
+	CapturarSnapshotInventario(ctx context.Context, sucursalID uuid.UUID) error
+	GetValorHistorico(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.ValorHistoricoResponse, error)
+	GetPerdidas(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.PerdidaResponse, error)
+	GetMargenGanancia(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.MargenProductoResponse, error)
 }
 
 type storeInventario struct {
@@ -659,6 +665,139 @@ func (s *storeInventario) GetComposicionCategoria(ctx context.Context, sucursalI
 			&r.CantidadTotal, &r.ValorTotal, &r.PorcentajeValor,
 		); err != nil {
 			return nil, fmt.Errorf("error al escanear composición: %w", err)
+		}
+		resultado = append(resultado, r)
+	}
+	return resultado, nil
+}
+
+func (s *storeInventario) CapturarSnapshotInventario(ctx context.Context, sucursalID uuid.UUID) error {
+	defer performance.Trace(ctx, "store", "CapturarSnapshotInventario", performance.DbThreshold, time.Now())
+	_, err := s.db.ExecContext(ctx, `SELECT fn_snapshot_inventario($1)`, sucursalID)
+	if err != nil {
+		return fmt.Errorf("error al capturar snapshot de inventario: %w", err)
+	}
+	return nil
+}
+
+func (s *storeInventario) GetValorHistorico(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.ValorHistoricoResponse, error) {
+	defer performance.Trace(ctx, "store", "GetValorHistorico", performance.DbThreshold, time.Now())
+
+	query := `
+		SELECT fecha_snapshot, valor_total, cantidad_total, num_productos
+		FROM inventario_historico
+		WHERE id_sucursal    = $1
+		  AND fecha_snapshot BETWEEN $2 AND $3
+		ORDER BY fecha_snapshot ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID, params.FechaInicio, params.FechaFin)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener historial de valor: %w", err)
+	}
+	defer rows.Close()
+
+	var resultado []*dto.ValorHistoricoResponse
+	for rows.Next() {
+		r := &dto.ValorHistoricoResponse{}
+		if err := rows.Scan(&r.FechaSnapshot, &r.ValorTotal, &r.CantidadTotal, &r.NumProductos); err != nil {
+			return nil, fmt.Errorf("error al escanear historial: %w", err)
+		}
+		resultado = append(resultado, r)
+	}
+	return resultado, nil
+}
+
+func (s *storeInventario) GetPerdidas(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.PerdidaResponse, error) {
+	defer performance.Trace(ctx, "store", "GetPerdidas", performance.DbThreshold, time.Now())
+
+	query := `
+		SELECT
+			mi.id_producto,
+			p.nombre                             AS nombre_producto,
+			mi.tipo_movimiento,
+			SUM(mi.cantidad)                     AS unidades_perdidas,
+			SUM(mi.cantidad * mi.costo_unitario) AS valor_perdido
+		FROM movimientos_inventario mi
+		INNER JOIN producto p
+			ON mi.id_producto = p.id_producto
+			AND p.deleted_at IS NULL
+		WHERE mi.id_sucursal     = $1
+		  AND mi.fecha           BETWEEN $2 AND $3
+		  AND mi.tipo_movimiento IN ('MERMA', 'CADUCADO')
+		  AND mi.deleted_at      IS NULL
+		GROUP BY mi.id_producto, p.nombre, mi.tipo_movimiento
+		ORDER BY valor_perdido DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID, params.FechaInicio, params.FechaFin)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener pérdidas: %w", err)
+	}
+	defer rows.Close()
+
+	var resultado []*dto.PerdidaResponse
+	for rows.Next() {
+		r := &dto.PerdidaResponse{}
+		if err := rows.Scan(
+			&r.IDProducto, &r.NombreProducto, &r.TipoMovimiento,
+			&r.UnidadesPerdidas, &r.ValorPerdido,
+		); err != nil {
+			return nil, fmt.Errorf("error al escanear pérdida: %w", err)
+		}
+		resultado = append(resultado, r)
+	}
+	return resultado, nil
+}
+
+func (s *storeInventario) GetMargenGanancia(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.MargenProductoResponse, error) {
+	defer performance.Trace(ctx, "store", "GetMargenGanancia", performance.DbThreshold, time.Now())
+
+	// Usa costo_unitario y precio_unitario almacenados en cada movimiento de venta,
+	// reflejando los costos históricos reales, no el precio_compra actual del inventario.
+	query := `
+		SELECT
+			mi.id_producto,
+			p.nombre                                                          AS nombre_producto,
+			ROUND(AVG(mi.costo_unitario)::numeric, 4)                        AS costo_prom,
+			ROUND(AVG(mi.precio_unitario)::numeric, 4)                       AS precio_venta_prom,
+			ROUND((AVG(mi.precio_unitario) - AVG(mi.costo_unitario))::numeric, 4) AS margen_bruto,
+			CASE
+				WHEN AVG(mi.precio_unitario) = 0 THEN 0
+				ELSE ROUND(
+					((AVG(mi.precio_unitario) - AVG(mi.costo_unitario)) / AVG(mi.precio_unitario) * 100)::numeric,
+					2
+				)
+			END AS margen_porcentaje,
+			SUM(mi.cantidad) AS unidades_vendidas
+		FROM movimientos_inventario mi
+		INNER JOIN producto p
+			ON mi.id_producto = p.id_producto
+			AND p.deleted_at IS NULL
+		WHERE mi.id_sucursal     = $1
+		  AND mi.fecha           BETWEEN $2 AND $3
+		  AND mi.tipo_movimiento IN ('VENTA', 'SALIDA')
+		  AND mi.precio_unitario > 0
+		  AND mi.deleted_at      IS NULL
+		GROUP BY mi.id_producto, p.nombre
+		ORDER BY margen_porcentaje DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID, params.FechaInicio, params.FechaFin)
+	if err != nil {
+		return nil, fmt.Errorf("error al calcular margen de ganancia: %w", err)
+	}
+	defer rows.Close()
+
+	var resultado []*dto.MargenProductoResponse
+	for rows.Next() {
+		r := &dto.MargenProductoResponse{}
+		if err := rows.Scan(
+			&r.IDProducto, &r.NombreProducto,
+			&r.CostoProm, &r.PrecioVentaProm, &r.MargenBruto, &r.MargenPorcentaje,
+			&r.UnidadesVendidas,
+		); err != nil {
+			return nil, fmt.Errorf("error al escanear margen: %w", err)
 		}
 		resultado = append(resultado, r)
 	}

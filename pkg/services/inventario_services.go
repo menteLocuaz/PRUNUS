@@ -101,3 +101,28 @@ func (s *ServiceInventario) GetComposicionCategoria(ctx context.Context, sucursa
 func (s *ServiceInventario) GetAlertasStockDetalle(ctx context.Context, sucursalID uuid.UUID) ([]*dto.AlertaStockResponse, error) {
 	return s.store.GetAlertasStockDetalle(ctx, sucursalID)
 }
+
+func (s *ServiceInventario) CapturarSnapshotInventario(ctx context.Context, sucursalID uuid.UUID) error {
+	return s.store.CapturarSnapshotInventario(ctx, sucursalID)
+}
+
+func (s *ServiceInventario) GetValorHistorico(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.ValorHistoricoResponse, error) {
+	if params.FechaFin.Before(params.FechaInicio) {
+		return nil, errors.New("fecha_fin debe ser posterior a fecha_inicio")
+	}
+	return s.store.GetValorHistorico(ctx, sucursalID, params)
+}
+
+func (s *ServiceInventario) GetPerdidas(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.PerdidaResponse, error) {
+	if params.FechaFin.Before(params.FechaInicio) {
+		return nil, errors.New("fecha_fin debe ser posterior a fecha_inicio")
+	}
+	return s.store.GetPerdidas(ctx, sucursalID, params)
+}
+
+func (s *ServiceInventario) GetMargenGanancia(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.MargenProductoResponse, error) {
+	if params.FechaFin.Before(params.FechaInicio) {
+		return nil, errors.New("fecha_fin debe ser posterior a fecha_inicio")
+	}
+	return s.store.GetMargenGanancia(ctx, sucursalID, params)
+}
