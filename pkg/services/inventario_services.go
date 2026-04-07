@@ -86,3 +86,18 @@ func (s *ServiceInventario) GetAnalisisRotacion(ctx context.Context, sucursalID 
 func (s *ServiceInventario) CreateLote(ctx context.Context, lote models.Lote) (*models.Lote, error) {
 	return s.store.CreateLote(ctx, &lote)
 }
+
+func (s *ServiceInventario) GetRotacionDetalle(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.RotacionProductoResponse, error) {
+	if params.FechaFin.Before(params.FechaInicio) {
+		return nil, errors.New("fecha_fin debe ser posterior a fecha_inicio")
+	}
+	return s.store.GetRotacionDetalle(ctx, sucursalID, params)
+}
+
+func (s *ServiceInventario) GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]*dto.ComposicionCategoriaResponse, error) {
+	return s.store.GetComposicionCategoria(ctx, sucursalID)
+}
+
+func (s *ServiceInventario) GetAlertasStockDetalle(ctx context.Context, sucursalID uuid.UUID) ([]*dto.AlertaStockResponse, error) {
+	return s.store.GetAlertasStockDetalle(ctx, sucursalID)
+}

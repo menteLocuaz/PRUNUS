@@ -21,8 +21,11 @@ func InventarioRouter(h *transport.InventarioHandler) chi.Router {
 		r.Post("/movimientos/masivo", h.RegistrarMovimientoMasivo)
 		r.Get("/movimientos/{id}", h.GetMovimientos)
 		r.Get("/alertas", h.GetAllAlertas)
+		r.Get("/alertas/detalle", h.GetAlertasDetalle)
 		r.Get("/valuacion", h.GetValuacion)
 		r.Get("/rotacion", h.GetRotacion)
+		r.Get("/rotacion/detalle", h.GetRotacionDetalle)
+		r.Get("/composicion-categoria", h.GetComposicionCategoria)
 	})
 
 	return r

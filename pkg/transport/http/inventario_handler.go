@@ -3,6 +3,7 @@ package transport
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -309,4 +310,98 @@ func (h *InventarioHandler) GetRotacion(w http.ResponseWriter, r *http.Request) 
 	}
 
 	response.Success(w, "Análisis de rotación ABC obtenido correctamente", abc)
+}
+
+func (h *InventarioHandler) GetRotacionDetalle(w http.ResponseWriter, r *http.Request) {
+	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	if sucursalIDStr == "" {
+		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
+		if !ok {
+			response.BadRequest(w, "Debe proporcionar id_sucursal")
+			return
+		}
+		sucursalIDStr = ctxSucursal.String()
+	}
+
+	sucursalID, err := uuid.Parse(sucursalIDStr)
+	if err != nil {
+		response.BadRequest(w, "id_sucursal inválido")
+		return
+	}
+
+	fechaInicioStr := r.URL.Query().Get("fecha_inicio")
+	fechaFinStr := r.URL.Query().Get("fecha_fin")
+	if fechaInicioStr == "" || fechaFinStr == "" {
+		response.BadRequest(w, "Debe proporcionar fecha_inicio y fecha_fin (RFC3339)")
+		return
+	}
+
+	fechaInicio, err := time.Parse(time.RFC3339, fechaInicioStr)
+	if err != nil {
+		response.BadRequest(w, "fecha_inicio inválida, use formato RFC3339")
+		return
+	}
+	fechaFin, err := time.Parse(time.RFC3339, fechaFinStr)
+	if err != nil {
+		response.BadRequest(w, "fecha_fin inválida, use formato RFC3339")
+		return
+	}
+
+	params := dto.RotacionFiltroParams{FechaInicio: fechaInicio, FechaFin: fechaFin}
+	data, err := h.service.GetRotacionDetalle(r.Context(), sucursalID, params)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Success(w, "Rotación de inventario calculada correctamente", data)
+}
+
+func (h *InventarioHandler) GetComposicionCategoria(w http.ResponseWriter, r *http.Request) {
+	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	if sucursalIDStr == "" {
+		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
+		if !ok {
+			response.BadRequest(w, "Debe proporcionar id_sucursal")
+			return
+		}
+		sucursalIDStr = ctxSucursal.String()
+	}
+
+	sucursalID, err := uuid.Parse(sucursalIDStr)
+	if err != nil {
+		response.BadRequest(w, "id_sucursal inválido")
+		return
+	}
+
+	data, err := h.service.GetComposicionCategoria(r.Context(), sucursalID)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Composición por categoría obtenida correctamente", data)
+}
+
+func (h *InventarioHandler) GetAlertasDetalle(w http.ResponseWriter, r *http.Request) {
+	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	if sucursalIDStr == "" {
+		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
+		if !ok {
+			response.BadRequest(w, "Debe proporcionar id_sucursal")
+			return
+		}
+		sucursalIDStr = ctxSucursal.String()
+	}
+
+	sucursalID, err := uuid.Parse(sucursalIDStr)
+	if err != nil {
+		response.BadRequest(w, "id_sucursal inválido")
+		return
+	}
+
+	data, err := h.service.GetAlertasStockDetalle(r.Context(), sucursalID)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Alertas de stock crítico obtenidas correctamente", data)
 }

@@ -34,6 +34,11 @@ type StoreInventario interface {
 	CreateLote(ctx context.Context, lote *models.Lote) (*models.Lote, error)
 	GetLotesByProducto(ctx context.Context, idProducto, idSucursal uuid.UUID) ([]*models.Lote, error)
 	UpdateLoteCantidad(ctx context.Context, idLote uuid.UUID, cantidad float64) error
+
+	// Analítica operativa
+	GetRotacionDetalle(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.RotacionProductoResponse, error)
+	GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]*dto.ComposicionCategoriaResponse, error)
+	GetAlertasStockDetalle(ctx context.Context, sucursalID uuid.UUID) ([]*dto.AlertaStockResponse, error)
 }
 
 type storeInventario struct {
@@ -533,4 +538,173 @@ func (s *storeInventario) UpdateLoteCantidad(ctx context.Context, idLote uuid.UU
 	query := `UPDATE lotes SET cantidad_actual = $1, updated_at = CURRENT_TIMESTAMP WHERE id_lote = $2`
 	_, err := s.db.ExecContext(ctx, query, cantidad, idLote)
 	return err
+}
+
+func (s *storeInventario) GetRotacionDetalle(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.RotacionProductoResponse, error) {
+	defer performance.Trace(ctx, "store", "GetRotacionDetalle", performance.DbThreshold, time.Now())
+
+	query := `
+		WITH ventas AS (
+			SELECT
+				id_producto,
+				SUM(cantidad * COALESCE(costo_unitario, 0)) AS cogs,
+				SUM(cantidad)                               AS unidades_vendidas
+			FROM movimientos_inventario
+			WHERE id_sucursal     = $1
+			  AND fecha           BETWEEN $2 AND $3
+			  AND tipo_movimiento IN ('SALIDA', 'VENTA')
+			  AND deleted_at      IS NULL
+			GROUP BY id_producto
+		),
+		primer_mov AS (
+			SELECT DISTINCT ON (id_producto)
+				id_producto,
+				stock_anterior AS stock_inicio
+			FROM movimientos_inventario
+			WHERE id_sucursal = $1
+			  AND fecha       BETWEEN $2 AND $3
+			  AND deleted_at  IS NULL
+			ORDER BY id_producto, fecha ASC
+		),
+		ultimo_mov AS (
+			SELECT DISTINCT ON (id_producto)
+				id_producto,
+				stock_posterior AS stock_fin
+			FROM movimientos_inventario
+			WHERE id_sucursal = $1
+			  AND fecha       BETWEEN $2 AND $3
+			  AND deleted_at  IS NULL
+			ORDER BY id_producto, fecha DESC
+		)
+		SELECT
+			v.id_producto,
+			v.cogs,
+			v.unidades_vendidas,
+			(COALESCE(p.stock_inicio, 0) + COALESCE(u.stock_fin, 0)) / 2.0 AS inventario_promedio,
+			CASE
+				WHEN (COALESCE(p.stock_inicio, 0) + COALESCE(u.stock_fin, 0)) = 0 THEN 0
+				ELSE v.unidades_vendidas / ((COALESCE(p.stock_inicio, 0) + COALESCE(u.stock_fin, 0)) / 2.0)
+			END AS indice_rotacion
+		FROM ventas v
+		LEFT JOIN primer_mov p ON v.id_producto = p.id_producto
+		LEFT JOIN ultimo_mov u ON v.id_producto = u.id_producto
+		ORDER BY indice_rotacion DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID, params.FechaInicio, params.FechaFin)
+	if err != nil {
+		return nil, fmt.Errorf("error al calcular rotación de inventario: %w", err)
+	}
+	defer rows.Close()
+
+	var resultado []*dto.RotacionProductoResponse
+	for rows.Next() {
+		r := &dto.RotacionProductoResponse{}
+		if err := rows.Scan(&r.IDProducto, &r.COGS, &r.UnidadesVendidas, &r.InventarioPromedio, &r.IndiceRotacion); err != nil {
+			return nil, fmt.Errorf("error al escanear rotación: %w", err)
+		}
+		resultado = append(resultado, r)
+	}
+	return resultado, nil
+}
+
+func (s *storeInventario) GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]*dto.ComposicionCategoriaResponse, error) {
+	defer performance.Trace(ctx, "store", "GetComposicionCategoria", performance.DbThreshold, time.Now())
+
+	query := `
+		WITH valores AS (
+			SELECT
+				c.id_categoria,
+				c.nombre                                          AS nombre_categoria,
+				COUNT(DISTINCT p.id_producto)                    AS num_productos,
+				COALESCE(SUM(i.stock_actual), 0)                 AS cantidad_total,
+				COALESCE(SUM(i.stock_actual * i.precio_compra), 0) AS valor_total
+			FROM categoria c
+			LEFT JOIN producto p
+				ON p.id_categoria = c.id_categoria
+				AND p.deleted_at IS NULL
+			LEFT JOIN inventario i
+				ON i.id_producto = p.id_producto
+				AND i.id_sucursal = $1
+				AND i.deleted_at IS NULL
+			WHERE c.id_sucursal = $1
+			  AND c.deleted_at IS NULL
+			GROUP BY c.id_categoria, c.nombre
+		),
+		total AS (
+			SELECT NULLIF(SUM(valor_total), 0) AS gran_total FROM valores
+		)
+		SELECT
+			v.id_categoria,
+			v.nombre_categoria,
+			v.num_productos,
+			v.cantidad_total,
+			v.valor_total,
+			COALESCE(ROUND((v.valor_total * 100.0 / t.gran_total)::numeric, 2), 0) AS porcentaje_valor
+		FROM valores v, total t
+		ORDER BY v.valor_total DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener composición por categoría: %w", err)
+	}
+	defer rows.Close()
+
+	var resultado []*dto.ComposicionCategoriaResponse
+	for rows.Next() {
+		r := &dto.ComposicionCategoriaResponse{}
+		if err := rows.Scan(
+			&r.IDCategoria, &r.NombreCategoria, &r.NumProductos,
+			&r.CantidadTotal, &r.ValorTotal, &r.PorcentajeValor,
+		); err != nil {
+			return nil, fmt.Errorf("error al escanear composición: %w", err)
+		}
+		resultado = append(resultado, r)
+	}
+	return resultado, nil
+}
+
+func (s *storeInventario) GetAlertasStockDetalle(ctx context.Context, sucursalID uuid.UUID) ([]*dto.AlertaStockResponse, error) {
+	defer performance.Trace(ctx, "store", "GetAlertasStockDetalle", performance.DbThreshold, time.Now())
+
+	query := `
+		SELECT
+			i.id_inventario,
+			i.id_producto,
+			p.nombre       AS nombre_producto,
+			p.sku,
+			i.id_sucursal,
+			i.stock_actual,
+			i.stock_minimo,
+			(i.stock_minimo - i.stock_actual) AS deficit,
+			i.precio_compra
+		FROM inventario i
+		INNER JOIN producto p
+			ON i.id_producto = p.id_producto
+			AND p.deleted_at IS NULL
+		WHERE i.id_sucursal  = $1
+		  AND i.stock_actual <= i.stock_minimo
+		  AND i.deleted_at   IS NULL
+		ORDER BY deficit DESC, i.stock_actual ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, sucursalID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener alertas de stock: %w", err)
+	}
+	defer rows.Close()
+
+	var alertas []*dto.AlertaStockResponse
+	for rows.Next() {
+		a := &dto.AlertaStockResponse{}
+		if err := rows.Scan(
+			&a.IDInventario, &a.IDProducto, &a.NombreProducto, &a.SKU,
+			&a.IDSucursal, &a.StockActual, &a.StockMinimo, &a.Deficit, &a.PrecioCompra,
+		); err != nil {
+			return nil, fmt.Errorf("error al escanear alerta: %w", err)
+		}
+		alertas = append(alertas, a)
+	}
+	return alertas, nil
 }
