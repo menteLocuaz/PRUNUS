@@ -70,6 +70,7 @@ func RunMigrations(db *sql.DB) error {
 		{"064_fix_facturacion_secuencial", migrateFixFacturacionSecuencial},
 		{"065_concurrency_control", migrateConcurrencyControl},
 		{"066_master_auditing", migrateMasterAuditing},
+		{"067_inventario_historico", migrateInventarioHistorico},
 	}
 
 	for _, s := range steps {

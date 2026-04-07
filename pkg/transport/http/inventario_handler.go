@@ -381,6 +381,94 @@ func (h *InventarioHandler) GetComposicionCategoria(w http.ResponseWriter, r *ht
 	response.Success(w, "Composición por categoría obtenida correctamente", data)
 }
 
+// parseSucursalID obtiene id_sucursal del query param o del contexto JWT.
+func parseSucursalID(r *http.Request) (uuid.UUID, bool) {
+	s := r.URL.Query().Get("id_sucursal")
+	if s == "" {
+		id, ok := r.Context().Value("user_sucursal").(uuid.UUID)
+		return id, ok
+	}
+	id, err := uuid.Parse(s)
+	return id, err == nil
+}
+
+// parseFechaParams lee fecha_inicio y fecha_fin (RFC3339) del query string.
+func parseFechaParams(r *http.Request) (dto.RotacionFiltroParams, bool) {
+	fi, errI := time.Parse(time.RFC3339, r.URL.Query().Get("fecha_inicio"))
+	ff, errF := time.Parse(time.RFC3339, r.URL.Query().Get("fecha_fin"))
+	return dto.RotacionFiltroParams{FechaInicio: fi, FechaFin: ff}, errI == nil && errF == nil
+}
+
+func (h *InventarioHandler) CapturarSnapshot(w http.ResponseWriter, r *http.Request) {
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
+		return
+	}
+	if err := h.service.CapturarSnapshotInventario(r.Context(), sucursalID); err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Snapshot de inventario capturado correctamente", nil)
+}
+
+func (h *InventarioHandler) GetValorHistorico(w http.ResponseWriter, r *http.Request) {
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
+		return
+	}
+	params, ok := parseFechaParams(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar fecha_inicio y fecha_fin en formato RFC3339")
+		return
+	}
+	data, err := h.service.GetValorHistorico(r.Context(), sucursalID, params)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Success(w, "Historial de valor del inventario obtenido correctamente", data)
+}
+
+func (h *InventarioHandler) GetPerdidas(w http.ResponseWriter, r *http.Request) {
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
+		return
+	}
+	params, ok := parseFechaParams(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar fecha_inicio y fecha_fin en formato RFC3339")
+		return
+	}
+	data, err := h.service.GetPerdidas(r.Context(), sucursalID, params)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Success(w, "Pérdidas por merma y caducidad obtenidas correctamente", data)
+}
+
+func (h *InventarioHandler) GetMargenGanancia(w http.ResponseWriter, r *http.Request) {
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
+		return
+	}
+	params, ok := parseFechaParams(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar fecha_inicio y fecha_fin en formato RFC3339")
+		return
+	}
+	data, err := h.service.GetMargenGanancia(r.Context(), sucursalID, params)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Success(w, "Margen de ganancia real obtenido correctamente", data)
+}
+
 func (h *InventarioHandler) GetAlertasDetalle(w http.ResponseWriter, r *http.Request) {
 	sucursalIDStr := r.URL.Query().Get("id_sucursal")
 	if sucursalIDStr == "" {

@@ -27,7 +27,7 @@ type InventarioUpdateRequest struct {
 type MovimientoCreateRequest struct {
 	IDProducto     uuid.UUID `json:"id_producto" validate:"required"`
 	IDSucursal     uuid.UUID `json:"id_sucursal" validate:"required"`
-	TipoMovimiento string    `json:"tipo_movimiento" validate:"required,oneof=ENTRADA SALIDA AJUSTE DEVOLUCION TRASLADO"`
+	TipoMovimiento string    `json:"tipo_movimiento" validate:"required,oneof=ENTRADA SALIDA AJUSTE DEVOLUCION TRASLADO MERMA CADUCADO"`
 	Cantidad       float64   `json:"cantidad" validate:"required,gt=0"`
 	Referencia     string    `json:"referencia"`
 }
@@ -39,7 +39,7 @@ type MovimientoItemRequest struct {
 
 type MovimientoMasivoRequest struct {
 	IDSucursal     uuid.UUID               `json:"id_sucursal" validate:"required"`
-	TipoMovimiento string                  `json:"tipo_movimiento" validate:"required,oneof=ENTRADA SALIDA AJUSTE DEVOLUCION TRASLADO"`
+	TipoMovimiento string                  `json:"tipo_movimiento" validate:"required,oneof=ENTRADA SALIDA AJUSTE DEVOLUCION TRASLADO MERMA CADUCADO"`
 	Referencia     string                  `json:"referencia"`
 	Items          []MovimientoItemRequest `json:"items" validate:"required,min=1,dive"`
 }
@@ -80,4 +80,32 @@ type AlertaStockResponse struct {
 type RotacionFiltroParams struct {
 	FechaInicio time.Time
 	FechaFin    time.Time
+}
+
+// ValorHistoricoResponse representa el valor del inventario en un día dado.
+type ValorHistoricoResponse struct {
+	FechaSnapshot time.Time `json:"fecha_snapshot"`
+	ValorTotal    float64   `json:"valor_total"`
+	CantidadTotal float64   `json:"cantidad_total"`
+	NumProductos  int       `json:"num_productos"`
+}
+
+// PerdidaResponse agrupa las pérdidas por merma o caducidad de un producto.
+type PerdidaResponse struct {
+	IDProducto      uuid.UUID `json:"id_producto"`
+	NombreProducto  string    `json:"nombre_producto"`
+	TipoMovimiento  string    `json:"tipo_movimiento"` // MERMA | CADUCADO
+	UnidadesPerdidas float64  `json:"unidades_perdidas"`
+	ValorPerdido    float64   `json:"valor_perdido"` // unidades * costo_unitario
+}
+
+// MargenProductoResponse muestra el margen de ganancia real basado en ventas históricas.
+type MargenProductoResponse struct {
+	IDProducto       uuid.UUID `json:"id_producto"`
+	NombreProducto   string    `json:"nombre_producto"`
+	CostoProm        float64   `json:"costo_prom"`         // Costo unitario promedio real de ventas
+	PrecioVentaProm  float64   `json:"precio_venta_prom"`  // Precio de venta promedio real
+	MargenBruto      float64   `json:"margen_bruto"`       // PrecioVentaProm - CostoProm
+	MargenPorcentaje float64   `json:"margen_porcentaje"`  // (MargenBruto / PrecioVentaProm) * 100
+	UnidadesVendidas float64   `json:"unidades_vendidas"`
 }
