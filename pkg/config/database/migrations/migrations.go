@@ -71,6 +71,8 @@ func RunMigrations(db *sql.DB) error {
 		{"065_concurrency_control", migrateConcurrencyControl},
 		{"066_master_auditing", migrateMasterAuditing},
 		{"067_inventario_historico", migrateInventarioHistorico},
+		{"068_dashboard_fields", migrateDashboardFields},
+		{"069_gastos_operativos", migrateGastosOperativos},
 	}
 
 	for _, s := range steps {

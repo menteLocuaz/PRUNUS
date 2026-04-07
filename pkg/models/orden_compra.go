@@ -16,6 +16,7 @@ type OrdenCompra struct {
 	IDStatus       uuid.UUID  `json:"id_status"`
 	FechaEmision   time.Time  `json:"fecha_emision"`
 	FechaRecepcion *time.Time `json:"fecha_recepcion,omitempty"`
+	FechaVencimiento *time.Time `json:"fecha_vencimiento,omitempty"`
 	Subtotal       float64    `json:"subtotal"`
 	Impuesto       float64    `json:"impuesto"`
 	Total          float64    `json:"total"`

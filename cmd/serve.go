@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"log/slog"
@@ -59,6 +60,9 @@ var serveCmd = &cobra.Command{
 		h := RegisterHandlers(db, cacheStore, logger)
 		router := routers.NewMainRouter(h)
 
+		// 5b. Worker de Segundo Plano para Snapshots de Inventario
+		go StartBackgroundWorker(db)
+
 		// 6. Configuración del Servidor
 		finalPort := config.GetDefault("PORT", "9090")
 		if port != "9090" {
@@ -104,4 +108,41 @@ var serveCmd = &cobra.Command{
 func init() {
 	serveCmd.Flags().StringVarP(&port, "port", "p", "9090", "Puerto en el que escuchará el servidor")
 	rootCmd.AddCommand(serveCmd)
+}
+
+// StartBackgroundWorker ejecuta tareas periódicas como snapshots de inventario
+func StartBackgroundWorker(db *sql.DB) {
+	fmt.Println("⏲️ Worker de segundo plano iniciado (Snapshots diarios)")
+	
+	// Ejecutar inmediatamente al arrancar para asegurar el dato del día
+	takeInventorySnapshots(db)
+
+	ticker := time.NewTicker(24 * time.Hour)
+	for range ticker.C {
+		takeInventorySnapshots(db)
+	}
+}
+
+func takeInventorySnapshots(db *sql.DB) {
+	// Obtener todas las sucursales activas
+	rows, err := db.Query("SELECT id_sucursal FROM sucursal WHERE deleted_at IS NULL")
+	if err != nil {
+		fmt.Printf("❌ Error obteniendo sucursales para snapshot: %v\n", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var sucursalID string
+		if err := rows.Scan(&sucursalID); err != nil {
+			continue
+		}
+
+		// Llamar a la función de Postgres fn_snapshot_inventario(uuid)
+		_, err := db.Exec("SELECT fn_snapshot_inventario($1)", sucursalID)
+		if err != nil {
+			fmt.Printf("❌ Error generando snapshot para sucursal %s: %v\n", sucursalID, err)
+		}
+	}
+	fmt.Printf("📸 Snapshots de inventario generados correctamente (%s)\n", time.Now().Format("2006-01-02 15:04:05"))
 }
