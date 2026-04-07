@@ -57,3 +57,5 @@ Prunus is a Go-based REST API designed for comprehensive business management, in
 - Never expose passwords in JSON responses.
 - Use parameterized SQL queries to prevent injection.
 - Validate all user input in the service layer.
+## Code
+Reescribe este código para hacerlo más limpio, eficiente y legible. Incluye comentarios explicativos donde sea necesario
