@@ -167,46 +167,54 @@ func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.
 }
 
 // AuthenticateUsuario valida las credenciales del usuario y retorna el usuario autenticado
-func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, email, password string) (*models.Usuario, error) {
-	// Validar que se proporcionen ambos campos
-	if email == "" {
-		return nil, errors.New("el email es requerido")
-	}
-	if password == "" {
-		return nil, errors.New("la contraseña es requerida")
+func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, req models.LoginRequest) (*models.Usuario, error) {
+	var usuario *models.Usuario
+	var err error
+
+	// 1. Identificar el método de búsqueda
+	if req.Pin != "" {
+		// Login por PIN (Acceso rápido POS)
+		usuario, err = s.store.GetUsuarioByPin(ctx, req.Pin)
+		if err != nil {
+			return nil, errors.New("PIN inválido")
+		}
+	} else if req.Email != "" {
+		// Login por Email
+		usuario, err = s.store.GetUsuarioByEmail(ctx, strings.TrimSpace(req.Email))
+	} else if req.Username != "" {
+		// Login por Username
+		usuario, err = s.store.GetUsuarioByUsername(ctx, strings.TrimSpace(req.Username))
+	} else {
+		return nil, errors.New("debe proporcionar email, username o pin")
 	}
 
-	// Limpiar email de espacios o caracteres accidentales
-	emailClean := strings.TrimSpace(email)
-
-	// Buscar usuario por email
-	usuario, err := s.store.GetUsuarioByEmail(ctx, emailClean)
 	if err != nil {
-		// No revelar si el usuario existe o no por seguridad
-		s.logger.WarnContext(ctx, "Login fallido: usuario no encontrado", slog.String("email", emailClean))
+		s.logger.WarnContext(ctx, "Login fallido: usuario no encontrado", slog.Any("error", err))
 		return nil, errors.New("credenciales inválidas")
 	}
 
-	// Validar que el usuario esté activo (ID: 3a99d245-b34f-48a5-ac08-a5a010c5822f)
-	// Comparamos contra la constante si está disponible o directo al UUID de la semilla
+	// 2. Validar estatus activo
 	estatusActivo := uuid.MustParse("3a99d245-b34f-48a5-ac08-a5a010c5822f")
 	if usuario.IDStatus != estatusActivo {
-		s.logger.WarnContext(ctx, "Login fallido: usuario inactivo o bloqueado",
-			slog.String("email", emailClean),
-			slog.String("status", usuario.IDStatus.String()))
 		return nil, errors.New("su cuenta no está activa")
 	}
 
-	// Verificar la contraseña usando bcrypt
-	err = helper.CheckPassword(password, usuario.Password)
-	if err != nil {
-		// Password incorrecta
-		s.logger.WarnContext(ctx, "Login fallido: contraseña incorrecta", slog.String("email", emailClean), slog.String("id_usuario", usuario.IDUsuario.String()))
-		return nil, errors.New("credenciales inválidas")
+	// 3. Validar Password (solo si NO es login por PIN)
+	if req.Pin == "" {
+		if req.Password == "" {
+			return nil, errors.New("la contraseña es requerida")
+		}
+		if err := helper.CheckPassword(req.Password, usuario.Password); err != nil {
+			return nil, errors.New("credenciales inválidas")
+		}
 	}
 
-	// Limpiar el password del objeto antes de retornarlo
+	// 4. Limpiar password y cargar permisos
 	usuario.Password = ""
+	permisos, err := s.store.GetPermisosByRol(ctx, usuario.IDRol)
+	if err == nil {
+		usuario.Permisos = permisos
+	}
 
 	return usuario, nil
 }

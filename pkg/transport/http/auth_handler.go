@@ -40,7 +40,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Autenticar al usuario
-	usuario, err := h.usuarioService.AuthenticateUsuario(r.Context(), loginReq.Email, loginReq.Password)
+	usuario, err := h.usuarioService.AuthenticateUsuario(r.Context(), loginReq)
 	if err != nil {
 		// Retornar 401 para errores de autenticación
 		response.Unauthorized(w, err.Error())

@@ -73,6 +73,7 @@ func RunMigrations(db *sql.DB) error {
 		{"067_inventario_historico", migrateInventarioHistorico},
 		{"068_dashboard_fields", migrateDashboardFields},
 		{"069_gastos_operativos", migrateGastosOperativos},
+		{"070_seed_modulos_permissions", migrateSeedModulosPermissions},
 	}
 
 	for _, s := range steps {

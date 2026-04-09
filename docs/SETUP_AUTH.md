@@ -1,147 +1,114 @@
-# Guía Rápida: Configurar y Probar Autenticación
+# Cómo Configurar y Probar el Sistema de Autenticación
 
-Este documento describe los pasos para levantar el servicio y configurar el acceso inicial, considerando que el sistema utiliza **UUID v4** para todos sus identificadores y una arquitectura de seguridad basada en JWT.
+Esta guía describe los pasos para inicializar el sistema de seguridad de Prunus, configurar los módulos de navegación y validar los tres métodos de acceso disponibles (Email, Username y PIN).
 
-## Pasos para Configurar el Sistema
+---
 
-### 1. Configurar Variables de Entorno
+## 1. Configuración del Entorno
 
-Asegúrate de tener un archivo `.env` en la raíz del proyecto:
+Asegúrate de que tu archivo `.env` contenga las claves de seguridad necesarias:
 
 ```env
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=prunus_db
-DB_SSLMODE=disable
-
-# JWT Configuration
-JWT_SECRET=cambia_esto_por_una_clave_super_segura_de_al_menos_32_caracteres_random
+# Configuración JWT
+JWT_SECRET=tu_clave_secreta_de_32_caracteres
 JWT_EXPIRATION_HOURS=24
-```
-
-### 2. Ejecutar Migraciones de Base de Datos
-
-Antes de iniciar el servidor por primera vez o tras una actualización, debes ejecutar las migraciones para preparar el esquema y los datos maestros (estatus, módulos, etc.).
-
-```bash
-go run cmd/main.go migrate
-```
-
-### 3. Iniciar el Servidor
-
-Una vez completadas las migraciones, puedes levantar el servicio API:
-
-```bash
-go run cmd/main.go serve
 ```
 
 ---
 
-## Pruebas Rápidas e Inicialización de Datos
+## 2. Preparación de la Base de Datos
 
-Debido a que el sistema utiliza UUIDs y llaves foráneas, es necesario insertar los datos maestros iniciales (Empresa, Sucursal, Rol) antes de crear el primer usuario.
+### Opción A: Inicialización Automática (Recomendado)
+El sistema incluye comandos que automatizan la creación de tablas, módulos y permisos.
 
-### Opción A: Inicialización mediante CLI (Recomendado)
-
-Prunus incluye una herramienta CLI integrada para registrar las entidades base de forma segura.
-
-#### 1. Registrar Empresa
-```bash
-go run cmd/main.go register empresa --nombre "Empresa Matriz" --rut "800123456-7" --status "fc273a6a-ab7b-4453-a560-ac62fa64348b"
-```
-
-#### 2. Registrar Sucursal (Usa el ID devuelto arriba)
-```bash
-go run cmd/main.go register sucursal --empresa "<ID_EMPRESA>" --nombre "Sucursal Central" --status "6cf06fbe-b21c-46e3-a34b-b24f5167cd9a"
-```
-
-#### 3. Registrar Rol
-```bash
-go run cmd/main.go register rol --sucursal "<ID_SUCURSAL>" --nombre "Administrador" --status "fc273a6a-ab7b-4453-a560-ac62fa64348b"
-```
-
-#### 4. Registrar Usuario Administrador (Password: Admin123)
-```bash
-go run cmd/main.go register usuario --sucursal "<ID_SUCURSAL>" --rol "<ID_ROL>" --email "admin@prunus.com" --nombre "Admin Master" --dni "12345678" --password "Admin123" --status "3a99d245-b34f-48a5-ac08-a5a010c5822f"
-```
+1.  **Ejecutar Migraciones:** Crea el esquema.
+    ```bash
+    go run cmd/main.go migrate
+    ```
+2.  **Sembrado (Seed):** Carga rutas, iconos y permisos para el rol "Administrador".
+    ```bash
+    go run cmd/main.go seed
+    ```
+3.  **Registro de Usuario:** Crea el administrador inicial (Password: `Admin123`).
+    ```bash
+    go run cmd/main.go register usuario \
+      --sucursal "22222222-2222-4222-a222-222222222222" \
+      --rol "b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e" \
+      --email "admin@prunus.com" \
+      --username "admin" \
+      --nombre "Admin Master" \
+      --dni "12345678" \
+      --password "Admin123" \
+      --status "3a99d245-b34f-48a5-ac08-a5a010c5822f"
+    ```
 
 ---
 
 ### Opción B: Inicialización Manual vía SQL (Directo en DB)
-
-Si prefieres usar un cliente como DBeaver o psql, usa este script sincronizado con los UUIDs de `012_estatus.go`:
+Si prefieres usar un cliente como DBeaver o psql, ejecuta este script para montar la base de datos completa:
 
 ```sql
--- 1. Insertar Empresa (Estatus 'Activa': fc273a6a...)
+-- 1. Asegurar Datos Base (Empresa, Sucursal, Rol)
 INSERT INTO empresa (id_empresa, nombre, rut, id_status)
-VALUES (
-  '7f7b0e11-1234-4a21-9591-316279f06742', 
-  'Empresa Matriz', 
-  '800123456-7', 
-  'fc273a6a-ab7b-4453-a560-ac62fa64348b'
-);
+VALUES ('11111111-1111-4111-a111-111111111111', 'Empresa Demo', '12345678-9', '7f7b0e11-1234-4a21-9591-316279f06742')
+ON CONFLICT DO NOTHING;
 
--- 2. Insertar Sucursal (Estatus 'Abierta': 6cf06fbe...)
 INSERT INTO sucursal (id_sucursal, id_empresa, nombre_sucursal, id_status)
-VALUES (
-  'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', 
-  '7f7b0e11-1234-4a21-9591-316279f06742', 
-  'Sucursal Central', 
-  '6cf06fbe-b21c-46e3-a34b-b24f5167cd9a'
-);
+VALUES ('22222222-2222-4222-a222-222222222222', '11111111-1111-4111-a111-111111111111', 'Sucursal Central', '7f7b0e11-1234-4a21-9591-316279f06742')
+ON CONFLICT DO NOTHING;
 
--- 3. Insertar Rol (Estatus 'Activa': fc273a6a...)
 INSERT INTO rol (id_rol, nombre_rol, id_sucursal, id_status)
-VALUES (
-  'b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e', 
-  'Administrador', 
-  'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d', 
-  'fc273a6a-ab7b-4453-a560-ac62fa64348b'
-);
+VALUES ('b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e', 'Administrador', '22222222-2222-4222-a222-222222222222', '7f7b0e11-1234-4a21-9591-316279f06742')
+ON CONFLICT DO NOTHING;
 
--- 4. Crear el usuario administrador (password: Admin123)
--- El hash corresponde a "Admin123" (Estatus 'Activo': 3a99d245...)
-INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, username, usu_nombre, usu_dni, password, id_status)
+-- 2. Cargar Módulos y Rutas
+INSERT INTO modulo (mdl_id, mdl_descripcion, id_status, is_active, abreviatura, nivel, orden, ruta, icono)
+VALUES 
+    (1, 'Configuración Empresa', '7f7b0e11-1234-4a21-9591-316279f06742', true, 'EMP',  0, 1, '/config/empresa', 'settings'),
+    (2, 'Gestión Sucursales',    '7f7b0e11-1234-4a21-9591-316279f06742', true, 'SUC',  0, 2, '/config/sucursales', 'store'),
+    (3, 'Usuarios y Roles',      '7f7b0e11-1234-4a21-9591-316279f06742', true, 'USR',  0, 3, '/config/usuarios', 'users'),
+    (4, 'Catálogo Productos',    '7f7b0e11-1234-4a21-9591-316279f06742', true, 'PROD', 0, 4, '/productos', 'package'),
+    (5, 'Ventas y POS',          '7f7b0e11-1234-4a21-9591-316279f06742', true, 'VENT', 0, 5, '/ventas', 'shopping-cart'),
+    (8, 'Control de Caja',       '7f7b0e11-1234-4a21-9591-316279f06742', true, 'CAJA', 0, 6, '/caja', 'monitor')
+ON CONFLICT (mdl_id) DO UPDATE SET ruta = EXCLUDED.ruta, icono = EXCLUDED.icono;
+
+-- 3. Asignar Permisos Totales al Administrador
+INSERT INTO permiso_rol (id_rol, id_modulo, can_read, can_write, can_update, can_delete)
+SELECT 'b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e', id_modulo, true, true, true, true
+FROM modulo
+ON CONFLICT DO NOTHING;
+
+-- 4. Crear Usuario Administrador (Password: Admin123, PIN: 1234)
+INSERT INTO usuario (id_usuario, id_sucursal, id_rol, email, username, usu_nombre, usu_dni, password, usu_pin_pos, id_status)
 VALUES (
   'c5d6e7f8-a1b2-4c3d-9e4f-5a6b7c8d9e0f',
-  'a3b4c5d6-e7f8-4a1b-9c2d-3e4f5a6b7c8d',
+  '22222222-2222-4222-a222-222222222222',
   'b4c5d6e7-f8a1-4b2c-9d3e-4f5a6b7c8d9e',
   'admin@prunus.com',
   'admin',
   'Admin Master',
   '12345678',
-  '$2a$10$U.sUS/qwAXlDPrJZ9wAaLe78DmRtcnWVY39wFp85YLiL0iIVPVkkK',
-  '3a99d245-b34f-48a5-ac08-a5a010c5822f'
-);
+  '$2a$10$U.sUS/qwAXlDPrJZ9wAaLe78DmRtcnWVY39wFp85YLiL0iIVPVkkK', -- Hash de Admin123
+  '1234',
+  '3a99d245-b34f-48a5-ac08-a5a010c5822f' -- Estatus Activo
+) ON CONFLICT DO NOTHING;
 ```
 
 ---
 
-### Paso 4: Hacer Login para Obtener Token
+## 3. Pruebas de Login (3 Métodos)
 
-```bash
-curl -X POST http://localhost:9090/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@prunus.com", "password": "Admin123"}'
-```
+El endpoint único es `POST /api/v1/login`.
 
----
-
-## Verificación de Configuración
-
-### ✅ Checklist de Seguridad e Integridad
-
-1. **Contexto de Usuario:** El sistema inyecta automáticamente `user_id`, `user_sucursal` y `user_rol` tras validar el token.
-2. **Estatus Coherente:** El sistema utiliza disparadores (Triggers) para asegurar que solo se asignen estatus válidos según el módulo.
-3. **Auditoría Maestra:** Cada cambio en tablas principales (usuario, producto, empresa, etc.) se registra en `auditoria_maestra` con el estado anterior y nuevo.
-4. **Sincronización de Stock:** Los triggers garantizan que el stock sea exacto incluso en ventas simultáneas o anulaciones.
-5. **JWT_SECRET:** Si cambias esta variable, todos los tokens anteriores se invalidarán automáticamente.
+*   **Email:** `{"email": "admin@prunus.com", "password": "Admin123"}`
+*   **Username:** `{"username": "admin", "password": "Admin123"}`
+*   **PIN:** `{"pin": "1234"}`
 
 ---
 
-## Documentación Adicional
-- [API.md](./api.md) - Referencia completa de endpoints.
-- [DATABASE.md](./DATABASE.md) - Esquema y diseño de tablas.
+## 4. Validación de Permisos (Frontend)
+
+Tras el login, el array de `permisos` entregará las rutas habilitadas. Ejemplo:
+`"permisos": ["/config/empresa", "/productos", "/ventas"]`
+
+Utiliza este array en tu Frontend para renderizar dinámicamente el Sidebar.

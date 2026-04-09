@@ -7,8 +7,10 @@ import (
 
 // LoginRequest representa la petición de login
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email    string `json:"email,omitempty"`
+	Username string `json:"username,omitempty"`
+	Pin      string `json:"pin,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 // LoginResponse representa la respuesta exitosa de login
