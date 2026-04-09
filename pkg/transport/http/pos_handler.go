@@ -41,7 +41,7 @@ func (h *POSHandler) AbrirCajaHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.AbrirCaja(r.Context(), input, idUsuario)
 	if err != nil {
-		response.InternalServerError(w, err.Error())
+		response.BadRequest(w, err.Error())
 		return
 	}
 

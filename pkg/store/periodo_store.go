@@ -30,7 +30,7 @@ func NewPeriodoStore(db *sql.DB) *PeriodoStore {
 }
 
 func (s *PeriodoStore) CreatePeriodo(ctx context.Context, p *models.Periodo) (*models.Periodo, error) {
-	query := `INSERT INTO periodos (id_periodo, prd_fecha_apertura, prd_usuario_apertura, id_status, created_at, updated_at)
+	query := `INSERT INTO periodo (id_periodo, prd_fecha_apertura, prd_usuario_apertura, id_status, created_at, updated_at)
 			  VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id_periodo`
 
 	p.IDPeriodo = uuid.New()
@@ -43,7 +43,7 @@ func (s *PeriodoStore) CreatePeriodo(ctx context.Context, p *models.Periodo) (*m
 
 func (s *PeriodoStore) GetActivePeriodo(ctx context.Context) (*models.Periodo, error) {
 	query := `SELECT id_periodo, prd_fecha_apertura, prd_usuario_apertura, id_status 
-			  FROM periodos 
+			  FROM periodo 
 			  WHERE prd_fecha_cierre IS NULL AND deleted_at IS NULL LIMIT 1`
 
 	var p models.Periodo
@@ -58,7 +58,7 @@ func (s *PeriodoStore) GetActivePeriodo(ctx context.Context) (*models.Periodo, e
 }
 
 func (s *PeriodoStore) CerrarPeriodo(ctx context.Context, id uuid.UUID, idUsuarioCierre uuid.UUID) error {
-	query := `UPDATE periodos SET prd_fecha_cierre = NOW(), prd_usuario_cierre = $1, updated_at = NOW() 
+	query := `UPDATE periodo SET prd_fecha_cierre = NOW(), prd_usuario_cierre = $1, updated_at = NOW() 
 			  WHERE id_periodo = $2 AND prd_fecha_cierre IS NULL`
 
 	result, err := s.db.ExecContext(ctx, query, idUsuarioCierre, id)

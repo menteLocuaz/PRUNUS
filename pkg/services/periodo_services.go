@@ -36,7 +36,7 @@ func (s *ServicePeriodo) AbrirNuevoPeriodo(ctx context.Context, idUsuario uuid.U
 	nuevo := &models.Periodo{
 		PrdFechaApertura:   time.Now(),
 		PrdUsuarioApertura: idUsuario,
-		IDStatus:           uuid.Nil, // Asignar UUID de estatus "ABIERTO" real según catálogo
+		IDStatus:           models.EstatusActivo, // Usar estatus real del catálogo
 	}
 
 	return s.store.CreatePeriodo(ctx, nuevo)

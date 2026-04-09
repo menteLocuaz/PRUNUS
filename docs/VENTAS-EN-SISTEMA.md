@@ -1,135 +1,97 @@
-Para comenzar a realizar ventas en el sistema, la estructura que hemos diseñado sigue un proceso riguroso de control de efectivo y
-  auditoría. No se puede simplemente "facturar"; el sistema requiere que se cumpla un ciclo de apertura de "Caja" (denominado
-  técnicamente como Control de Estación).
+# Ciclo Completo de Ventas: Guía Técnica de Implementación
 
+Esta guía describe el flujo operativo y técnico necesario para realizar ventas en el sistema Prunus. El proceso sigue un ciclo riguroso de auditoría y control de efectivo, estructurado en capas de validación.
 
-  Aquí te explico el flujo lógico basado en las tablas que creamos:
+---
 
+## 1. Prerrequisitos de Venta
+Para que el sistema permita cualquier transacción, se deben cumplir tres condiciones jerárquicas:
+1.  **Periodo Activo:** Un marco de tiempo contable abierto por administración.
+2.  **Estación Identificada:** El dispositivo físico (PC/Tablet) debe estar registrado.
+3.  **Control de Estación Abierto:** El cajero debe haber iniciado su turno con un fondo base.
 
-  1. El Concepto de "Caja" en el Sistema
-  La "Caja" no es solo una tabla, es la combinación de tres elementos:
-   * Estación POS: El equipo físico o terminal (computador, tablet).
-   * Periodo: El marco de tiempo (ej: el turno de la mañana o el día de hoy).
-   * Control de Estación: El registro que dice "El Usuario X abrió la Estación Y en el Periodo Z con un saldo inicial".
+---
 
-  ---
+## 2. Gestión de Periodos (Nivel Administrativo)
 
+El **Periodo** (`periodo`) es la entidad de mayor jerarquía. Agrupa todas las transacciones de un día o turno global.
 
-  2. Pasos para comenzar las ventas (Flujo Operativo)
+### Apertura de Periodo
+*   **Endpoint:** `POST /api/v1/periodo/abrir`
+*   **Lógica de Negocio:**
+    *   El sistema valida que no exista ya un periodo con estatus "ABIERTO".
+    *   Se registra la fecha de apertura y el usuario administrador responsable.
+    *   **Importante:** Sin un periodo activo, el servicio de POS bloqueará cualquier intento de `AbrirCaja`.
 
+### Cierre de Periodo
+*   **Endpoint:** `POST /api/v1/periodo/cerrar/{id}`
+*   **Validación Crítica:** No se puede cerrar un periodo si aún existen **Controles de Estación** (cajas) abiertos. Todas las estaciones deben estar "Desmontadas" o "Cerradas" antes del cierre global.
 
-  Paso 1: Apertura del Periodo (Tabla periodo)
-  Antes de cualquier venta, un administrador debe abrir un Periodo.
-   * Por qué: Para agrupar todas las ventas de un día o un turno específico y facilitar el cuadre contable al final.
+---
 
+## 3. Identificación y Apertura de Estación (Cajero)
 
-  Paso 2: Apertura de la Estación (Tabla control_estacion)
-  El cajero ingresa al sistema y realiza la "Apertura de Caja":
-   * Se registra el fondo_base (el dinero en efectivo que hay físicamente para dar cambio).
-   * El estado del control_estacion cambia a "Abierto".
-   * Sin este paso, el sistema bloqueará cualquier intento de generar una factura.
+### Detección de la Estación (Matching por IP)
+El sistema identifica automáticamente desde qué equipo se está operando mediante la tabla `dispositivo_pos`:
+*   El frontend o middleware detecta la IP del cliente.
+*   Se busca en `dispositivo_pos` el registro que coincida con esa `ip`.
+*   Dicho registro provee el `id_estacion` necesario para todas las operaciones subsiguientes.
 
+### Apertura de Caja (Control de Estación)
+Una vez identificada la estación, el cajero debe realizar la apertura formal:
+*   **Endpoint:** `POST /api/v1/pos/abrir`
+*   **Payload:** `{ "id_estacion": "uuid", "fondo_base": 50.00, "id_user_pos": "uuid" }`
+*   **Resultado:** Se crea un registro en `control_estacion` con el estatus `FONDO_ASIGNADO`. Este `id_control_estacion` es obligatorio para generar facturas.
 
-  Paso 3: Registro de Pedidos (Tabla orden_pedido)
-  Una vez la caja está abierta, se comienzan a tomar los pedidos:
-   * Se selecciona el canal (Salón, Rappi, Para llevar).
-   * Se agregan productos al pedido.
+---
 
+## 4. Registro de Pedidos (Orden de Pedido)
 
-  Paso 4: Facturación y Pago (Tablas factura y forma_pago_factura)
-  Cuando el cliente paga:
-   * Se genera la Factura.
-   * Se registra el pago en forma_pago_factura. Si el cliente paga una parte en efectivo y otra con tarjeta, el sistema lo permite
-     (Pagos Mixtos) gracias a esta tabla.
+La **Orden de Pedido** (`orden_pedido`) representa la intención de compra y el canal de venta.
 
-  ---
+*   **Endpoint:** `POST /api/v1/orden-pedido`
+*   **Atributos Clave:**
+    *   **Canal:** Determina el origen (Salón, Rappi, Para llevar, Delivery).
+    *   **Observación:** Notas especiales para cocina o despacho.
+    *   **Total:** Monto calculado de la orden.
+*   **Estado:** Una orden nace en estado `PENDIENTE` o `EN PREPARACIÓN` según la configuración del módulo.
 
+---
 
-  3. Durante el día (Seguridad)
-  Si hay mucho efectivo en la caja, el cajero puede realizar Retiros (Tabla retiros).
-   * Esto disminuye el saldo que el cajero "debe" tener al final del turno, mejorando la seguridad.
+## 5. Facturación y Pago (Transacción Atómica)
 
+Para garantizar la integridad de los datos, Prunus utiliza un proceso de **Facturación Completa**. No se permite crear la factura sin sus detalles o sus pagos en pasos separados.
 
-  4. Cierre de Ventas
-  Al finalizar el turno:
-   1. Se cierra el Control de Estación: Se cuenta el dinero físico y se compara con lo que el sistema dice que debería haber
-      (pos_calculado vs fondo_retirado).
-   2. Si hay diferencias, se registran en la tabla auditoria_caja.
-   3. Finalmente, se cierra el Periodo global.
+### Registro Integral
+*   **Endpoint:** `POST /api/v1/factura/registrar-completa`
+*   **Estructura del JSON (`FacturaCompletaRequest`):**
+    1.  **Cabecera:** Datos generales (`id_cliente`, `id_orden_pedido`, `id_control_estacion`, totales e impuestos).
+    2.  **Detalles:** Listado de productos (`id_producto`, `cantidad`, `precio`, `impuesto`).
+    3.  **Pagos:** Listado de formas de pago (`id_forma_pago`, `total_pagar`). Soporta **Pagos Mixtos** (ej: parte en efectivo y parte con tarjeta).
 
+**Validación:** El sistema verifica que la suma de los `Pagos` coincida exactamente con el `Total` de la cabecera antes de persistir la transacción.
 
-  Resumen Técnico
-  Para implementar esto en el código (Go), las APIs de ventas siempre deberán validar:
-   1. ¿Existe un Periodo activo?
-   2. ¿Tiene el usuario un Control de Estación abierto para la estación desde la que está intentando vender?
+---
 
+## 6. Cierre de Turno y Auditoría
 
+Al finalizar el turno, se debe conciliar el dinero físico con el sistema.
 
-## Estados
-Para que el sistema de estatus sea eficaz y rápido, tanto en el backend como para el consumo del frontend, propongo un plan basado
-  en un Catálogo Maestro Estructurado.
+### Arqueo (Actualizar Valores Declarados)
+El cajero cuenta el dinero y lo registra:
+*   **Endpoint:** `POST /api/v1/pos/actualizar-valores`
+*   **Proceso:** El sistema compara el `pos_calculado` (ventas registradas) vs el `valor_declarado` (lo que el cajero dice tener).
+*   Cualquier diferencia genera automáticamente un registro en `auditoria_caja` con el motivo del descuadre.
 
+### Desmontado del Cajero
+*   **Endpoint:** `POST /api/v1/pos/desmontar`
+*   Cambia el estatus de la estación a `DISPONIBLE` y cierra el ciclo del usuario actual, permitiendo que otro cajero pueda abrir la misma estación en el siguiente turno.
 
-  1. Definición de Identificadores de Módulos (mdl_id)
-  Primero, estandarizamos los IDs de los módulos en el código (vía constantes) para evitar "números mágicos":
+---
 
-
-
-  ┌────┬──────────┬─────────────────────────────────────────┐
-  │ ID │ Módulo   │ Descripción                             │
-  ├────┼──────────┼─────────────────────────────────────────┤
-  │ 1  │ EMPRESA  │ Configuración global de la empresa      │
-  │ 2  │ SUCURSAL │ Gestión de sucursales                   │
-  │ 3  │ USUARIO  │ Gestión de accesos y perfiles           │
-  │ 4  │ PRODUCTO │ Catálogo de productos e inventario      │
-  │ 5  │ VENTA    │ Facturación y pedidos                   │
-  │ 6  │ COMPRA   │ Órdenes de compra y proveedores         │
-  │ 7  │ FINANZAS │ Tesorería, monedas y pagos              │
-  │ 8  │ CAJA_POS │ Control de estaciones, turnos y arqueos │
-  └────┴──────────┴─────────────────────────────────────────┘
-
-
-
-  2. Estructura de Respuesta JSON "Caché-Friendly"
-  En lugar de que el frontend pida estatus uno por uno, diseñaremos un endpoint de Catálogo Maestro que devuelva un objeto indexado
-  por el ID del módulo. Esto permite al frontend cargar una sola vez y acceder en $O(1)$.
-
-  Endpoint Propuesto: GET /api/v1/estatus/catalogo
-
-
-    1 {
-    2   "status": "success",
-    3   "data": {
-    4     "1": {
-    5       "modulo": "Empresa",
-    6       "items": [
-    7         { "id": "uuid-1", "descripcion": "Activo", "tipo": "1" },
-    8         { "id": "uuid-2", "descripcion": "Suspendido", "tipo": "1" }
-    9       ]
-   10     },
-   11     "8": {
-   12       "modulo": "Caja/POS",
-   13       "items": [
-   14         { "id": "59039503...", "descripcion": "Activo", "tipo": "1" },
-   15         { "id": "99039503...", "descripcion": "Fondo Asignado", "tipo": "1" }
-   16       ]
-   17     }
-   18   }
-   19 }
-
-
-  3. Implementación de "Slugs" o Códigos Rápidos
-  Para que el backend sea rápido al validar lógica de negocio (ej: "solo permitir venta si el estatus es ACTIVO"), añadiremos una
-  columna opcional std_codigo (ej: ACT, INA, ARC) o usaremos la descripción normalizada.
-
-
-  4. Estrategia de Carga y Rendimiento
-   1. Warm-up de Caché: Al iniciar la aplicación, el ServiceEstatus precargará todos los estatus en Redis agrupados por módulo.
-   2. Single Source of Truth: El frontend solicita este JSON al iniciar sesión y lo guarda en su estado global (Redux/Pinia/Context).
-   3. Validación en Base de Datos: Las tablas transaccionales (como factura o inventario) solo guardarán el id_status (UUID),
-      garantizando integridad referencial.
-
-
-  5. Acción Inmediata: Endpoint de Catálogo
-  Implementaré un método en el servicio que transforme la lista plana de la base de datos en este mapa estructurado por módulo para
-  maximizar la velocidad de lectura del cliente.
+## Resumen de Validaciones de Seguridad
+| Error | Causa Probable | Solución |
+| :--- | :--- | :--- |
+| **403 Forbidden** | No hay un periodo activo. | El administrador debe abrir un periodo. |
+| **400 Bad Request** | La estación ya tiene una sesión activa. | Cerrar/Desmontar la sesión previa antes de abrir una nueva. |
+| **422 Unprocessable** | El total de pagos no coincide con el total factura. | Validar cálculos en el frontend antes de enviar el JSON. |

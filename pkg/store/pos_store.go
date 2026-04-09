@@ -128,7 +128,7 @@ func (s *storePOS) GetActivePeriodo(ctx context.Context) (*models.Periodo, error
 	p := &models.Periodo{}
 	err := s.db.QueryRowContext(ctx, query).Scan(&p.IDPeriodo, &p.PrdFechaApertura, &p.IDStatus)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("no hay un periodo activo abierto")
+		return nil, nil
 	}
 	return p, err
 }
