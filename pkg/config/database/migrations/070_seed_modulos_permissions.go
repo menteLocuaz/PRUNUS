@@ -146,5 +146,14 @@ func migrateSeedModulosPermissions(db *sql.DB) error {
 		return fmt.Errorf("error permisos admin: %w", err)
 	}
 
+	// Asegurar que los permisos de import/export también se actualicen (ON CONFLICT anterior los omitía)
+	updateImportExport := `
+	UPDATE permiso_rol SET can_import = true, can_export = true
+	WHERE id_rol = $1 AND (can_import = false OR can_export = false);`
+
+	if _, err := db.ExecContext(ctx, updateImportExport, idRolAdmin); err != nil {
+		return fmt.Errorf("error actualizando import/export admin: %w", err)
+	}
+
 	return nil
 }
