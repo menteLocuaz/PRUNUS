@@ -35,6 +35,33 @@ type storeUsuario struct {
 	db *sql.DB
 }
 
+// Campos base para SELECT de usuario con sus joins de Rol y Sucursal
+const usuarioSelectFields = `
+	u.id_usuario, u.id_sucursal, u.id_rol, u.username, u.email, u.usu_nombre, u.usu_dni,
+	COALESCE(u.usu_telefono, ''), COALESCE(u.usu_tarjeta_nfc, ''), COALESCE(u.usu_pin_pos, ''),
+	COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.created_at, u.updated_at, u.deleted_at,
+	
+	r.id_rol, r.nombre_rol, r.id_status,
+	su.id_sucursal, su.nombre_sucursal, su.id_status
+`
+
+// scanRowUsuario es un helper centralizado para escanear las columnas definidas en usuarioSelectFields
+func (s *storeUsuario) scanRowUsuario(scanner interface{ Scan(dest ...any) error }, u *models.Usuario) error {
+	if u.Rol == nil {
+		u.Rol = &models.Rol{}
+	}
+	if u.Sucursal == nil {
+		u.Sucursal = &models.Sucursal{}
+	}
+	return scanner.Scan(
+		&u.IDUsuario, &u.IDSucursal, &u.IDRol, &u.Username, &u.Email, &u.UsuNombre, &u.UsuDNI,
+		&u.UsuTelefono, &u.UsuTarjetaNFC, &u.UsuPinPOS, &u.NombreTicket, &u.Password, &u.IDStatus,
+		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
+		&u.Rol.IDRol, &u.Rol.RolNombre, &u.Rol.IDStatus,
+		&u.Sucursal.IDSucursal, &u.Sucursal.NombreSucursal, &u.Sucursal.IDStatus,
+	)
+}
+
 // NewUsuario crea una nueva instancia del store de usuario
 func NewUsuario(db *sql.DB) StoreUsuario {
 	return &storeUsuario{db: db}
@@ -43,38 +70,14 @@ func NewUsuario(db *sql.DB) StoreUsuario {
 // GetAllUsuarios obtiene todos los usuarios activos (no eliminados) con su rol
 func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "GetAllUsuarios", performance.DbThreshold, time.Now())
-	query := `
-		SELECT
-			u.id_usuario,
-			u.id_sucursal,
-			u.id_rol,
-			u.username,
-			u.email,
-			u.usu_nombre,
-			u.usu_dni,
-			COALESCE(u.usu_telefono, ''),
-			COALESCE(u.usu_tarjeta_nfc, ''),
-			COALESCE(u.usu_pin_pos, ''),
-			COALESCE(u.nombre_ticket, ''),
-			u.password,
-			u.id_status,
-			u.created_at,
-			u.updated_at,
-			u.deleted_at,
-			
-			r.id_rol,
-			r.nombre_rol,
-			r.id_status,
-
-			su.id_sucursal,
-			su.nombre_sucursal,
-			su.id_status
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
 		LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 		WHERE u.deleted_at IS NULL
 		ORDER BY u.created_at DESC
-	`
+	`, usuarioSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -84,44 +87,10 @@ func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, e
 
 	var usuarios []*models.Usuario
 	for rows.Next() {
-		usuario := &models.Usuario{
-			Rol:      &models.Rol{},
-			Sucursal: &models.Sucursal{},
-		}
-
-		err := rows.Scan(
-			// Usuario
-			&usuario.IDUsuario,
-			&usuario.IDSucursal,
-			&usuario.IDRol,
-			&usuario.Username,
-			&usuario.Email,
-			&usuario.UsuNombre,
-			&usuario.UsuDNI,
-			&usuario.UsuTelefono,
-			&usuario.UsuTarjetaNFC,
-			&usuario.UsuPinPOS,
-			&usuario.NombreTicket,
-			&usuario.Password,
-			&usuario.IDStatus,
-			&usuario.CreatedAt,
-			&usuario.UpdatedAt,
-			&usuario.DeletedAt,
-
-			// Rol
-			&usuario.Rol.IDRol,
-			&usuario.Rol.RolNombre,
-			&usuario.Rol.IDStatus,
-
-			// Sucursal
-			&usuario.Sucursal.IDSucursal,
-			&usuario.Sucursal.NombreSucursal,
-			&usuario.Sucursal.IDStatus,
-		)
-		if err != nil {
+		usuario := &models.Usuario{}
+		if err := s.scanRowUsuario(rows, usuario); err != nil {
 			return nil, fmt.Errorf("error al escanear usuario: %w", err)
 		}
-
 		usuarios = append(usuarios, usuario)
 	}
 
@@ -131,72 +100,16 @@ func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, e
 // GetUsuarioByID obtiene un usuario por su ID con su rol
 func (s *storeUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "GetUsuarioByID", performance.DbThreshold, time.Now())
-	query := `
-		SELECT
-			u.id_usuario,
-			u.id_sucursal,
-			u.id_rol,
-			u.username,
-			u.email,
-			u.usu_nombre,
-			u.usu_dni,
-			COALESCE(u.usu_telefono, ''),
-			COALESCE(u.usu_tarjeta_nfc, ''),
-			COALESCE(u.usu_pin_pos, ''),
-			COALESCE(u.nombre_ticket, ''),
-			u.password,
-			u.id_status,
-			u.created_at,
-			u.updated_at,
-			u.deleted_at,
-
-			r.id_rol,
-			r.nombre_rol,
-			r.id_status,
-
-			su.id_sucursal,
-			su.nombre_sucursal,
-			su.id_status
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
 		LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 		WHERE u.id_usuario = $1 AND u.deleted_at IS NULL
-	`
+	`, usuarioSelectFields)
 
-	usuario := &models.Usuario{
-		Rol:      &models.Rol{},
-		Sucursal: &models.Sucursal{},
-	}
-
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		// Usuario
-		&usuario.IDUsuario,
-		&usuario.IDSucursal,
-		&usuario.IDRol,
-		&usuario.Username,
-		&usuario.Email,
-		&usuario.UsuNombre,
-		&usuario.UsuDNI,
-		&usuario.UsuTelefono,
-		&usuario.UsuTarjetaNFC,
-		&usuario.UsuPinPOS,
-		&usuario.NombreTicket,
-		&usuario.Password,
-		&usuario.IDStatus,
-		&usuario.CreatedAt,
-		&usuario.UpdatedAt,
-		&usuario.DeletedAt,
-
-		// Rol
-		&usuario.Rol.IDRol,
-		&usuario.Rol.RolNombre,
-		&usuario.Rol.IDStatus,
-
-		// Sucursal
-		&usuario.Sucursal.IDSucursal,
-		&usuario.Sucursal.NombreSucursal,
-		&usuario.Sucursal.IDStatus,
-	)
+	usuario := &models.Usuario{}
+	err := s.scanRowUsuario(s.db.QueryRowContext(ctx, query, id), usuario)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("usuario con ID %s no encontrado", id)
@@ -209,75 +122,18 @@ func (s *storeUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*model
 }
 
 // GetUsuarioByEmail obtiene un usuario por su email con su rol
-// Este método incluye el password hasheado para validación de autenticación
 func (s *storeUsuario) GetUsuarioByEmail(ctx context.Context, email string) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "GetUsuarioByEmail", performance.DbThreshold, time.Now())
-	query := `
-		SELECT
-			u.id_usuario,
-			u.id_sucursal,
-			u.id_rol,
-			u.username,
-			u.email,
-			u.usu_nombre,
-			u.usu_dni,
-			COALESCE(u.usu_telefono, ''),
-			COALESCE(u.usu_tarjeta_nfc, ''),
-			COALESCE(u.usu_pin_pos, ''),
-			COALESCE(u.nombre_ticket, ''),
-			u.password,
-			u.id_status,
-			u.created_at,
-			u.updated_at,
-			u.deleted_at,
-
-			r.id_rol,
-			r.nombre_rol,
-			r.id_status,
-
-			su.id_sucursal,
-			su.nombre_sucursal,
-			su.id_status
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
 		LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 		WHERE u.email = $1 AND u.deleted_at IS NULL
-	`
+	`, usuarioSelectFields)
 
-	usuario := &models.Usuario{
-		Rol:      &models.Rol{},
-		Sucursal: &models.Sucursal{},
-	}
-
-	err := s.db.QueryRowContext(ctx, query, email).Scan(
-		// Usuario
-		&usuario.IDUsuario,
-		&usuario.IDSucursal,
-		&usuario.IDRol,
-		&usuario.Username,
-		&usuario.Email,
-		&usuario.UsuNombre,
-		&usuario.UsuDNI,
-		&usuario.UsuTelefono,
-		&usuario.UsuTarjetaNFC,
-		&usuario.UsuPinPOS,
-		&usuario.NombreTicket,
-		&usuario.Password,
-		&usuario.IDStatus,
-		&usuario.CreatedAt,
-		&usuario.UpdatedAt,
-		&usuario.DeletedAt,
-
-		// Rol
-		&usuario.Rol.IDRol,
-		&usuario.Rol.RolNombre,
-		&usuario.Rol.IDStatus,
-
-		// Sucursal
-		&usuario.Sucursal.IDSucursal,
-		&usuario.Sucursal.NombreSucursal,
-		&usuario.Sucursal.IDStatus,
-	)
+	usuario := &models.Usuario{}
+	err := s.scanRowUsuario(s.db.QueryRowContext(ctx, query, email), usuario)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("usuario con email %s no encontrado", email)
@@ -300,20 +156,10 @@ func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuari
 			RETURNING id_usuario, created_at, updated_at
 		`
 		return tx.QueryRowContext(
-			ctx,
-			query,
-			usuario.IDSucursal,
-			usuario.IDRol,
-			usuario.Username,
-			usuario.Email,
-			usuario.UsuNombre,
-			usuario.UsuDNI,
-			usuario.UsuTelefono,
-			usuario.UsuTarjetaNFC,
-			usuario.UsuPinPOS,
-			usuario.NombreTicket,
-			usuario.Password,
-			usuario.IDStatus,
+			ctx, query,
+			usuario.IDSucursal, usuario.IDRol, usuario.Username, usuario.Email, usuario.UsuNombre,
+			usuario.UsuDNI, usuario.UsuTelefono, usuario.UsuTarjetaNFC, usuario.UsuPinPOS,
+			usuario.NombreTicket, usuario.Password, usuario.IDStatus,
 		).Scan(&usuario.IDUsuario, &usuario.CreatedAt, &usuario.UpdatedAt)
 	})
 
@@ -332,69 +178,26 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 		query := `
 			UPDATE usuario
 			SET
-				id_sucursal = $1,
-				id_rol = $2,
-				username = $3,
-				email = $4,
-				usu_nombre = $5,
-				usu_dni = $6,
-				usu_telefono = $7,
-				usu_tarjeta_nfc = $8,
-				usu_pin_pos = $9,
-				nombre_ticket = $10,
-				password = CASE WHEN $11 <> '' THEN $11 ELSE password END,
-				id_status = $12,
-				updated_at = CURRENT_TIMESTAMP
+				id_sucursal = $1, id_rol = $2, username = $3, email = $4, usu_nombre = $5,
+				usu_dni = $6, usu_telefono = $7, usu_tarjeta_nfc = $8, usu_pin_pos = $9,
+				nombre_ticket = $10, password = CASE WHEN $11 <> '' THEN $11 ELSE password END,
+				id_status = $12, updated_at = CURRENT_TIMESTAMP
 			WHERE id_usuario = $13 AND deleted_at IS NULL
 			RETURNING
-				id_usuario,
-				id_sucursal,
-				id_rol,
-				username,
-				email,
-				usu_nombre,
-				usu_dni,
-				COALESCE(usu_telefono, ''),
-				COALESCE(usu_tarjeta_nfc, ''),
-				COALESCE(usu_pin_pos, ''),
-				COALESCE(nombre_ticket, ''),
-				password,
-				id_status,
-				created_at,
-				updated_at
+				id_usuario, id_sucursal, id_rol, username, email, usu_nombre, usu_dni,
+				COALESCE(usu_telefono, ''), COALESCE(usu_tarjeta_nfc, ''), COALESCE(usu_pin_pos, ''),
+				COALESCE(nombre_ticket, ''), password, id_status, created_at, updated_at
 		`
 		return tx.QueryRowContext(
-			ctx,
-			query,
-			usuario.IDSucursal,
-			usuario.IDRol,
-			usuario.Username,
-			usuario.Email,
-			usuario.UsuNombre,
-			usuario.UsuDNI,
-			usuario.UsuTelefono,
-			usuario.UsuTarjetaNFC,
-			usuario.UsuPinPOS,
-			usuario.NombreTicket,
-			usuario.Password,
-			usuario.IDStatus,
-			id,
+			ctx, query,
+			usuario.IDSucursal, usuario.IDRol, usuario.Username, usuario.Email, usuario.UsuNombre,
+			usuario.UsuDNI, usuario.UsuTelefono, usuario.UsuTarjetaNFC, usuario.UsuPinPOS,
+			usuario.NombreTicket, usuario.Password, usuario.IDStatus, id,
 		).Scan(
-			&usuario.IDUsuario,
-			&usuario.IDSucursal,
-			&usuario.IDRol,
-			&usuario.Username,
-			&usuario.Email,
-			&usuario.UsuNombre,
-			&usuario.UsuDNI,
-			&usuario.UsuTelefono,
-			&usuario.UsuTarjetaNFC,
-			&usuario.UsuPinPOS,
-			&usuario.NombreTicket,
-			&usuario.Password,
-			&usuario.IDStatus,
-			&usuario.CreatedAt,
-			&usuario.UpdatedAt,
+			&usuario.IDUsuario, &usuario.IDSucursal, &usuario.IDRol, &usuario.Username, &usuario.Email,
+			&usuario.UsuNombre, &usuario.UsuDNI, &usuario.UsuTelefono, &usuario.UsuTarjetaNFC,
+			&usuario.UsuPinPOS, &usuario.NombreTicket, &usuario.Password, &usuario.IDStatus,
+			&usuario.CreatedAt, &usuario.UpdatedAt,
 		)
 	})
 
@@ -405,24 +208,17 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 	return usuario, nil
 }
 
-// DeleteUsuario realiza un soft delete del usuario (actualiza deleted_at)
+// DeleteUsuario realiza un soft delete del usuario
 func (s *storeUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteUsuario", performance.DbThreshold, time.Now())
 
 	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
-		query := `
-			UPDATE usuario
-			SET deleted_at = $1
-			WHERE id_usuario = $2 AND deleted_at IS NULL
-		`
+		query := `UPDATE usuario SET deleted_at = $1 WHERE id_usuario = $2 AND deleted_at IS NULL`
 		result, err := tx.ExecContext(ctx, query, time.Now(), id)
 		if err != nil {
 			return err
 		}
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			return err
-		}
+		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
 			return fmt.Errorf("usuario con ID %s no encontrado", id)
 		}
@@ -430,22 +226,27 @@ func (s *storeUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error {
 	})
 }
 
+// AssignSucursales optimizado: usa un solo query con UNNEST para inserción masiva
 func (s *storeUsuario) AssignSucursales(ctx context.Context, userID uuid.UUID, sucursales []uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "AssignSucursales", performance.DbThreshold, time.Now())
 
 	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		// 1. Limpiar accesos previos
-		queryDelete := `DELETE FROM usuario_sucursal_acceso WHERE id_usuario = $1`
-		if _, err := tx.ExecContext(ctx, queryDelete, userID); err != nil {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM usuario_sucursal_acceso WHERE id_usuario = $1", userID); err != nil {
 			return fmt.Errorf("error al eliminar accesos previos: %w", err)
 		}
 
-		// 2. Insertar nuevos accesos
-		queryInsert := `INSERT INTO usuario_sucursal_acceso (id_usuario, id_sucursal) VALUES ($1, $2)`
-		for _, sucursalID := range sucursales {
-			if _, err := tx.ExecContext(ctx, queryInsert, userID, sucursalID); err != nil {
-				return fmt.Errorf("error al insertar acceso a sucursal %s: %w", sucursalID, err)
-			}
+		if len(sucursales) == 0 {
+			return nil
+		}
+
+		// 2. Inserción masiva eficiente usando UNNEST
+		query := `
+			INSERT INTO usuario_sucursal_acceso (id_usuario, id_sucursal)
+			SELECT $1, unnest($2::uuid[])
+		`
+		if _, err := tx.ExecContext(ctx, query, userID, sucursales); err != nil {
+			return fmt.Errorf("error al insertar accesos masivos: %w", err)
 		}
 		return nil
 	})
@@ -500,26 +301,16 @@ func (s *storeUsuario) GetPermisosByRol(ctx context.Context, rolID uuid.UUID) ([
 
 func (s *storeUsuario) GetUsuarioByUsername(ctx context.Context, username string) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "GetUsuarioByUsername", performance.DbThreshold, time.Now())
-	query := `
-		SELECT
-			u.id_usuario, u.id_sucursal, u.id_rol, u.username, u.email, u.usu_nombre, u.usu_dni,
-			COALESCE(u.usu_telefono, ''), COALESCE(u.usu_tarjeta_nfc, ''), COALESCE(u.usu_pin_pos, ''),
-			COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.created_at, u.updated_at, u.deleted_at,
-			r.id_rol, r.nombre_rol, r.id_status,
-			su.id_sucursal, su.nombre_sucursal, su.id_status
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
 		LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 		WHERE u.username = $1 AND u.deleted_at IS NULL
-	`
-	usuario := &models.Usuario{Rol: &models.Rol{}, Sucursal: &models.Sucursal{}}
-	err := s.db.QueryRowContext(ctx, query, username).Scan(
-		&usuario.IDUsuario, &usuario.IDSucursal, &usuario.IDRol, &usuario.Username, &usuario.Email, &usuario.UsuNombre, &usuario.UsuDNI,
-		&usuario.UsuTelefono, &usuario.UsuTarjetaNFC, &usuario.UsuPinPOS, &usuario.NombreTicket, &usuario.Password, &usuario.IDStatus,
-		&usuario.CreatedAt, &usuario.UpdatedAt, &usuario.DeletedAt,
-		&usuario.Rol.IDRol, &usuario.Rol.RolNombre, &usuario.Rol.IDStatus,
-		&usuario.Sucursal.IDSucursal, &usuario.Sucursal.NombreSucursal, &usuario.Sucursal.IDStatus,
-	)
+	`, usuarioSelectFields)
+
+	usuario := &models.Usuario{}
+	err := s.scanRowUsuario(s.db.QueryRowContext(ctx, query, username), usuario)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("usuario %s no encontrado", username)
 	}
@@ -528,26 +319,16 @@ func (s *storeUsuario) GetUsuarioByUsername(ctx context.Context, username string
 
 func (s *storeUsuario) GetUsuarioByPin(ctx context.Context, pin string) (*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "GetUsuarioByPin", performance.DbThreshold, time.Now())
-	query := `
-		SELECT
-			u.id_usuario, u.id_sucursal, u.id_rol, u.username, u.email, u.usu_nombre, u.usu_dni,
-			COALESCE(u.usu_telefono, ''), COALESCE(u.usu_tarjeta_nfc, ''), COALESCE(u.usu_pin_pos, ''),
-			COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.created_at, u.updated_at, u.deleted_at,
-			r.id_rol, r.nombre_rol, r.id_status,
-			su.id_sucursal, su.nombre_sucursal, su.id_status
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
 		LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 		WHERE u.usu_pin_pos = $1 AND u.deleted_at IS NULL
-	`
-	usuario := &models.Usuario{Rol: &models.Rol{}, Sucursal: &models.Sucursal{}}
-	err := s.db.QueryRowContext(ctx, query, pin).Scan(
-		&usuario.IDUsuario, &usuario.IDSucursal, &usuario.IDRol, &usuario.Username, &usuario.Email, &usuario.UsuNombre, &usuario.UsuDNI,
-		&usuario.UsuTelefono, &usuario.UsuTarjetaNFC, &usuario.UsuPinPOS, &usuario.NombreTicket, &usuario.Password, &usuario.IDStatus,
-		&usuario.CreatedAt, &usuario.UpdatedAt, &usuario.DeletedAt,
-		&usuario.Rol.IDRol, &usuario.Rol.RolNombre, &usuario.Rol.IDStatus,
-		&usuario.Sucursal.IDSucursal, &usuario.Sucursal.NombreSucursal, &usuario.Sucursal.IDStatus,
-	)
+	`, usuarioSelectFields)
+
+	usuario := &models.Usuario{}
+	err := s.scanRowUsuario(s.db.QueryRowContext(ctx, query, pin), usuario)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("pin inválido")
 	}

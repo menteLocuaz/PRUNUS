@@ -25,6 +25,33 @@ type storeProducto struct {
 	db *sql.DB
 }
 
+// Campos base para SELECT de producto con sus joins de Categoria, Moneda y Unidad
+const productoSelectFields = `
+	p.id_producto, p.nombre, COALESCE(p.descripcion, ''), COALESCE(p.codigo_barras, ''),
+	COALESCE(p.sku, ''), p.fecha_vencimiento, COALESCE(p.imagen, ''), p.id_status,
+	p.id_categoria, p.id_moneda, p.id_unidad, p.created_at, p.updated_at,
+
+	c.id_categoria, c.nombre,
+	m.id_moneda, m.nombre, m.id_status,
+	u.id_unidad, u.nombre
+`
+
+// scanRowProducto es un helper centralizado para escanear las columnas definidas en productoSelectFields
+func (s *storeProducto) scanRowProducto(scanner interface{ Scan(dest ...any) error }, p *models.Producto) error {
+	if p.Categoria == nil { p.Categoria = &models.Categoria{} }
+	if p.Moneda == nil { p.Moneda = &models.Moneda{} }
+	if p.Unidad == nil { p.Unidad = &models.Unidad{} }
+
+	return scanner.Scan(
+		&p.IDProducto, &p.Nombre, &p.Descripcion, &p.CodigoBarras, &p.SKU,
+		&p.FechaVencimiento, &p.Imagen, &p.IDStatus, &p.IDCategoria, &p.IDMoneda, &p.IDUnidad,
+		&p.CreatedAt, &p.UpdatedAt,
+		&p.Categoria.IDCategoria, &p.Categoria.Nombre,
+		&p.Moneda.IDMoneda, &p.Moneda.Nombre, &p.Moneda.IDStatus,
+		&p.Unidad.IDUnidad, &p.Unidad.Nombre,
+	)
+}
+
 func NewProducto(db *sql.DB) StoreProducto {
 	return &storeProducto{db: db}
 }
@@ -36,40 +63,16 @@ func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.Paginati
 		params.Limit = dto.DefaultLimit
 	}
 
-	query := `
-	SELECT
-		p.id_producto,
-		p.nombre,
-		COALESCE(p.descripcion, ''),
-		COALESCE(p.codigo_barras, ''),
-		COALESCE(p.sku, ''),
-		p.fecha_vencimiento,
-		COALESCE(p.imagen, ''),
-		p.id_status,
-		p.id_categoria,
-		p.id_moneda,
-		p.id_unidad,
-		p.created_at,
-		p.updated_at,
-
-		c.id_categoria,
-		c.nombre,
-
-		m.id_moneda,
-		m.nombre,
-		m.id_status,
-
-		u.id_unidad,
-		u.nombre
-	FROM producto p
-	LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
-	LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
-	LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
-	WHERE p.deleted_at IS NULL
-	`
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM producto p
+		LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
+		LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
+		LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
+		WHERE p.deleted_at IS NULL
+	`, productoSelectFields)
 
 	var args []interface{}
-
 	if params.LastDate != nil {
 		query += " AND p.created_at < $1"
 		args = append(args, params.LastDate)
@@ -85,42 +88,11 @@ func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.Paginati
 	defer rows.Close()
 
 	var productos []*models.Producto
-
 	for rows.Next() {
-		p := &models.Producto{
-			Categoria: &models.Categoria{},
-			Moneda:    &models.Moneda{},
-			Unidad:    &models.Unidad{},
-		}
-
-		if err := rows.Scan(
-			&p.IDProducto,
-			&p.Nombre,
-			&p.Descripcion,
-			&p.CodigoBarras,
-			&p.SKU,
-			&p.FechaVencimiento,
-			&p.Imagen,
-			&p.IDStatus,
-			&p.IDCategoria,
-			&p.IDMoneda,
-			&p.IDUnidad,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-
-			&p.Categoria.IDCategoria,
-			&p.Categoria.Nombre,
-
-			&p.Moneda.IDMoneda,
-			&p.Moneda.Nombre,
-			&p.Moneda.IDStatus,
-
-			&p.Unidad.IDUnidad,
-			&p.Unidad.Nombre,
-		); err != nil {
+		p := &models.Producto{}
+		if err := s.scanRowProducto(rows, p); err != nil {
 			return nil, fmt.Errorf("error al escanear producto: %w", err)
 		}
-
 		productos = append(productos, p)
 	}
 
@@ -129,70 +101,17 @@ func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.Paginati
 
 func (s *storeProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "GetProductoByID", performance.DbThreshold, time.Now())
-	query := `
-	SELECT
-		p.id_producto,
-		p.nombre,
-		COALESCE(p.descripcion, ''),
-		COALESCE(p.codigo_barras, ''),
-		COALESCE(p.sku, ''),
-		p.fecha_vencimiento,
-		COALESCE(p.imagen, ''),
-		p.id_status,
-		p.id_categoria,
-		p.id_moneda,
-		p.id_unidad,
-		p.created_at,
-		p.updated_at,
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM producto p
+		LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
+		LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
+		LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
+		WHERE p.id_producto = $1 AND p.deleted_at IS NULL
+	`, productoSelectFields)
 
-		c.id_categoria,
-		c.nombre,
-
-		m.id_moneda,
-		m.nombre,
-		m.id_status,
-
-		u.id_unidad,
-		u.nombre
-	FROM producto p
-	LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
-	LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
-	LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
-	WHERE p.id_producto = $1
-	  AND p.deleted_at IS NULL
-	`
-
-	p := &models.Producto{
-		Categoria: &models.Categoria{},
-		Moneda:    &models.Moneda{},
-		Unidad:    &models.Unidad{},
-	}
-
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&p.IDProducto,
-		&p.Nombre,
-		&p.Descripcion,
-		&p.CodigoBarras,
-		&p.SKU,
-		&p.FechaVencimiento,
-		&p.Imagen,
-		&p.IDStatus,
-		&p.IDCategoria,
-		&p.IDMoneda,
-		&p.IDUnidad,
-		&p.CreatedAt,
-		&p.UpdatedAt,
-
-		&p.Categoria.IDCategoria,
-		&p.Categoria.Nombre,
-
-		&p.Moneda.IDMoneda,
-		&p.Moneda.Nombre,
-		&p.Moneda.IDStatus,
-
-		&p.Unidad.IDUnidad,
-		&p.Unidad.Nombre,
-	)
+	p := &models.Producto{}
+	err := s.scanRowProducto(s.db.QueryRowContext(ctx, query, id), p)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("producto con ID %s no encontrado", id)
@@ -206,69 +125,17 @@ func (s *storeProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*mod
 
 func (s *storeProducto) GetProductoByCodigo(ctx context.Context, codigo string) (*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "GetProductoByCodigo", performance.DbThreshold, time.Now())
-	query := `
-	SELECT
-		p.id_producto,
-		p.nombre,
-		COALESCE(p.descripcion, ''),
-		COALESCE(p.codigo_barras, ''),
-		COALESCE(p.sku, ''),
-		p.fecha_vencimiento,
-		COALESCE(p.imagen, ''),
-		p.id_status,
-		p.id_categoria,
-		p.id_moneda,
-		p.id_unidad,
-		p.created_at,
-		p.updated_at,
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM producto p
+		LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
+		LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
+		LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
+		WHERE (p.codigo_barras = $1 OR p.sku = $1) AND p.deleted_at IS NULL
+	`, productoSelectFields)
 
-		c.id_categoria,
-		c.nombre,
-
-		m.id_moneda,
-		m.nombre,
-		m.id_status,
-
-		u.id_unidad,
-		u.nombre
-	FROM producto p
-	LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
-	LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
-	LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
-	WHERE (p.codigo_barras = $1 OR p.sku = $1) AND p.deleted_at IS NULL
-	`
-
-	p := &models.Producto{
-		Categoria: &models.Categoria{},
-		Moneda:    &models.Moneda{},
-		Unidad:    &models.Unidad{},
-	}
-
-	err := s.db.QueryRowContext(ctx, query, codigo).Scan(
-		&p.IDProducto,
-		&p.Nombre,
-		&p.Descripcion,
-		&p.CodigoBarras,
-		&p.SKU,
-		&p.FechaVencimiento,
-		&p.Imagen,
-		&p.IDStatus,
-		&p.IDCategoria,
-		&p.IDMoneda,
-		&p.IDUnidad,
-		&p.CreatedAt,
-		&p.UpdatedAt,
-
-		&p.Categoria.IDCategoria,
-		&p.Categoria.Nombre,
-
-		&p.Moneda.IDMoneda,
-		&p.Moneda.Nombre,
-		&p.Moneda.IDStatus,
-
-		&p.Unidad.IDUnidad,
-		&p.Unidad.Nombre,
-	)
+	p := &models.Producto{}
+	err := s.scanRowProducto(s.db.QueryRowContext(ctx, query, codigo), p)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("producto con código %s no encontrado", codigo)
@@ -289,16 +156,9 @@ func (s *storeProducto) CreateProducto(ctx context.Context, producto *models.Pro
 	`
 
 	err := s.db.QueryRowContext(ctx, query,
-		producto.Nombre,
-		producto.Descripcion,
-		producto.CodigoBarras,
-		producto.SKU,
-		producto.FechaVencimiento,
-		producto.Imagen,
-		producto.IDStatus,
-		producto.IDCategoria,
-		producto.IDMoneda,
-		producto.IDUnidad,
+		producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
+		producto.FechaVencimiento, producto.Imagen, producto.IDStatus,
+		producto.IDCategoria, producto.IDMoneda, producto.IDUnidad,
 	).Scan(&producto.IDProducto, &producto.CreatedAt, &producto.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear producto: %w", err)
@@ -312,61 +172,24 @@ func (s *storeProducto) UpdateProducto(ctx context.Context, id uuid.UUID, produc
 	query := `
 		UPDATE producto
 		SET
-			nombre = $1,
-			descripcion = $2,
-			codigo_barras = $3,
-			sku = $4,
-			fecha_vencimiento = $5,
-			imagen = $6,
-			id_status = $7,
-			id_categoria = $8,
-			id_moneda = $9,
-			id_unidad = $10,
-			updated_at = CURRENT_TIMESTAMP
-		WHERE id_producto = $11
-		  AND deleted_at IS NULL
+			nombre = $1, descripcion = $2, codigo_barras = $3, sku = $4,
+			fecha_vencimiento = $5, imagen = $6, id_status = $7, id_categoria = $8,
+			id_moneda = $9, id_unidad = $10, updated_at = CURRENT_TIMESTAMP
+		WHERE id_producto = $11 AND deleted_at IS NULL
 		RETURNING
-			id_producto,
-			nombre,
-			COALESCE(descripcion, ''),
-			COALESCE(codigo_barras, ''),
-			COALESCE(sku, ''),
-			fecha_vencimiento,
-			COALESCE(imagen, ''),
-			id_status,
-			id_categoria,
-			id_moneda,
-			id_unidad,
-			created_at,
-			updated_at
+			id_producto, nombre, COALESCE(descripcion, ''), COALESCE(codigo_barras, ''),
+			COALESCE(sku, ''), fecha_vencimiento, COALESCE(imagen, ''), id_status,
+			id_categoria, id_moneda, id_unidad, created_at, updated_at
 	`
 
 	err := s.db.QueryRowContext(ctx, query,
-		producto.Nombre,
-		producto.Descripcion,
-		producto.CodigoBarras,
-		producto.SKU,
-		producto.FechaVencimiento,
-		producto.Imagen,
-		producto.IDStatus,
-		producto.IDCategoria,
-		producto.IDMoneda,
-		producto.IDUnidad,
-		id,
+		producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
+		producto.FechaVencimiento, producto.Imagen, producto.IDStatus,
+		producto.IDCategoria, producto.IDMoneda, producto.IDUnidad, id,
 	).Scan(
-		&producto.IDProducto,
-		&producto.Nombre,
-		&producto.Descripcion,
-		&producto.CodigoBarras,
-		&producto.SKU,
-		&producto.FechaVencimiento,
-		&producto.Imagen,
-		&producto.IDStatus,
-		&producto.IDCategoria,
-		&producto.IDMoneda,
-		&producto.IDUnidad,
-		&producto.CreatedAt,
-		&producto.UpdatedAt,
+		&producto.IDProducto, &producto.Nombre, &producto.Descripcion, &producto.CodigoBarras,
+		&producto.SKU, &producto.FechaVencimiento, &producto.Imagen, &producto.IDStatus,
+		&producto.IDCategoria, &producto.IDMoneda, &producto.IDUnidad, &producto.CreatedAt, &producto.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
