@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
-	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
@@ -63,23 +62,7 @@ func (h *UsuarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usuario := models.Usuario{
-		IDSucursal:    req.IDSucursal,
-		IDRol:         req.IDRol,
-		Username:      req.Username,
-		Email:         req.UsuEmail,
-		UsuNombre:     req.UsuNombre,
-		UsuDNI:        req.UsuDni,
-		UsuTelefono:   req.UsuTelefono,
-		UsuTarjetaNFC: req.UsuTarjetaNFC,
-		UsuPinPOS:     req.UsuPinPOS,
-		NombreTicket:  req.NombreTicket,
-		Password:      req.UsuPassword,
-		IDStatus:      req.IDStatus,
-		Sucursales:    req.SucursalesAcceso,
-	}
-
-	resp, err := h.service.CreateUsuario(r.Context(), usuario)
+	resp, err := h.service.CreateUsuario(r.Context(), req.ToModel())
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -107,23 +90,7 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usuario := models.Usuario{
-		IDSucursal:    req.IDSucursal,
-		IDRol:         req.IDRol,
-		Username:      req.Username,
-		Email:         req.UsuEmail,
-		UsuNombre:     req.UsuNombre,
-		UsuDNI:        req.UsuDni,
-		UsuTelefono:   req.UsuTelefono,
-		UsuTarjetaNFC: req.UsuTarjetaNFC,
-		UsuPinPOS:     req.UsuPinPOS,
-		NombreTicket:  req.NombreTicket,
-		Password:      req.UsuPassword,
-		IDStatus:      req.IDStatus,
-		Sucursales:    req.SucursalesAcceso,
-	}
-
-	resp, err := h.service.UpdateUsuario(r.Context(), id, usuario)
+	resp, err := h.service.UpdateUsuario(r.Context(), id, req.ToModel())
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -157,22 +124,8 @@ func (h *UsuarioHandler) Administrar(w http.ResponseWriter, r *http.Request) {
 		userID, _ = uuid.Parse(idStr)
 	}
 
-	usuario := models.Usuario{
-		IDUsuario:     userID,
-		IDSucursal:    req.IDSucursal,
-		IDRol:         req.IDRol,
-		Username:      req.Username,
-		Email:         req.UsuEmail,
-		UsuNombre:     req.UsuNombre,
-		UsuDNI:        req.UsuDni,
-		UsuTelefono:   req.UsuTelefono,
-		UsuTarjetaNFC: req.UsuTarjetaNFC,
-		UsuPinPOS:     req.UsuPinPOS,
-		NombreTicket:  req.NombreTicket,
-		Password:      req.UsuPassword,
-		IDStatus:      req.IDStatus,
-		Sucursales:    req.SucursalesAcceso,
-	}
+	usuario := req.ToModel()
+	usuario.IDUsuario = userID
 
 	resp, err := h.service.AdministrarUsuario(r.Context(), usuario, adminID)
 	if err != nil {

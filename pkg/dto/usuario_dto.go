@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"github.com/prunus/pkg/models"
+)
 
 // UsuarioResponse estructura de respuesta para el usuario
 type UsuarioResponse struct {
@@ -35,6 +38,24 @@ type UsuarioCreateRequest struct {
 	SucursalesAcceso []uuid.UUID `json:"sucursales_acceso" validate:"omitempty"`
 }
 
+func (r *UsuarioCreateRequest) ToModel() models.Usuario {
+	return models.Usuario{
+		IDSucursal:    r.IDSucursal,
+		IDRol:         r.IDRol,
+		Username:      r.Username,
+		Email:         r.UsuEmail,
+		UsuNombre:     r.UsuNombre,
+		UsuDNI:        r.UsuDni,
+		UsuTelefono:   r.UsuTelefono,
+		UsuTarjetaNFC: r.UsuTarjetaNFC,
+		UsuPinPOS:     r.UsuPinPOS,
+		NombreTicket:  r.NombreTicket,
+		Password:      r.UsuPassword,
+		IDStatus:      r.IDStatus,
+		Sucursales:    r.SucursalesAcceso,
+	}
+}
+
 // UsuarioUpdateRequest estructura de solicitud para actualizar un usuario
 type UsuarioUpdateRequest struct {
 	IDSucursal       uuid.UUID   `json:"id_sucursal" validate:"required"`
@@ -50,4 +71,22 @@ type UsuarioUpdateRequest struct {
 	NombreTicket     string      `json:"nombre_ticket" validate:"omitempty,max=50"`
 	IDStatus         uuid.UUID   `json:"id_status" validate:"required"`
 	SucursalesAcceso []uuid.UUID `json:"sucursales_acceso" validate:"omitempty"`
+}
+
+func (r *UsuarioUpdateRequest) ToModel() models.Usuario {
+	return models.Usuario{
+		IDSucursal:    r.IDSucursal,
+		IDRol:         r.IDRol,
+		Username:      r.Username,
+		Email:         r.UsuEmail,
+		UsuNombre:     r.UsuNombre,
+		UsuDNI:        r.UsuDni,
+		UsuTelefono:   r.UsuTelefono,
+		UsuTarjetaNFC: r.UsuTarjetaNFC,
+		UsuPinPOS:     r.UsuPinPOS,
+		NombreTicket:  r.NombreTicket,
+		Password:      r.UsuPassword,
+		IDStatus:      r.IDStatus,
+		Sucursales:    r.SucursalesAcceso,
+	}
 }

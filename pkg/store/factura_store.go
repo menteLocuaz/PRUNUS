@@ -28,6 +28,36 @@ type storeFactura struct {
 	db *sql.DB
 }
 
+// Campos base para SELECT de factura
+const facturaSelectFields = `
+	id_factura, fac_numero, cfac_subtotal, cfac_iva, cfac_total, cfac_observacion, 
+	id_user_pos, id_estacion, id_orden_pedido, id_cliente, id_periodo, 
+	id_control_estacion, id_status, fecha_operacion, base_impuesto, 
+	impuesto, valor_impuesto, created_at, updated_at
+`
+
+// scanRowFactura helper para escanear facturas
+func (s *storeFactura) scanRowFactura(scanner interface{ Scan(dest ...any) error }, f *models.Factura) error {
+	return scanner.Scan(
+		&f.IDFactura, &f.FacNumero, &f.CfacSubtotal, &f.CfacIVA, &f.CfacTotal, &f.CfacObservacion,
+		&f.IDUserPos, &f.IDEstacion, &f.IDOrdenPedido, &f.IDCliente, &f.IDPeriodo,
+		&f.IDControlEstacion, &f.IDStatus, &f.FechaOperacion, &f.BaseImpuesto,
+		&f.Impuesto, &f.ValorImpuesto, &f.CreatedAt, &f.UpdatedAt,
+	)
+}
+
+// Campos base para SELECT de detalle_factura
+const detalleFacturaSelectFields = `
+	id_detalle_factura, id_factura, id_producto, cantidad, precio, subtotal, impuesto, total
+`
+
+// scanRowDetalleFactura helper para escanear detalles de factura
+func (s *storeFactura) scanRowDetalleFactura(scanner interface{ Scan(dest ...any) error }, d *models.DetalleFactura) error {
+	return scanner.Scan(
+		&d.IDDetalleFactura, &d.IDFactura, &d.IDProducto, &d.Cantidad, &d.Precio, &d.Subtotal, &d.Impuesto, &d.Total,
+	)
+}
+
 func NewFactura(db *sql.DB) StoreFactura {
 	return &storeFactura{db: db}
 }
@@ -40,7 +70,6 @@ func (s *storeFactura) CreateFactura(ctx context.Context, f *models.Factura, ite
 		}
 
 		// Si f.FacNumero es "AUTO", intentamos generar el secuencial antes de insertar
-		// Nota: El trigger/función en BD ya lo hace, pero aquí aseguramos que se envíe el valor correcto
 		if f.FacNumero == "AUTO" {
 			querySec := `SELECT fn_get_next_secuencial($1, 'FACTURA')`
 			err := tx.QueryRowContext(ctx, querySec, f.IDEstacion).Scan(&f.FacNumero)
@@ -57,14 +86,14 @@ func (s *storeFactura) CreateFactura(ctx context.Context, f *models.Factura, ite
 			id_control_estacion, id_status, fecha_operacion, base_impuesto, 
 			impuesto, valor_impuesto, metadata
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
-		RETURNING id_factura, cfac_fecha_creacion, created_at, updated_at`
+		RETURNING id_factura, created_at, updated_at`
 
 		err := tx.QueryRowContext(ctx, queryFac,
 			f.FacNumero, f.CfacSubtotal, f.CfacIVA, f.CfacTotal, f.CfacObservacion,
 			f.IDUserPos, f.IDEstacion, f.IDOrdenPedido, f.IDCliente, f.IDPeriodo,
 			f.IDControlEstacion, f.IDStatus, f.FechaOperacion, f.BaseImpuesto,
 			f.Impuesto, f.ValorImpuesto, metadataJSON,
-		).Scan(&f.IDFactura, &f.CfacFechaCreacion, &f.CreatedAt, &f.UpdatedAt)
+		).Scan(&f.IDFactura, &f.CreatedAt, &f.UpdatedAt)
 
 		if err != nil {
 			return fmt.Errorf("error al insertar factura: %w", err)
@@ -90,10 +119,8 @@ func (s *storeFactura) CreateFactura(ctx context.Context, f *models.Factura, ite
 }
 
 func (s *storeFactura) RegistrarFacturaCompleta(ctx context.Context, req dto.FacturaCompletaRequest, idUsuario uuid.UUID) (*dto.FacturaResponse, error) {
-	// Usamos ExecAudited para asegurar que el SET LOCAL app.current_user_id se ejecute
 	var res dto.FacturaResponse
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
-		// Aseguramos que si no viene número, la función interna de la BD genere uno
 		if req.Cabecera.FacNumero == "" {
 			req.Cabecera.FacNumero = "AUTO"
 		}
@@ -129,14 +156,14 @@ func (s *storeFactura) RegistrarFacturaCompleta(ctx context.Context, req dto.Fac
 }
 
 func (s *storeFactura) GetFacturaByID(ctx context.Context, id uuid.UUID) (*models.Factura, []*models.DetalleFactura, error) {
-	queryFac := `SELECT id_factura, fac_numero, cfac_subtotal, cfac_iva, cfac_total, cfac_observacion, id_cliente, created_at FROM factura WHERE id_factura = $1`
+	queryFac := fmt.Sprintf("SELECT %s FROM factura WHERE id_factura = $1", facturaSelectFields)
 	f := &models.Factura{}
-	err := s.db.QueryRowContext(ctx, queryFac, id).Scan(&f.IDFactura, &f.FacNumero, &f.CfacSubtotal, &f.CfacIVA, &f.CfacTotal, &f.CfacObservacion, &f.IDCliente, &f.CreatedAt)
+	err := s.scanRowFactura(s.db.QueryRowContext(ctx, queryFac, id), f)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	queryDet := `SELECT id_detalle_factura, id_producto, cantidad, precio, subtotal, impuesto, total FROM detalle_factura WHERE id_factura = $1`
+	queryDet := fmt.Sprintf("SELECT %s FROM detalle_factura WHERE id_factura = $1", detalleFacturaSelectFields)
 	rows, err := s.db.QueryContext(ctx, queryDet, id)
 	if err != nil {
 		return nil, nil, err
@@ -146,7 +173,7 @@ func (s *storeFactura) GetFacturaByID(ctx context.Context, id uuid.UUID) (*model
 	var items []*models.DetalleFactura
 	for rows.Next() {
 		item := &models.DetalleFactura{}
-		if err := rows.Scan(&item.IDDetalleFactura, &item.IDProducto, &item.Cantidad, &item.Precio, &item.Subtotal, &item.Impuesto, &item.Total); err != nil {
+		if err := s.scanRowDetalleFactura(rows, item); err != nil {
 			return nil, nil, err
 		}
 		items = append(items, item)
@@ -160,13 +187,13 @@ func (s *storeFactura) GetAllFacturas(ctx context.Context, params dto.Pagination
 		params.Limit = dto.DefaultLimit
 	}
 
-	query := `
-		SELECT id_factura, fac_numero, cfac_total, id_cliente, created_at 
+	query := fmt.Sprintf(`
+		SELECT %s 
 		FROM factura 
 		WHERE deleted_at IS NULL
-	`
-	var args []interface{}
+	`, facturaSelectFields)
 
+	var args []interface{}
 	if params.LastDate != nil {
 		query += " AND created_at < $1"
 		args = append(args, params.LastDate)
@@ -184,7 +211,7 @@ func (s *storeFactura) GetAllFacturas(ctx context.Context, params dto.Pagination
 	var facturas []*models.Factura
 	for rows.Next() {
 		f := &models.Factura{}
-		if err := rows.Scan(&f.IDFactura, &f.FacNumero, &f.CfacTotal, &f.IDCliente, &f.CreatedAt); err != nil {
+		if err := s.scanRowFactura(rows, f); err != nil {
 			return nil, err
 		}
 		facturas = append(facturas, f)
