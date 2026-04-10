@@ -63,13 +63,20 @@ func (s *ServiceUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario,
 	return s.store.GetAllUsuarios(ctx)
 }
 
-// GetUsuarioByID obtiene un usuario por su ID
+// GetUsuarioByID obtiene un usuario por su ID con sus permisos cargados
 func (s *ServiceUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*models.Usuario, error) {
 	if id == uuid.Nil {
 		s.logger.WarnContext(ctx, "Intento de obtener usuario con ID nulo")
 		return nil, errors.New("el ID del usuario es requerido")
 	}
-	return s.store.GetUsuarioByID(ctx, id)
+	usuario, err := s.store.GetUsuarioByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if permisos, err := s.store.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
+		usuario.Permisos = permisos
+	}
+	return usuario, nil
 }
 
 // CreateUsuario crea un nuevo usuario con validaciones de negocio

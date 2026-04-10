@@ -74,6 +74,7 @@ func RunMigrations(db *sql.DB) error {
 		{"068_dashboard_fields", migrateDashboardFields},
 		{"069_gastos_operativos", migrateGastosOperativos},
 		{"070_seed_modulos_permissions", migrateSeedModulosPermissions},
+		{"071_trigger_auto_admin_permissions", migrateTriggerAutoAdminPermissions},
 	}
 
 	for _, s := range steps {
