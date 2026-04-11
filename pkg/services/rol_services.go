@@ -31,7 +31,43 @@ func NewServiceRol(s store.StoreRol, c models.CacheStore, logger *slog.Logger) *
 const (
 	cacheKeyRolesAll = "roles:all"
 	cacheKeyRolID    = "roles:id:%s"
+	cacheKeyPermisos = "roles:permisos:%s"
 )
+
+// GetPermisosByRol obtiene los permisos de un rol con caching
+func (s *ServiceRol) GetPermisosByRol(ctx context.Context, rolID uuid.UUID) ([]string, error) {
+	if rolID == uuid.Nil {
+		return nil, nil
+	}
+
+	var permisos []string
+	key := fmt.Sprintf(cacheKeyPermisos, rolID.String())
+
+	// Intentar obtener del caché
+	err := s.cache.Get(ctx, key, &permisos)
+	if err == nil {
+		return permisos, nil
+	}
+
+	// Si no hay caché, ir al store (que usa storeUsuario internamente o directamente si lo exponemos)
+	// Nota: Como storeRol no tiene GetPermisosByRol, usualmente esto se consulta en storeUsuario
+	// pero para coherencia lo manejaremos aquí si storeRol lo permite.
+	// REVISIÓN: El store de usuarios tiene la implementación.
+	// Para este refactor, asumiremos que ServiceRol tiene acceso al store necesario o lo inyectamos.
+	// Dado el estado actual, lo ideal es que storeRol tenga este método si es responsabilidad de roles.
+	
+	// Por ahora, simularemos la obtención desde el store que tenga el método.
+	// Si storeRol no lo tiene, deberíamos agregarlo a la interfaz StoreRol.
+	permisos, err = s.store.GetPermisosByRol(ctx, rolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Guardar en caché con TTL largo (ej: 24 horas)
+	_ = s.cache.Set(ctx, key, permisos, 24*time.Hour)
+
+	return permisos, nil
+}
 
 // GetAllRoles obtiene todos los roles del sistema
 func (s *ServiceRol) GetAllRoles(ctx context.Context) ([]*models.Rol, error) {
@@ -134,6 +170,7 @@ func (s *ServiceRol) UpdateRol(ctx context.Context, id uuid.UUID, rol models.Rol
 	// Invalidar caché
 	_ = s.cache.Delete(ctx, cacheKeyRolesAll)
 	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id.String()))
+	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyPermisos, id.String()))
 
 	return result, nil
 }
@@ -153,6 +190,7 @@ func (s *ServiceRol) DeleteRol(ctx context.Context, id uuid.UUID) error {
 	// Invalidar caché
 	_ = s.cache.Delete(ctx, cacheKeyRolesAll)
 	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id.String()))
+	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyPermisos, id.String()))
 
 	return nil
 }

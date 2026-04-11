@@ -2,6 +2,7 @@ package transport
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,33 +14,35 @@ import (
 	"github.com/prunus/pkg/utils/validator"
 )
 
-// ProductoHandler maneja las solicitudes HTTP relacionadas con productos
+// ProductoHandler maneja las solicitudes HTTP relacionadas con productos.
+// Sigue el patrón de inyección de dependencias para el servicio de productos.
 type ProductoHandler struct {
 	service *services.ServiceProducto
 }
 
-// NewProductoHandler crea un nuevo handler con el servicio inyectado
+// NewProductoHandler crea una nueva instancia de ProductoHandler.
 func NewProductoHandler(s *services.ServiceProducto) *ProductoHandler {
 	return &ProductoHandler{service: s}
 }
 
-// GetAll obtiene todos los productos y responde con JSON
+// GetAll obtiene una lista paginada de productos.
 func (h *ProductoHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	params := utils.ParsePaginationParams(r)
+	
 	resp, err := h.service.GetAllProductos(r.Context(), params)
 	if err != nil {
-		response.InternalServerError(w, err.Error())
+		response.InternalServerError(w, "Error al obtener productos: "+err.Error())
 		return
 	}
+	
 	response.Success(w, "Productos obtenidos correctamente", resp)
 }
 
-// GetByID obtiene un producto por su ID
+// GetByID busca un producto por su identificador único (UUID).
 func (h *ProductoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		response.BadRequest(w, "ID inválido")
+		response.BadRequest(w, "El ID proporcionado no es un UUID válido")
 		return
 	}
 
@@ -48,33 +51,39 @@ func (h *ProductoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		response.NotFound(w, "Producto no encontrado")
 		return
 	}
+	
 	response.Success(w, "Producto obtenido correctamente", resp)
 }
 
-// GetByCodigo obtiene un producto por su código de barras o SKU
+// GetByCodigo busca un producto por su código de barras o SKU.
 func (h *ProductoHandler) GetByCodigo(w http.ResponseWriter, r *http.Request) {
 	codigo := chi.URLParam(r, "codigo")
 	if codigo == "" {
-		response.BadRequest(w, "Código inválido")
+		response.BadRequest(w, "Se requiere un código de barras o SKU")
 		return
 	}
 
 	resp, err := h.service.GetProductoByCodigo(r.Context(), codigo)
 	if err != nil {
-		response.NotFound(w, "Producto no encontrado")
+		response.NotFound(w, "Producto no encontrado con el código proporcionado")
 		return
 	}
+	
 	response.Success(w, "Producto obtenido correctamente", resp)
 }
 
-// Create crea un nuevo producto a partir del JSON recibido
+// Create procesa la creación de un nuevo producto.
+// Ahora soporta múltiples formatos de fecha gracias a JSONDate.
 func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.ProductoCreateRequest
+	
+	// Decodificación con manejo de errores descriptivo
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "JSON inválido")
+		response.BadRequest(w, fmt.Sprintf("Error en el formato del JSON: %v", err))
 		return
 	}
 
+	// Validación de reglas de negocio en el DTO
 	if err := validator.Validate.Struct(req); err != nil {
 		response.ValidationError(w, validator.FormatErrors(err))
 		return
@@ -85,21 +94,21 @@ func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, err.Error())
 		return
 	}
+	
 	response.Created(w, "Producto creado correctamente", resp)
 }
 
-// Update actualiza un producto existente identificado por ID
+// Update actualiza los datos de un producto existente.
 func (h *ProductoHandler) Update(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		response.BadRequest(w, "ID inválido")
+		response.BadRequest(w, "ID de producto inválido")
 		return
 	}
 
 	var req dto.ProductoUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "JSON inválido")
+		response.BadRequest(w, fmt.Sprintf("Error en el formato del JSON: %v", err))
 		return
 	}
 
@@ -110,24 +119,26 @@ func (h *ProductoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.UpdateProducto(r.Context(), id, req)
 	if err != nil {
-		response.InternalServerError(w, err.Error())
+		// Diferenciamos errores de negocio de errores internos
+		response.InternalServerError(w, "Error al actualizar producto: "+err.Error())
 		return
 	}
+	
 	response.Success(w, "Producto actualizado correctamente", resp)
 }
 
-// Delete elimina un producto por su ID
+// Delete realiza un borrado lógico del producto.
 func (h *ProductoHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		response.BadRequest(w, "ID inválido")
+		response.BadRequest(w, "ID de producto inválido")
 		return
 	}
 
 	if err := h.service.DeleteProducto(r.Context(), id); err != nil {
-		response.NotFound(w, "Producto no encontrado")
+		response.NotFound(w, "No se pudo eliminar: producto no encontrado")
 		return
 	}
+	
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -18,6 +18,36 @@ type StoreRol interface {
 	CreateRol(ctx context.Context, rol *models.Rol) (*models.Rol, error)
 	UpdateRol(ctx context.Context, id uuid.UUID, rol *models.Rol) (*models.Rol, error)
 	DeleteRol(ctx context.Context, id uuid.UUID) error
+	GetPermisosByRol(ctx context.Context, rolID uuid.UUID) ([]string, error)
+}
+
+// ... (métodos existentes)
+
+func (s *storeRol) GetPermisosByRol(ctx context.Context, rolID uuid.UUID) ([]string, error) {
+	defer performance.Trace(ctx, "store", "GetPermisosByRol", performance.DbThreshold, time.Now())
+	query := `
+		SELECT m.ruta 
+		FROM permiso_rol pr
+		JOIN modulo m ON pr.id_modulo = m.id_modulo
+		WHERE pr.id_rol = $1 AND pr.can_read = true AND m.is_active = true AND m.deleted_at IS NULL
+	`
+	rows, err := s.db.QueryContext(ctx, query, rolID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permisos []string
+	for rows.Next() {
+		var ruta string
+		if err := rows.Scan(&ruta); err != nil {
+			return nil, err
+		}
+		if ruta != "" {
+			permisos = append(permisos, ruta)
+		}
+	}
+	return permisos, nil
 }
 
 // storeRol implementación de la interfaz StoreRol

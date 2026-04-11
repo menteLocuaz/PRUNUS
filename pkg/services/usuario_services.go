@@ -19,17 +19,19 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]
 
 // ServiceUsuario servicio que encapsula la lógica de negocio para usuario
 type ServiceUsuario struct {
-	store     store.StoreUsuario
-	logsStore store.StoreLogs
-	logger    *slog.Logger
+	store      store.StoreUsuario
+	rolService *ServiceRol
+	logsStore  store.StoreLogs
+	logger     *slog.Logger
 }
 
 // NewServiceUsuario crea una nueva instancia del servicio de usuario
-func NewServiceUsuario(s store.StoreUsuario, l store.StoreLogs, logger *slog.Logger) *ServiceUsuario {
+func NewServiceUsuario(s store.StoreUsuario, r *ServiceRol, l store.StoreLogs, logger *slog.Logger) *ServiceUsuario {
 	return &ServiceUsuario{
-		store:     s,
-		logsStore: l,
-		logger:    logger,
+		store:      s,
+		rolService: r,
+		logsStore:  l,
+		logger:     logger,
 	}
 }
 
@@ -63,7 +65,7 @@ func (s *ServiceUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario,
 	return s.store.GetAllUsuarios(ctx)
 }
 
-// GetUsuarioByID obtiene un usuario por su ID con sus permisos cargados
+// GetUsuarioByID obtiene un usuario por su ID con sus permisos cargados (vía cache)
 func (s *ServiceUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*models.Usuario, error) {
 	if id == uuid.Nil {
 		s.logger.WarnContext(ctx, "Intento de obtener usuario con ID nulo")
@@ -73,9 +75,12 @@ func (s *ServiceUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*mod
 	if err != nil {
 		return nil, err
 	}
-	if permisos, err := s.store.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
+
+	// Usar el servicio de roles que tiene caching para los permisos
+	if permisos, err := s.rolService.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
 		usuario.Permisos = permisos
 	}
+
 	return usuario, nil
 }
 
@@ -216,10 +221,9 @@ func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, req models.Log
 		}
 	}
 
-	// 4. Limpiar password y cargar permisos
+	// 4. Limpiar password y cargar permisos (usando el servicio con cache)
 	usuario.Password = ""
-	permisos, err := s.store.GetPermisosByRol(ctx, usuario.IDRol)
-	if err == nil {
+	if permisos, err := s.rolService.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
 		usuario.Permisos = permisos
 	}
 

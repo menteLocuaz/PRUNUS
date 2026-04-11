@@ -268,7 +268,7 @@ func runRegisterRol(cmd *cobra.Command, args []string) {
 }
 
 func runRegisterUsuario(cmd *cobra.Command, args []string) {
-	db, _, logger := initCLI()
+	db, cache, logger := initCLI()
 	defer db.Close()
 
 	sucID, err := uuid.Parse(usuIDSucursal)
@@ -290,8 +290,10 @@ func runRegisterUsuario(cmd *cobra.Command, args []string) {
 	}
 
 	usuarioStore := store.NewUsuario(db)
+	rolStore := store.NewRol(db)
+	rolService := services.NewServiceRol(rolStore, cache, logger)
 	logsStore := store.NewLogs(db)
-	usuarioService := services.NewServiceUsuario(usuarioStore, logsStore, logger)
+	usuarioService := services.NewServiceUsuario(usuarioStore, rolService, logsStore, logger)
 
 	model := models.Usuario{
 		IDSucursal: sucID,

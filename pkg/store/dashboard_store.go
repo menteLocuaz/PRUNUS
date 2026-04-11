@@ -52,10 +52,10 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 
 	// 3. Ventas Mes Actual
 	queryVentas := `
-		SELECT COALESCE(SUM(cfac_total), 0)
+		SELECT COALESCE(SUM(f.cfac_total), 0)
 		FROM factura f
-		JOIN control_estacion ce ON f.id_control_estacion = ce.id_control_estacion
-		WHERE ce.id_sucursal = $1 
+		JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
+		WHERE ep.id_sucursal = $1 
 		  AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924' -- Pagada
 		  AND f.cfac_fecha_creacion >= date_trunc('month', current_date)
 		  AND f.deleted_at IS NULL`
@@ -66,10 +66,10 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 
 	// 4. Cuentas por Cobrar (Facturas Pendientes)
 	queryCxC := `
-		SELECT COALESCE(SUM(cfac_total), 0)
+		SELECT COALESCE(SUM(f.cfac_total), 0)
 		FROM factura f
-		JOIN control_estacion ce ON f.id_control_estacion = ce.id_control_estacion
-		WHERE ce.id_sucursal = $1 
+		JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
+		WHERE ep.id_sucursal = $1 
 		  AND f.id_status = '892340e0-4328-491d-9102-80550bb6aac4' -- Pendiente de Pago
 		  AND f.deleted_at IS NULL`
 	err = s.db.QueryRowContext(ctx, queryCxC, sucursalID).Scan(&resumen.CuentasPorCobrar)
@@ -78,7 +78,6 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 	}
 
 	// 5. Cuentas por Pagar (Ordenes de Compra Recibidas pero no Pagadas)
-	// Nota: Asumimos que ID_STATUS en orden_compra refleja el estado de pago/recepción
 	queryCxP := `
 		SELECT COALESCE(SUM(total), 0)
 		FROM orden_compra
@@ -100,9 +99,7 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 		return nil, err
 	}
 
-	// 7. Punto de Equilibrio (Ventas necesarias para cubrir gastos)
-	// PE = Gastos Fijos / Margen de Contribución Promedio
-	// Simplificado: Ventas donde (Ventas - Costos) = Gastos
+	// 7. Punto de Equilibrio
 	queryPE := `
 		WITH MargenPromedio AS (
 			SELECT 
@@ -118,14 +115,12 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 		resumen.PuntoEquilibrio = 0
 	}
 
-	// 8. Ciclo de Conversión de Efectivo (CCC = DIO + DSO - DPO)
-	// Calculado sobre los últimos 90 días para mayor estabilidad
+	// 8. Ciclo de Conversión de Efectivo
 	queryCCC := `
 		WITH Periodo AS (
 			SELECT 90 as dias
 		),
 		Metricas AS (
-			-- COGS: Costo de Ventas
 			SELECT COALESCE(SUM(m.costo_unitario * m.cantidad), 0) as cogs
 			FROM movimientos_inventario m
 			WHERE m.id_sucursal = $1 
@@ -138,12 +133,11 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 			WHERE id_sucursal = $1 AND fecha_snapshot >= current_date - interval '90 days'
 		),
 		VentasCredito AS (
-			-- Asumimos ventas a crédito las facturas con fecha_vencimiento
-			SELECT COALESCE(SUM(cfac_total), 0) as total_ventas,
-			       COALESCE(AVG(cfac_total), 0) as avg_ar
+			SELECT COALESCE(SUM(f.cfac_total), 0) as total_ventas,
+			       COALESCE(AVG(f.cfac_total), 0) as avg_ar
 			FROM factura f
-			JOIN control_estacion ce ON f.id_control_estacion = ce.id_control_estacion
-			WHERE ce.id_sucursal = $1 
+			JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
+			WHERE ep.id_sucursal = $1 
 			  AND f.cfac_fecha_creacion >= current_date - interval '90 days'
 			  AND f.fecha_vencimiento IS NOT NULL
 		),
@@ -160,7 +154,7 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 			COALESCE((v.avg_ar / NULLIF(v.total_ventas, 0)) * p.dias, 0) as dso,
 			COALESCE((c.avg_ap / NULLIF(c.total_compras, 0)) * p.dias, 0) as dpo
 		FROM Periodo p, Metricas m, InventarioPromedio i, VentasCredito v, ComprasCredito c`
-	
+
 	err = s.db.QueryRowContext(ctx, queryCCC, sucursalID).Scan(&resumen.DIO, &resumen.DSO, &resumen.DPO)
 	if err == nil {
 		resumen.CicloConversionEfectivo = resumen.DIO + resumen.DSO - resumen.DPO
@@ -209,8 +203,8 @@ func (s *dashboardStore) GetVentasVsCompras(ctx context.Context, sucursalID uuid
 		Ventas AS (
 			SELECT date_trunc('month', f.cfac_fecha_creacion)::date as mes, SUM(f.cfac_total) as total
 			FROM factura f
-			JOIN control_estacion ce ON f.id_control_estacion = ce.id_control_estacion
-			WHERE ce.id_sucursal = $1 AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924'
+			JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
+			WHERE ep.id_sucursal = $1 AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924'
 			GROUP BY 1
 		),
 		Compras AS (
@@ -246,8 +240,6 @@ func (s *dashboardStore) GetVentasVsCompras(ctx context.Context, sucursalID uuid
 }
 
 func (s *dashboardStore) GetRentabilidadTop(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error) {
-	// Cálculo de rentabilidad: (Precio Venta - Costo Unitario) * Cantidad
-	// Usamos movimientos_inventario para obtener el costo real al momento de la venta
 	query := `
 		SELECT 
 			p.nombre,
@@ -289,10 +281,10 @@ func (s *dashboardStore) GetAntiguedadDeuda(ctx context.Context, sucursalID uuid
 				WHEN current_date - fecha_vencimiento::date <= 90 THEN '61-90 días'
 				ELSE '90+ días'
 			END as rango,
-			SUM(cfac_total) as monto
+			SUM(f.cfac_total) as monto
 		FROM factura f
-		JOIN control_estacion ce ON f.id_control_estacion = ce.id_control_estacion
-		WHERE ce.id_sucursal = $1 
+		JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
+		WHERE ep.id_sucursal = $1 
 		  AND f.id_status = '892340e0-4328-491d-9102-80550bb6aac4' -- Pendiente de Pago
 		  AND f.fecha_vencimiento IS NOT NULL
 		  AND f.deleted_at IS NULL
@@ -320,13 +312,13 @@ func (s *dashboardStore) GetComposicionCategoria(ctx context.Context, sucursalID
 	query := `
 		WITH StockValores AS (
 			SELECT 
-				c.std_descripcion as categoria,
+				c.nombre as categoria,
 				SUM(i.stock_actual * i.precio_compra) as valor
 			FROM inventario i
 			JOIN producto p ON i.id_producto = p.id_producto
 			JOIN categoria c ON p.id_categoria = c.id_categoria
 			WHERE i.id_sucursal = $1 AND i.deleted_at IS NULL
-			GROUP BY c.id_categoria, c.std_descripcion
+			GROUP BY c.id_categoria, c.nombre
 		),
 		Total AS (
 			SELECT SUM(valor) as gran_total FROM StockValores
