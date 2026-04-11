@@ -313,38 +313,44 @@ func (h *InventarioHandler) GetRotacion(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *InventarioHandler) GetRotacionDetalle(w http.ResponseWriter, r *http.Request) {
-	sucursalIDStr := r.URL.Query().Get("id_sucursal")
-	if sucursalIDStr == "" {
-		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
-		if !ok {
-			response.BadRequest(w, "Debe proporcionar id_sucursal")
-			return
-		}
-		sucursalIDStr = ctxSucursal.String()
-	}
-
-	sucursalID, err := uuid.Parse(sucursalIDStr)
-	if err != nil {
-		response.BadRequest(w, "id_sucursal inválido")
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal")
 		return
 	}
 
 	fechaInicioStr := r.URL.Query().Get("fecha_inicio")
 	fechaFinStr := r.URL.Query().Get("fecha_fin")
-	if fechaInicioStr == "" || fechaFinStr == "" {
-		response.BadRequest(w, "Debe proporcionar fecha_inicio y fecha_fin (RFC3339)")
-		return
+
+	var fechaInicio, fechaFin time.Time
+	var err error
+
+	// Si no se proporcionan fechas, usamos los últimos 30 días por defecto
+	if fechaInicioStr == "" {
+		fechaInicio = time.Now().AddDate(0, 0, -30)
+	} else {
+		fechaInicio, err = time.Parse(time.RFC3339, fechaInicioStr)
+		if err != nil {
+			// Intentar formato corto si falla el largo
+			fechaInicio, err = time.Parse("2006-01-02", fechaInicioStr)
+			if err != nil {
+				response.BadRequest(w, "fecha_inicio inválida, use formato YYYY-MM-DD o RFC3339")
+				return
+			}
+		}
 	}
 
-	fechaInicio, err := time.Parse(time.RFC3339, fechaInicioStr)
-	if err != nil {
-		response.BadRequest(w, "fecha_inicio inválida, use formato RFC3339")
-		return
-	}
-	fechaFin, err := time.Parse(time.RFC3339, fechaFinStr)
-	if err != nil {
-		response.BadRequest(w, "fecha_fin inválida, use formato RFC3339")
-		return
+	if fechaFinStr == "" {
+		fechaFin = time.Now()
+	} else {
+		fechaFin, err = time.Parse(time.RFC3339, fechaFinStr)
+		if err != nil {
+			fechaFin, err = time.Parse("2006-01-02", fechaFinStr)
+			if err != nil {
+				response.BadRequest(w, "fecha_fin inválida, use formato YYYY-MM-DD o RFC3339")
+				return
+			}
+		}
 	}
 
 	params := dto.RotacionFiltroParams{FechaInicio: fechaInicio, FechaFin: fechaFin}
