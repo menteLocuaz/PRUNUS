@@ -6,16 +6,17 @@ import (
 	"github.com/google/uuid"
 )
 
-// Cliente representa la entidad de un cliente en el sistema.
+// Cliente representa la entidad de un cliente en el catálogo maestro.
 type Cliente struct {
-	IDCliente      uuid.UUID `json:"id_cliente"`
-	EmpresaCliente string    `json:"empresa_cliente"`
-	Nombre         string    `json:"nombre"`
-	RUC            string    `json:"ruc"`
-	Direccion      string    `json:"direccion"`
-	Telefono       string    `json:"telefono"`
-	Email          string    `json:"email"`
-	IDStatus       uuid.UUID `json:"id_status"`
+	IDCliente      uuid.UUID              `json:"id_cliente"`
+	NombreCompleto string                 `json:"nombre_completo"` // DB: nombre_completo
+	TipoDocumento  string                 `json:"tipo_documento"`  // DB: tipo_documento (CEDULA, RUC, NIT)
+	Documento      string                 `json:"documento"`       // DB: documento
+	Email          string                 `json:"email"`
+	Telefono       string                 `json:"telefono"`
+	Direccion      string                 `json:"direccion"`
+	IDStatus       uuid.UUID              `json:"id_status"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 
 	// Campos para auditoría y eliminación lógica
 	CreatedAt time.Time  `json:"created_at"`

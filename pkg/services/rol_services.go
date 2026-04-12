@@ -10,17 +10,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"github.com/prunus/pkg/utils"
 )
 
 // ServiceRol servicio que encapsula la lógica de negocio para rol
 type ServiceRol struct {
 	store  store.StoreRol
-	cache  models.CacheStore
+	cache  *utils.CacheManager
 	logger *slog.Logger
 }
 
 // NewServiceRol crea una nueva instancia del servicio de rol
-func NewServiceRol(s store.StoreRol, c models.CacheStore, logger *slog.Logger) *ServiceRol {
+func NewServiceRol(s store.StoreRol, c *utils.CacheManager, logger *slog.Logger) *ServiceRol {
 	return &ServiceRol{
 		store:  s,
 		cache:  c,
@@ -29,6 +30,7 @@ func NewServiceRol(s store.StoreRol, c models.CacheStore, logger *slog.Logger) *
 }
 
 const (
+	cacheTagRoles    = "roles:"
 	cacheKeyRolesAll = "roles:all"
 	cacheKeyRolID    = "roles:id:%s"
 	cacheKeyPermisos = "roles:permisos:%s"
@@ -40,55 +42,18 @@ func (s *ServiceRol) GetPermisosByRol(ctx context.Context, rolID uuid.UUID) ([]s
 		return nil, nil
 	}
 
-	var permisos []string
 	key := fmt.Sprintf(cacheKeyPermisos, rolID.String())
 
-	// Intentar obtener del caché
-	err := s.cache.Get(ctx, key, &permisos)
-	if err == nil {
-		return permisos, nil
-	}
-
-	// Si no hay caché, ir al store (que usa storeUsuario internamente o directamente si lo exponemos)
-	// Nota: Como storeRol no tiene GetPermisosByRol, usualmente esto se consulta en storeUsuario
-	// pero para coherencia lo manejaremos aquí si storeRol lo permite.
-	// REVISIÓN: El store de usuarios tiene la implementación.
-	// Para este refactor, asumiremos que ServiceRol tiene acceso al store necesario o lo inyectamos.
-	// Dado el estado actual, lo ideal es que storeRol tenga este método si es responsabilidad de roles.
-	
-	// Por ahora, simularemos la obtención desde el store que tenga el método.
-	// Si storeRol no lo tiene, deberíamos agregarlo a la interfaz StoreRol.
-	permisos, err = s.store.GetPermisosByRol(ctx, rolID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché con TTL largo (ej: 24 horas)
-	_ = s.cache.Set(ctx, key, permisos, 24*time.Hour)
-
-	return permisos, nil
+	return utils.GetOrSet(ctx, s.cache, key, 24*time.Hour, func() ([]string, error) {
+		return s.store.GetPermisosByRol(ctx, rolID)
+	})
 }
 
 // GetAllRoles obtiene todos los roles del sistema
 func (s *ServiceRol) GetAllRoles(ctx context.Context) ([]*models.Rol, error) {
-	var roles []*models.Rol
-
-	// Intentar obtener del caché
-	err := s.cache.Get(ctx, cacheKeyRolesAll, &roles)
-	if err == nil {
-		return roles, nil
-	}
-
-	// Si no hay caché, ir a la base de datos
-	roles, err = s.store.GetAllRoles(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, cacheKeyRolesAll, roles, 1*time.Hour)
-
-	return roles, nil
+	return utils.GetOrSet(ctx, s.cache, cacheKeyRolesAll, 1*time.Hour, func() ([]*models.Rol, error) {
+		return s.store.GetAllRoles(ctx)
+	})
 }
 
 // GetRolByID obtiene un rol por su ID
@@ -98,25 +63,11 @@ func (s *ServiceRol) GetRolByID(ctx context.Context, id uuid.UUID) (*models.Rol,
 		return nil, errors.New("el ID del rol es requerido")
 	}
 
-	var rol *models.Rol
 	key := fmt.Sprintf(cacheKeyRolID, id.String())
 
-	// Intentar obtener del caché
-	err := s.cache.Get(ctx, key, &rol)
-	if err == nil {
-		return rol, nil
-	}
-
-	// Si no hay caché, ir a la base de datos
-	rol, err = s.store.GetRolByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, key, rol, 1*time.Hour)
-
-	return rol, nil
+	return utils.GetOrSet(ctx, s.cache, key, 1*time.Hour, func() (*models.Rol, error) {
+		return s.store.GetRolByID(ctx, id)
+	})
 }
 
 // CreateRol crea un nuevo rol con validaciones de negocio
@@ -141,8 +92,8 @@ func (s *ServiceRol) CreateRol(ctx context.Context, rol models.Rol) (*models.Rol
 		return nil, err
 	}
 
-	// Invalidar caché de la lista completa
-	_ = s.cache.Delete(ctx, cacheKeyRolesAll)
+	// Invalidar caché del grupo roles
+	s.cache.Invalidate(ctx, cacheTagRoles)
 
 	return result, nil
 }
@@ -167,10 +118,8 @@ func (s *ServiceRol) UpdateRol(ctx context.Context, id uuid.UUID, rol models.Rol
 		return nil, err
 	}
 
-	// Invalidar caché
-	_ = s.cache.Delete(ctx, cacheKeyRolesAll)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id.String()))
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyPermisos, id.String()))
+	// Invalidar caché del grupo roles
+	s.cache.Invalidate(ctx, cacheTagRoles)
 
 	return result, nil
 }
@@ -187,10 +136,8 @@ func (s *ServiceRol) DeleteRol(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	// Invalidar caché
-	_ = s.cache.Delete(ctx, cacheKeyRolesAll)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyRolID, id.String()))
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyPermisos, id.String()))
+	// Invalidar caché del grupo roles
+	s.cache.Invalidate(ctx, cacheTagRoles)
 
 	return nil
 }

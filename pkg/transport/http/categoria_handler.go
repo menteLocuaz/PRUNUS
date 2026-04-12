@@ -79,6 +79,7 @@ func (h *CategoriaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Crea un modelo Categoria con los datos recibidos
 	categoria := models.Categoria{
 		Nombre:     req.Nombre,
+		IDStatus:   req.IDStatus,
 		IDSucursal: req.IDSucursal,
 	}
 
@@ -122,6 +123,7 @@ func (h *CategoriaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Crea un modelo Categoria con los datos actualizados
 	categoria := models.Categoria{
 		Nombre:     req.Nombre,
+		IDStatus:   req.IDStatus,
 		IDSucursal: req.IDSucursal,
 	}
 

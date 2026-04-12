@@ -66,14 +66,13 @@ func (h *ProveedorHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proveedor := models.Proveedor{
-		Nombre:     req.Nombre,
-		RUC:        req.RUC,
-		Telefono:   req.Telefono,
-		Direccion:  req.Direccion,
-		Email:      req.Email,
-		IDStatus:   req.IDStatus,
-		IDSucursal: req.IDSucursal,
-		IDEmpresa:  req.IDEmpresa,
+		RazonSocial:    req.RazonSocial,
+		NitRut:         req.NitRut,
+		ContactoNombre: req.ContactoNombre,
+		Telefono:       req.Telefono,
+		Direccion:      req.Direccion,
+		Email:          req.Email,
+		IDStatus:       req.IDStatus,
 	}
 
 	resp, err := h.service.CreateProveedor(r.Context(), proveedor)
@@ -106,14 +105,13 @@ func (h *ProveedorHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proveedor := models.Proveedor{
-		Nombre:     req.Nombre,
-		RUC:        req.RUC,
-		Telefono:   req.Telefono,
-		Direccion:  req.Direccion,
-		Email:      req.Email,
-		IDStatus:   req.IDStatus,
-		IDSucursal: req.IDSucursal,
-		IDEmpresa:  req.IDEmpresa,
+		RazonSocial:    req.RazonSocial,
+		NitRut:         req.NitRut,
+		ContactoNombre: req.ContactoNombre,
+		Telefono:       req.Telefono,
+		Direccion:      req.Direccion,
+		Email:          req.Email,
+		IDStatus:       req.IDStatus,
 	}
 
 	resp, err := h.service.UpdateProveedor(r.Context(), id, proveedor)

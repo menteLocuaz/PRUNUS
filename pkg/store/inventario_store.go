@@ -13,6 +13,7 @@ import (
 	"github.com/prunus/pkg/utils/performance"
 )
 
+// StoreInventario define las operaciones de persistencia para el catálogo de inventario.
 type StoreInventario interface {
 	GetAllInventario(ctx context.Context, params dto.PaginationParams) ([]*models.Inventario, error)
 	GetInventarioByID(ctx context.Context, id uuid.UUID) (*models.Inventario, error)
@@ -51,28 +52,28 @@ type storeInventario struct {
 	db *sql.DB
 }
 
-// Campos base para SELECT de inventario
+// Campos base para SELECT de inventario mapeados al esquema DB.
 const inventarioSelectFields = `
-	id_inventario, id_producto, id_sucursal, stock_actual, stock_minimo, 
-	stock_maximo, precio_compra, precio_venta, created_at, updated_at
+	i.id_inventario, i.id_producto, i.id_sucursal, i.stock_actual, i.stock_minimo, 
+	i.precio_compra, i.precio_venta, COALESCE(i.ubicacion, ''), i.created_at, i.updated_at
 `
 
-// scanRowInventario helper para escanear inventario
+// scanRowInventario helper para escanear inventario centralizando el mapeo de columnas.
 func (s *storeInventario) scanRowInventario(scanner interface{ Scan(dest ...any) error }, i *models.Inventario) error {
 	return scanner.Scan(
 		&i.IDInventario, &i.IDProducto, &i.IDSucursal, &i.StockActual, &i.StockMinimo,
-		&i.StockMaximo, &i.PrecioCompra, &i.PrecioVenta, &i.CreatedAt, &i.UpdatedAt,
+		&i.PrecioCompra, &i.PrecioVenta, &i.Ubicacion, &i.CreatedAt, &i.UpdatedAt,
 	)
 }
 
-// Campos base para SELECT de movimientos
+// Campos base para SELECT de movimientos.
 const movimientoSelectFields = `
 	id_movimiento, id_producto, id_sucursal, tipo_movimiento, cantidad, 
 	costo_unitario, precio_unitario, stock_anterior, stock_posterior, 
 	fecha, id_usuario, referencia
 `
 
-// scanRowMovimiento helper para escanear movimientos
+// scanRowMovimiento helper para escanear movimientos.
 func (s *storeInventario) scanRowMovimiento(scanner interface{ Scan(dest ...any) error }, m *models.MovimientoInventario) error {
 	return scanner.Scan(
 		&m.IDMovimiento, &m.IDProducto, &m.IDSucursal, &m.TipoMovimiento, &m.Cantidad,
@@ -81,14 +82,14 @@ func (s *storeInventario) scanRowMovimiento(scanner interface{ Scan(dest ...any)
 	)
 }
 
-// Campos base para SELECT de lotes
+// Campos base para SELECT de lotes.
 const loteSelectFields = `
 	id_lote, id_producto, id_sucursal, codigo_lote, cantidad_inicial, 
 	cantidad_actual, costo_compra, fecha_vencimiento, fecha_recepcion,
 	created_at, updated_at
 `
 
-// scanRowLote helper para escanear lotes
+// scanRowLote helper para escanear lotes.
 func (s *storeInventario) scanRowLote(scanner interface{ Scan(dest ...any) error }, l *models.Lote) error {
 	return scanner.Scan(
 		&l.IDLote, &l.IDProducto, &l.IDSucursal, &l.CodigoLote, &l.CantidadInicial,
@@ -97,6 +98,7 @@ func (s *storeInventario) scanRowLote(scanner interface{ Scan(dest ...any) error
 	)
 }
 
+// NewInventario crea una nueva instancia del store de inventario.
 func NewInventario(db *sql.DB) StoreInventario {
 	return &storeInventario{db: db}
 }
@@ -110,17 +112,17 @@ func (s *storeInventario) GetAllInventario(ctx context.Context, params dto.Pagin
 
 	query := fmt.Sprintf(`
 		SELECT %s
-		FROM inventario
-		WHERE deleted_at IS NULL
+		FROM inventario i
+		WHERE i.deleted_at IS NULL
 	`, inventarioSelectFields)
 
 	var args []interface{}
 	if params.LastDate != nil {
-		query += " AND created_at < $1"
+		query += " AND i.created_at < $1"
 		args = append(args, params.LastDate)
 	}
 
-	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	query += " ORDER BY i.created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
 	args = append(args, params.Limit)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -150,19 +152,19 @@ func (s *storeInventario) GetInventarioBySucursal(ctx context.Context, idSucursa
 
 	query := fmt.Sprintf(`
 		SELECT %s
-		FROM inventario
-		WHERE id_sucursal = $1 AND deleted_at IS NULL
+		FROM inventario i
+		WHERE i.id_sucursal = $1 AND i.deleted_at IS NULL
 	`, inventarioSelectFields)
 
 	var args []interface{}
 	args = append(args, idSucursal)
 
 	if params.LastDate != nil {
-		query += " AND created_at < $2"
+		query += " AND i.created_at < $2"
 		args = append(args, params.LastDate)
 	}
 
-	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	query += " ORDER BY i.created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
 	args = append(args, params.Limit)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -187,8 +189,8 @@ func (s *storeInventario) GetInventarioByID(ctx context.Context, id uuid.UUID) (
 	defer performance.Trace(ctx, "store", "GetInventarioByID", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s
-		FROM inventario
-		WHERE id_inventario = $1 AND deleted_at IS NULL
+		FROM inventario i
+		WHERE i.id_inventario = $1 AND i.deleted_at IS NULL
 	`, inventarioSelectFields)
 
 	i := &models.Inventario{}
@@ -208,8 +210,8 @@ func (s *storeInventario) GetInventarioByProductoYSucursal(ctx context.Context, 
 	defer performance.Trace(ctx, "store", "GetInventarioByProductoYSucursal", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s
-		FROM inventario
-		WHERE id_producto = $1 AND id_sucursal = $2 AND deleted_at IS NULL
+		FROM inventario i
+		WHERE i.id_producto = $1 AND i.id_sucursal = $2 AND i.deleted_at IS NULL
 	`, inventarioSelectFields)
 
 	i := &models.Inventario{}
@@ -232,14 +234,14 @@ func (s *storeInventario) CreateInventario(ctx context.Context, inventario *mode
 		query := `
 			INSERT INTO inventario (
 				id_producto, id_sucursal, stock_actual, stock_minimo, 
-				stock_maximo, precio_compra, precio_venta
+				precio_compra, precio_venta, ubicacion
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id_inventario, created_at, updated_at
 		`
 		return tx.QueryRowContext(ctx, query,
 			inventario.IDProducto, inventario.IDSucursal, inventario.StockActual, inventario.StockMinimo,
-			inventario.StockMaximo, inventario.PrecioCompra, inventario.PrecioVenta,
+			inventario.PrecioCompra, inventario.PrecioVenta, inventario.Ubicacion,
 		).Scan(&inventario.IDInventario, &inventario.CreatedAt, &inventario.UpdatedAt)
 	})
 
@@ -257,21 +259,22 @@ func (s *storeInventario) UpdateInventario(ctx context.Context, id uuid.UUID, in
 		query := `
 			UPDATE inventario
 			SET 
-				stock_actual = $1, stock_minimo = $2, stock_maximo = $3, 
-				precio_compra = $4, precio_venta = $5, updated_at = CURRENT_TIMESTAMP
+				stock_actual = $1, stock_minimo = $2, precio_compra = $3, 
+				precio_venta = $4, ubicacion = $5, updated_at = CURRENT_TIMESTAMP
 			WHERE id_inventario = $6 AND deleted_at IS NULL
-			RETURNING id_inventario, id_producto, id_sucursal, created_at, updated_at
+			RETURNING created_at, updated_at
 		`
 		return tx.QueryRowContext(ctx, query,
-			inventario.StockActual, inventario.StockMinimo, inventario.StockMaximo,
-			inventario.PrecioCompra, inventario.PrecioVenta, id,
-		).Scan(&inventario.IDInventario, &inventario.IDProducto, &inventario.IDSucursal, &inventario.CreatedAt, &inventario.UpdatedAt)
+			inventario.StockActual, inventario.StockMinimo,
+			inventario.PrecioCompra, inventario.PrecioVenta, inventario.Ubicacion, id,
+		).Scan(&inventario.CreatedAt, &inventario.UpdatedAt)
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar inventario: %w", err)
 	}
 
+	inventario.IDInventario = id
 	return inventario, nil
 }
 
@@ -411,8 +414,8 @@ func (s *storeInventario) GetAlertasStock(ctx context.Context, sucursalID uuid.U
 	defer performance.Trace(ctx, "store", "GetAlertasStock", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s
-		FROM inventario
-		WHERE id_sucursal = $1 AND stock_actual <= stock_minimo AND deleted_at IS NULL
+		FROM inventario i
+		WHERE i.id_sucursal = $1 AND i.stock_actual <= i.stock_minimo AND i.deleted_at IS NULL
 	`, inventarioSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query, sucursalID)
@@ -720,7 +723,7 @@ func (s *storeInventario) GetPerdidas(ctx context.Context, sucursalID uuid.UUID,
 	query := `
 		SELECT
 			mi.id_producto,
-			p.nombre                             AS nombre_producto,
+			p.pro_nombre                             AS nombre_producto,
 			mi.tipo_movimiento,
 			SUM(mi.cantidad)                     AS unidades_perdidas,
 			SUM(mi.cantidad * mi.costo_unitario) AS valor_perdido
@@ -732,7 +735,7 @@ func (s *storeInventario) GetPerdidas(ctx context.Context, sucursalID uuid.UUID,
 		  AND mi.fecha           BETWEEN $2 AND $3
 		  AND mi.tipo_movimiento IN ('MERMA', 'CADUCADO')
 		  AND mi.deleted_at      IS NULL
-		GROUP BY mi.id_producto, p.nombre, mi.tipo_movimiento
+		GROUP BY mi.id_producto, p.pro_nombre, mi.tipo_movimiento
 		ORDER BY valor_perdido DESC
 	`
 
@@ -762,7 +765,7 @@ func (s *storeInventario) GetMargenGanancia(ctx context.Context, sucursalID uuid
 	query := `
 		SELECT
 			mi.id_producto,
-			p.nombre                                                          AS nombre_producto,
+			p.pro_nombre                                                          AS nombre_producto,
 			ROUND(AVG(mi.costo_unitario)::numeric, 4)                        AS costo_prom,
 			ROUND(AVG(mi.precio_unitario)::numeric, 4)                       AS precio_venta_prom,
 			ROUND((AVG(mi.precio_unitario) - AVG(mi.costo_unitario))::numeric, 4) AS margen_bruto,
@@ -783,7 +786,7 @@ func (s *storeInventario) GetMargenGanancia(ctx context.Context, sucursalID uuid
 		  AND mi.tipo_movimiento IN ('VENTA', 'SALIDA')
 		  AND mi.precio_unitario > 0
 		  AND mi.deleted_at      IS NULL
-		GROUP BY mi.id_producto, p.nombre
+		GROUP BY mi.id_producto, p.pro_nombre
 		ORDER BY margen_porcentaje DESC
 	`
 
@@ -815,7 +818,7 @@ func (s *storeInventario) GetAlertasStockDetalle(ctx context.Context, sucursalID
 		SELECT
 			i.id_inventario,
 			i.id_producto,
-			p.nombre       AS nombre_producto,
+			p.pro_nombre       AS nombre_producto,
 			p.sku,
 			i.id_sucursal,
 			i.stock_actual,

@@ -29,20 +29,37 @@ func NewEstatus(db *sql.DB) StoreEstatus {
 	return &storeEstatus{db: db}
 }
 
+// estatusSelectFields incluye COALESCE para std_tipo_estado para evitar errores 500 con nulos.
+const estatusSelectFields = `
+	id_status, 
+	std_descripcion, 
+	COALESCE(std_tipo_estado, '') as std_tipo_estado, 
+	mdl_id, 
+	is_active,
+	created_at, 
+	updated_at
+`
+
+func (s *storeEstatus) scanRowEstatus(scanner interface{ Scan(dest ...any) error }, e *models.Estatus) error {
+	return scanner.Scan(
+		&e.IDStatus,
+		&e.StdDescripcion,
+		&e.StdTipoEstado,
+		&e.MdlID,
+		&e.IsActive,
+		&e.CreatedAt,
+		&e.UpdatedAt,
+	)
+}
+
 func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "GetAllEstatus", performance.DbThreshold, time.Now())
-	query := `
-	SELECT 
-		id_status, 
-		std_descripcion, 
-		std_tipo_estado, 
-		mdl_id, 
-		created_at, 
-		updated_at 
-	FROM estatus 
-	WHERE deleted_at IS NULL 
-	ORDER BY created_at DESC
-	`
+	query := fmt.Sprintf(`
+		SELECT %s 
+		FROM estatus 
+		WHERE deleted_at IS NULL 
+		ORDER BY created_at DESC
+	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -53,14 +70,7 @@ func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, er
 	var estatusList []*models.Estatus
 	for rows.Next() {
 		e := &models.Estatus{}
-		if err := rows.Scan(
-			&e.IDStatus,
-			&e.StdDescripcion,
-			&e.StdTipoEstado,
-			&e.MdlID,
-			&e.CreatedAt,
-			&e.UpdatedAt,
-		); err != nil {
+		if err := s.scanRowEstatus(rows, e); err != nil {
 			return nil, fmt.Errorf("error al escanear estatus: %w", err)
 		}
 		estatusList = append(estatusList, e)
@@ -71,27 +81,14 @@ func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, er
 
 func (s *storeEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "GetEstatusByID", performance.DbThreshold, time.Now())
-	query := `
-	SELECT 
-		id_status, 
-		std_descripcion, 
-		std_tipo_estado, 
-		mdl_id, 
-		created_at, 
-		updated_at 
-	FROM estatus 
-	WHERE id_status = $1 AND deleted_at IS NULL
-	`
+	query := fmt.Sprintf(`
+		SELECT %s 
+		FROM estatus 
+		WHERE id_status = $1 AND deleted_at IS NULL
+	`, estatusSelectFields)
 
 	e := &models.Estatus{}
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&e.IDStatus,
-		&e.StdDescripcion,
-		&e.StdTipoEstado,
-		&e.MdlID,
-		&e.CreatedAt,
-		&e.UpdatedAt,
-	)
+	err := s.scanRowEstatus(s.db.QueryRowContext(ctx, query, id), e)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("estatus con ID %s no encontrado", id)
@@ -105,18 +102,12 @@ func (s *storeEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*model
 
 func (s *storeEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "GetEstatusByTipo", performance.DbThreshold, time.Now())
-	query := `
-	SELECT 
-		id_status, 
-		std_descripcion, 
-		std_tipo_estado, 
-		mdl_id, 
-		created_at, 
-		updated_at 
-	FROM estatus 
-	WHERE std_tipo_estado = $1 AND deleted_at IS NULL
-	ORDER BY std_descripcion ASC
-	`
+	query := fmt.Sprintf(`
+		SELECT %s 
+		FROM estatus 
+		WHERE std_tipo_estado = $1 AND deleted_at IS NULL
+		ORDER BY std_descripcion ASC
+	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query, tipo)
 	if err != nil {
@@ -127,14 +118,7 @@ func (s *storeEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*mo
 	var estatusList []*models.Estatus
 	for rows.Next() {
 		e := &models.Estatus{}
-		if err := rows.Scan(
-			&e.IDStatus,
-			&e.StdDescripcion,
-			&e.StdTipoEstado,
-			&e.MdlID,
-			&e.CreatedAt,
-			&e.UpdatedAt,
-		); err != nil {
+		if err := s.scanRowEstatus(rows, e); err != nil {
 			return nil, fmt.Errorf("error al escanear estatus por tipo: %w", err)
 		}
 		estatusList = append(estatusList, e)
@@ -145,18 +129,12 @@ func (s *storeEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*mo
 
 func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "GetEstatusByModulo", performance.DbThreshold, time.Now())
-	query := `
-	SELECT 
-		id_status, 
-		std_descripcion, 
-		std_tipo_estado, 
-		mdl_id, 
-		created_at, 
-		updated_at 
-	FROM estatus 
-	WHERE mdl_id = $1 AND deleted_at IS NULL
-	ORDER BY std_descripcion ASC
-	`
+	query := fmt.Sprintf(`
+		SELECT %s 
+		FROM estatus 
+		WHERE mdl_id = $1 AND deleted_at IS NULL
+		ORDER BY std_descripcion ASC
+	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query, moduloID)
 	if err != nil {
@@ -167,14 +145,7 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 	var estatusList []*models.Estatus
 	for rows.Next() {
 		e := &models.Estatus{}
-		if err := rows.Scan(
-			&e.IDStatus,
-			&e.StdDescripcion,
-			&e.StdTipoEstado,
-			&e.MdlID,
-			&e.CreatedAt,
-			&e.UpdatedAt,
-		); err != nil {
+		if err := s.scanRowEstatus(rows, e); err != nil {
 			return nil, fmt.Errorf("error al escanear estatus por modulo: %w", err)
 		}
 		estatusList = append(estatusList, e)
@@ -186,12 +157,17 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 func (s *storeEstatus) CreateEstatus(ctx context.Context, estatus *models.Estatus) (*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "CreateEstatus", performance.DbThreshold, time.Now())
 	query := `
-	INSERT INTO estatus (std_descripcion, std_tipo_estado, mdl_id)
-	VALUES ($1, $2, $3)
+	INSERT INTO estatus (std_descripcion, std_tipo_estado, mdl_id, is_active)
+	VALUES ($1, $2, $3, $4)
 	RETURNING id_status, created_at, updated_at
 	`
 
-	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StdTipoEstado, estatus.MdlID).Scan(
+	err := s.db.QueryRowContext(ctx, query, 
+		estatus.StdDescripcion, 
+		estatus.StdTipoEstado, 
+		estatus.MdlID,
+		estatus.IsActive,
+	).Scan(
 		&estatus.IDStatus,
 		&estatus.CreatedAt,
 		&estatus.UpdatedAt,
@@ -211,16 +187,24 @@ func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus 
 		std_descripcion = $1, 
 		std_tipo_estado = $2, 
 		mdl_id = $3, 
+		is_active = $4,
 		updated_at = CURRENT_TIMESTAMP
-	WHERE id_status = $4 AND deleted_at IS NULL
-	RETURNING id_status, std_descripcion, std_tipo_estado, mdl_id, created_at, updated_at
+	WHERE id_status = $5 AND deleted_at IS NULL
+	RETURNING id_status, std_descripcion, std_tipo_estado, mdl_id, is_active, created_at, updated_at
 	`
 
-	err := s.db.QueryRowContext(ctx, query, estatus.StdDescripcion, estatus.StdTipoEstado, estatus.MdlID, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, 
+		estatus.StdDescripcion, 
+		estatus.StdTipoEstado, 
+		estatus.MdlID, 
+		estatus.IsActive,
+		id,
+	).Scan(
 		&estatus.IDStatus,
 		&estatus.StdDescripcion,
 		&estatus.StdTipoEstado,
 		&estatus.MdlID,
+		&estatus.IsActive,
 		&estatus.CreatedAt,
 		&estatus.UpdatedAt,
 	)

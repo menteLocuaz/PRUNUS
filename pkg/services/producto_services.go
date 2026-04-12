@@ -5,21 +5,23 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"github.com/prunus/pkg/utils"
 )
 
 type ServiceProducto struct {
 	store           store.StoreProducto
 	inventarioStore store.StoreInventario
-	cache           models.CacheStore
+	cache           *utils.CacheManager
 	logger          *slog.Logger
 }
 
-func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, c models.CacheStore, logger *slog.Logger) *ServiceProducto {
+func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, c *utils.CacheManager, logger *slog.Logger) *ServiceProducto {
 	return &ServiceProducto{
 		store:           s,
 		inventarioStore: inv,
@@ -28,16 +30,37 @@ func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, c mode
 	}
 }
 
+const (
+	cacheKeyProductosAll    = "productos:all:last:%s:limit:%d"
+	cacheKeyProductoID      = "productos:id:%s"
+	cacheKeyProductoByCode  = "productos:code:%s"
+	cacheExpirationProducto = 1 * time.Hour
+)
+
 func (s *ServiceProducto) GetAllProductos(ctx context.Context, params dto.PaginationParams) ([]*models.Producto, error) {
-	return s.store.GetAllProductos(ctx, params)
+	lastDateStr := "none"
+	if params.LastDate != nil {
+		lastDateStr = params.LastDate.Format(time.RFC3339)
+	}
+
+	key := fmt.Sprintf(cacheKeyProductosAll, lastDateStr, params.Limit)
+	return utils.GetOrSet(ctx, s.cache, key, cacheExpirationProducto, func() ([]*models.Producto, error) {
+		return s.store.GetAllProductos(ctx, params)
+	})
 }
 
 func (s *ServiceProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error) {
-	return s.store.GetProductoByID(ctx, id)
+	key := fmt.Sprintf(cacheKeyProductoID, id.String())
+	return utils.GetOrSet(ctx, s.cache, key, cacheExpirationProducto, func() (*models.Producto, error) {
+		return s.store.GetProductoByID(ctx, id)
+	})
 }
 
 func (s *ServiceProducto) GetProductoByCodigo(ctx context.Context, codigo string) (*models.Producto, error) {
-	return s.store.GetProductoByCodigo(ctx, codigo)
+	key := fmt.Sprintf(cacheKeyProductoByCode, codigo)
+	return utils.GetOrSet(ctx, s.cache, key, cacheExpirationProducto, func() (*models.Producto, error) {
+		return s.store.GetProductoByCodigo(ctx, codigo)
+	})
 }
 
 // CreateProducto ahora es una operación coordinada entre Catálogo e Inventario
@@ -85,6 +108,9 @@ func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCr
 		slog.String("id_sucursal", req.IDSucursal.String()),
 	)
 
+	// Invalidar caché
+	s.cache.Invalidate(ctx, "productos:")
+
 	// 5. Retornar el producto completamente poblado (con relaciones)
 	return s.store.GetProductoByID(ctx, res.IDProducto)
 }
@@ -103,10 +129,21 @@ func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, req 
 		return nil, err
 	}
 
+	// Invalidar caché
+	s.cache.Invalidate(ctx, "productos:")
+
 	// Retornar el producto completamente poblado (con relaciones)
 	return s.store.GetProductoByID(ctx, res.IDProducto)
 }
 
 func (s *ServiceProducto) DeleteProducto(ctx context.Context, id uuid.UUID) error {
-	return s.store.DeleteProducto(ctx, id)
+	err := s.store.DeleteProducto(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Invalidar caché
+	s.cache.Invalidate(ctx, "productos:")
+
+	return nil
 }

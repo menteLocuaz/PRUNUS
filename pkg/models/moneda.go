@@ -10,6 +10,8 @@ import (
 type Moneda struct {
 	IDMoneda   uuid.UUID `json:"id_moneda"`
 	Nombre     string    `json:"nombre"`
+	CodigoISO  string    `json:"codigo_iso"` // USD, EUR, COP, etc.
+	Simbolo    string    `json:"simbolo"`    // $, €, etc.
 	IDSucursal uuid.UUID `json:"id_sucursal"`
 	IDStatus   uuid.UUID `json:"id_status"`
 

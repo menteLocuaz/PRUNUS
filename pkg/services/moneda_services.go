@@ -10,15 +10,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"github.com/prunus/pkg/utils"
 )
 
 type ServiceMoneda struct {
 	store  store.StoreMoneda
-	cache  models.CacheStore
+	cache  *utils.CacheManager
 	logger *slog.Logger
 }
 
-func NewServiceMoneda(s store.StoreMoneda, c models.CacheStore, logger *slog.Logger) *ServiceMoneda {
+func NewServiceMoneda(s store.StoreMoneda, c *utils.CacheManager, logger *slog.Logger) *ServiceMoneda {
 	return &ServiceMoneda{
 		store:  s,
 		cache:  c,
@@ -33,23 +34,9 @@ const (
 )
 
 func (s *ServiceMoneda) GetAllMonedas(ctx context.Context) ([]*models.Moneda, error) {
-	var monedas []*models.Moneda
-
-	// Intentar caché
-	if err := s.cache.Get(ctx, cacheKeyMonedasAll, &monedas); err == nil {
-		return monedas, nil
-	}
-
-	// BD
-	monedas, err := s.store.GetAllMonedas(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, cacheKeyMonedasAll, monedas, cacheTTLMonedas)
-
-	return monedas, nil
+	return utils.GetOrSet(ctx, s.cache, cacheKeyMonedasAll, cacheTTLMonedas, func() ([]*models.Moneda, error) {
+		return s.store.GetAllMonedas(ctx)
+	})
 }
 
 func (s *ServiceMoneda) GetMonedaByID(ctx context.Context, id uuid.UUID) (*models.Moneda, error) {
@@ -58,24 +45,10 @@ func (s *ServiceMoneda) GetMonedaByID(ctx context.Context, id uuid.UUID) (*model
 		return nil, errors.New("el ID de la moneda es requerido")
 	}
 
-	var moneda *models.Moneda
 	key := fmt.Sprintf(cacheKeyMonedaID, id.String())
-
-	// Intentar caché
-	if err := s.cache.Get(ctx, key, &moneda); err == nil {
-		return moneda, nil
-	}
-
-	// BD
-	moneda, err := s.store.GetMonedaByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, key, moneda, cacheTTLMonedas)
-
-	return moneda, nil
+	return utils.GetOrSet(ctx, s.cache, key, cacheTTLMonedas, func() (*models.Moneda, error) {
+		return s.store.GetMonedaByID(ctx, id)
+	})
 }
 
 func (s *ServiceMoneda) CreateMoneda(ctx context.Context, moneda models.Moneda) (*models.Moneda, error) {
@@ -99,7 +72,7 @@ func (s *ServiceMoneda) CreateMoneda(ctx context.Context, moneda models.Moneda) 
 	}
 
 	// Invalidar caché
-	s.invalidateCache(ctx, res.IDMoneda)
+	s.cache.Invalidate(ctx, "monedas:")
 
 	return res, nil
 }
@@ -120,7 +93,7 @@ func (s *ServiceMoneda) UpdateMoneda(ctx context.Context, id uuid.UUID, moneda m
 	}
 
 	// Invalidar caché
-	s.invalidateCache(ctx, id)
+	s.cache.Invalidate(ctx, "monedas:")
 
 	return res, nil
 }
@@ -136,12 +109,7 @@ func (s *ServiceMoneda) DeleteMoneda(ctx context.Context, id uuid.UUID) error {
 	}
 
 	// Invalidar caché
-	s.invalidateCache(ctx, id)
+	s.cache.Invalidate(ctx, "monedas:")
 
 	return nil
-}
-
-func (s *ServiceMoneda) invalidateCache(ctx context.Context, id uuid.UUID) {
-	_ = s.cache.Delete(ctx, cacheKeyMonedasAll)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyMonedaID, id.String()))
 }

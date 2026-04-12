@@ -83,9 +83,9 @@ func (h *InventarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 		IDSucursal:   req.IDSucursal,
 		StockActual:  req.StockActual,
 		StockMinimo:  req.StockMinimo,
-		StockMaximo:  req.StockMaximo,
 		PrecioCompra: req.PrecioCompra,
 		PrecioVenta:  req.PrecioVenta,
+		Ubicacion:    req.Ubicacion,
 	}
 
 	resp, err := h.service.CreateInventario(r.Context(), inventario)
@@ -118,9 +118,9 @@ func (h *InventarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 	inventario := models.Inventario{
 		StockActual:  req.StockActual,
 		StockMinimo:  req.StockMinimo,
-		StockMaximo:  req.StockMaximo,
 		PrecioCompra: req.PrecioCompra,
 		PrecioVenta:  req.PrecioVenta,
+		Ubicacion:    req.Ubicacion,
 	}
 
 	resp, err := h.service.UpdateInventario(r.Context(), id, inventario)

@@ -10,15 +10,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"github.com/prunus/pkg/utils"
 )
 
 type ServiceEstatus struct {
 	store  store.StoreEstatus
-	cache  models.CacheStore
+	cache  *utils.CacheManager
 	logger *slog.Logger
 }
 
-func NewServiceEstatus(s store.StoreEstatus, c models.CacheStore, logger *slog.Logger) *ServiceEstatus {
+func NewServiceEstatus(s store.StoreEstatus, c *utils.CacheManager, logger *slog.Logger) *ServiceEstatus {
 	return &ServiceEstatus{
 		store:  s,
 		cache:  c,
@@ -48,133 +49,67 @@ var moduloNames = map[int]string{
 }
 
 func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (map[int]interface{}, error) {
-	var catalog map[int]interface{}
-
-	// Intentar caché
-	err := s.cache.Get(ctx, cacheKeyEstatusMaster, &catalog)
-	if err == nil {
-		return catalog, nil
-	}
-
-	// Obtener todos
-	all, err := s.store.GetAllEstatus(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Agrupar por módulo
-	catalog = make(map[int]interface{})
-	for _, e := range all {
-		if _, ok := catalog[e.MdlID]; !ok {
-			name := "Módulo Desconocido"
-			if n, exists := moduloNames[e.MdlID]; exists {
-				name = n
-			}
-			catalog[e.MdlID] = struct {
-				Modulo string            `json:"modulo"`
-				Items  []*models.Estatus `json:"items"`
-			}{
-				Modulo: name,
-				Items:  []*models.Estatus{},
-			}
+	return utils.GetOrSet(ctx, s.cache, cacheKeyEstatusMaster, cacheExpirationEstatus, func() (map[int]interface{}, error) {
+		// Obtener todos
+		all, err := s.store.GetAllEstatus(ctx)
+		if err != nil {
+			return nil, err
 		}
 
-		// Hack para añadir al slice de una interfaz{} (o podrías usar structs tipados en el servicio)
-		group := catalog[e.MdlID].(struct {
-			Modulo string            `json:"modulo"`
-			Items  []*models.Estatus `json:"items"`
-		})
-		group.Items = append(group.Items, e)
-		catalog[e.MdlID] = group
-	}
+		// Agrupar por módulo
+		catalog := make(map[int]interface{})
+		for _, e := range all {
+			if _, ok := catalog[e.MdlID]; !ok {
+				name := "Módulo Desconocido"
+				if n, exists := moduloNames[e.MdlID]; exists {
+					name = n
+				}
+				catalog[e.MdlID] = struct {
+					Modulo string            `json:"modulo"`
+					Items  []*models.Estatus `json:"items"`
+				}{
+					Modulo: name,
+					Items:  []*models.Estatus{},
+				}
+			}
 
-	// Guardar en caché
-	_ = s.cache.Set(ctx, cacheKeyEstatusMaster, catalog, cacheExpirationEstatus)
-
-	return catalog, nil
+			// Hack para añadir al slice de una interfaz{} (o podrías usar structs tipados en el servicio)
+			group := catalog[e.MdlID].(struct {
+				Modulo string            `json:"modulo"`
+				Items  []*models.Estatus `json:"items"`
+			})
+			group.Items = append(group.Items, e)
+			catalog[e.MdlID] = group
+		}
+		return catalog, nil
+	})
 }
 
 func (s *ServiceEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, error) {
-	var estatusList []*models.Estatus
-
-	// Intentar obtener del caché
-	if err := s.cache.Get(ctx, cacheKeyEstatusAll, &estatusList); err == nil {
-		return estatusList, nil
-	}
-
-	// Si no hay caché, ir a la base de datos
-	estatusList, err := s.store.GetAllEstatus(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché (no bloqueante — ignoramos el error de cacheo)
-	_ = s.cache.Set(ctx, cacheKeyEstatusAll, estatusList, cacheExpirationEstatus)
-
-	return estatusList, nil
+	return utils.GetOrSet(ctx, s.cache, cacheKeyEstatusAll, cacheExpirationEstatus, func() ([]*models.Estatus, error) {
+		return s.store.GetAllEstatus(ctx)
+	})
 }
 
 func (s *ServiceEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*models.Estatus, error) {
-	var estatus *models.Estatus
 	key := fmt.Sprintf(cacheKeyEstatusID, id.String())
-
-	// Intentar obtener del caché
-	if err := s.cache.Get(ctx, key, &estatus); err == nil {
-		return estatus, nil
-	}
-
-	// Si no hay caché, ir a la base de datos
-	estatus, err := s.store.GetEstatusByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, key, estatus, cacheExpirationEstatus)
-
-	return estatus, nil
+	return utils.GetOrSet(ctx, s.cache, key, cacheExpirationEstatus, func() (*models.Estatus, error) {
+		return s.store.GetEstatusByID(ctx, id)
+	})
 }
 
 func (s *ServiceEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*models.Estatus, error) {
-	var estatusList []*models.Estatus
 	key := fmt.Sprintf(cacheKeyEstatusTipo, tipo)
-
-	// Intentar obtener del caché
-	if err := s.cache.Get(ctx, key, &estatusList); err == nil {
-		return estatusList, nil
-	}
-
-	// Si no hay caché, ir a la base de datos
-	estatusList, err := s.store.GetEstatusByTipo(ctx, tipo)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, key, estatusList, cacheExpirationEstatus)
-
-	return estatusList, nil
+	return utils.GetOrSet(ctx, s.cache, key, cacheExpirationEstatus, func() ([]*models.Estatus, error) {
+		return s.store.GetEstatusByTipo(ctx, tipo)
+	})
 }
 
 func (s *ServiceEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]*models.Estatus, error) {
-	var estatusList []*models.Estatus
 	key := fmt.Sprintf(cacheKeyEstatusModuloID, moduloID)
-
-	// Intentar obtener del caché
-	if err := s.cache.Get(ctx, key, &estatusList); err == nil {
-		return estatusList, nil
-	}
-
-	// Si no hay caché, ir a la base de datos
-	estatusList, err := s.store.GetEstatusByModulo(ctx, moduloID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, key, estatusList, cacheExpirationEstatus)
-
-	return estatusList, nil
+	return utils.GetOrSet(ctx, s.cache, key, cacheExpirationEstatus, func() ([]*models.Estatus, error) {
+		return s.store.GetEstatusByModulo(ctx, moduloID)
+	})
 }
 
 func (s *ServiceEstatus) CreateEstatus(ctx context.Context, estatus models.Estatus) (*models.Estatus, error) {
@@ -197,7 +132,7 @@ func (s *ServiceEstatus) CreateEstatus(ctx context.Context, estatus models.Estat
 	}
 
 	// Invalidar caché
-	s.invalidateCache(ctx, result)
+	s.cache.Invalidate(ctx, "estatus:")
 
 	return result, nil
 }
@@ -214,36 +149,18 @@ func (s *ServiceEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatu
 	}
 
 	// Invalidar caché
-	s.invalidateCache(ctx, result)
+	s.cache.Invalidate(ctx, "estatus:")
 
 	return result, nil
 }
 
 func (s *ServiceEstatus) DeleteEstatus(ctx context.Context, id uuid.UUID) error {
-	// Obtener el registro antes de borrarlo para saber qué claves invalidar en el caché
-	estatus, err := s.store.GetEstatusByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
 	if err := s.store.DeleteEstatus(ctx, id); err != nil {
 		return err
 	}
 
 	// Invalidar caché
-	s.invalidateCache(ctx, estatus)
+	s.cache.Invalidate(ctx, "estatus:")
 
 	return nil
-}
-
-// invalidateCache invalida las claves relacionadas con el estatus proporcionado.
-func (s *ServiceEstatus) invalidateCache(ctx context.Context, e *models.Estatus) {
-	if e == nil {
-		return
-	}
-	_ = s.cache.Delete(ctx, cacheKeyEstatusAll)
-	_ = s.cache.Delete(ctx, cacheKeyEstatusMaster)
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyEstatusID, e.IDStatus.String()))
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyEstatusTipo, e.StdTipoEstado))
-	_ = s.cache.Delete(ctx, fmt.Sprintf(cacheKeyEstatusModuloID, e.MdlID))
 }

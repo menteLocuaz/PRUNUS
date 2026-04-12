@@ -62,8 +62,10 @@ func (h *MedidaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	unidad := models.Unidad{
-		Nombre:     req.Nombre,
-		IDSucursal: req.IDSucursal,
+		Nombre:      req.Nombre,
+		Abreviatura: req.Abreviatura,
+		IDStatus:    req.IDStatus,
+		IDSucursal:  req.IDSucursal,
 	}
 
 	resp, err := h.service.CreateUnidad(r.Context(), unidad)
@@ -96,8 +98,10 @@ func (h *MedidaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	unidad := models.Unidad{
-		Nombre:     req.Nombre,
-		IDSucursal: req.IDSucursal,
+		Nombre:      req.Nombre,
+		Abreviatura: req.Abreviatura,
+		IDStatus:    req.IDStatus,
+		IDSucursal:  req.IDSucursal,
 	}
 
 	resp, err := h.service.UpdateUnidad(r.Context(), id, unidad)

@@ -27,14 +27,12 @@ type storeProducto struct {
 }
 
 // Campos base para SELECT de producto mapeados correctamente al esquema DB.
-// Se corrigen las discrepancias: nombre -> pro_nombre, descripcion -> pro_descripcion, codigo_barras -> pro_codigo.
+// Se eliminan id_moneda e id_unidad porque no existen en la tabla producto (están en inventario o lotes).
 const productoSelectFields = `
 	p.id_producto, p.pro_nombre, COALESCE(p.pro_descripcion, ''), COALESCE(p.pro_codigo, ''),
 	COALESCE(p.sku, ''), p.id_status, p.id_categoria, p.created_at, p.updated_at,
 	
-	c.id_categoria, c.nombre,
-	COALESCE(p.id_moneda, '00000000-0000-0000-0000-000000000000'),
-	COALESCE(p.id_unidad, '00000000-0000-0000-0000-000000000000')
+	c.id_categoria, c.nombre
 `
 
 // scanRowProducto centraliza el escaneo de resultados para mantener consistencia.
@@ -47,7 +45,6 @@ func (s *storeProducto) scanRowProducto(scanner interface{ Scan(dest ...any) err
 		&p.IDProducto, &p.Nombre, &p.Descripcion, &p.CodigoBarras,
 		&p.SKU, &p.IDStatus, &p.IDCategoria, &p.CreatedAt, &p.UpdatedAt,
 		&p.Categoria.IDCategoria, &p.Categoria.Nombre,
-		&p.IDMoneda, &p.IDUnidad,
 	)
 }
 
@@ -150,13 +147,13 @@ func (s *storeProducto) CreateProducto(ctx context.Context, producto *models.Pro
 
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `
-			INSERT INTO producto (pro_nombre, pro_descripcion, pro_codigo, sku, id_status, id_categoria, id_moneda, id_unidad)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			INSERT INTO producto (pro_nombre, pro_descripcion, pro_codigo, sku, id_status, id_categoria)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING id_producto, created_at, updated_at
 		`
 		return tx.QueryRowContext(ctx, query,
 			producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
-			producto.IDStatus, producto.IDCategoria, producto.IDMoneda, producto.IDUnidad,
+			producto.IDStatus, producto.IDCategoria,
 		).Scan(&producto.IDProducto, &producto.CreatedAt, &producto.UpdatedAt)
 	})
 
@@ -176,14 +173,14 @@ func (s *storeProducto) UpdateProducto(ctx context.Context, id uuid.UUID, produc
 			UPDATE producto
 			SET
 				pro_nombre = $1, pro_descripcion = $2, pro_codigo = $3, sku = $4,
-				id_status = $5, id_categoria = $6, id_moneda = $7, id_unidad = $8, 
+				id_status = $5, id_categoria = $6, 
 				updated_at = CURRENT_TIMESTAMP
-			WHERE id_producto = $9 AND deleted_at IS NULL
+			WHERE id_producto = $7 AND deleted_at IS NULL
 			RETURNING created_at, updated_at
 		`
 		return tx.QueryRowContext(ctx, query,
 			producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
-			producto.IDStatus, producto.IDCategoria, producto.IDMoneda, producto.IDUnidad, id,
+			producto.IDStatus, producto.IDCategoria, id,
 		).Scan(&producto.CreatedAt, &producto.UpdatedAt)
 	})
 
