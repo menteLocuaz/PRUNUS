@@ -8,9 +8,9 @@ import (
 )
 
 type ProductoCreateRequest struct {
-	Nombre           string          `json:"nombre" validate:"required,min=3,max=150"`
-	Descripcion      string          `json:"descripcion" validate:"omitempty,max=500"`
-	CodigoBarras     string          `json:"codigo_barras" validate:"omitempty,max=50"`
+	Nombre           string          `json:"pro_nombre" validate:"required,min=3,max=150"`
+	Descripcion      string          `json:"pro_descripcion" validate:"omitempty,max=500"`
+	CodigoBarras     string          `json:"pro_codigo" validate:"omitempty,max=50"`
 	SKU              string          `json:"sku" validate:"omitempty,max=50"`
 	PrecioCompra     float64         `json:"precio_compra" validate:"required,gte=0"`
 	PrecioVenta      float64         `json:"precio_venta" validate:"required,gte=0"`
@@ -46,9 +46,9 @@ func (r *ProductoCreateRequest) ToModel() models.Producto {
 }
 
 type ProductoUpdateRequest struct {
-	Nombre           string          `json:"nombre" validate:"required,min=3,max=150"`
-	Descripcion      string          `json:"descripcion" validate:"omitempty,max=500"`
-	CodigoBarras     string          `json:"codigo_barras" validate:"omitempty,max=50"`
+	Nombre           string          `json:"pro_nombre" validate:"required,min=3,max=150"`
+	Descripcion      string          `json:"pro_descripcion" validate:"omitempty,max=500"`
+	CodigoBarras     string          `json:"pro_codigo" validate:"omitempty,max=50"`
 	SKU              string          `json:"sku" validate:"omitempty,max=50"`
 	FechaVencimiento models.JSONDate `json:"fecha_vencimiento" validate:"omitempty"`
 	Imagen           string          `json:"imagen" validate:"omitempty"`

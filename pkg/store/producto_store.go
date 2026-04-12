@@ -12,6 +12,7 @@ import (
 	"github.com/prunus/pkg/utils/performance"
 )
 
+// StoreProducto define las operaciones de persistencia para el catálogo de productos.
 type StoreProducto interface {
 	GetAllProductos(ctx context.Context, params dto.PaginationParams) ([]*models.Producto, error)
 	GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error)
@@ -25,37 +26,37 @@ type storeProducto struct {
 	db *sql.DB
 }
 
-// Campos base para SELECT de producto con sus joins de Categoria, Moneda y Unidad
+// Campos base para SELECT de producto mapeados correctamente al esquema DB.
+// Se corrigen las discrepancias: nombre -> pro_nombre, descripcion -> pro_descripcion, codigo_barras -> pro_codigo.
 const productoSelectFields = `
-	p.id_producto, p.nombre, COALESCE(p.descripcion, ''), COALESCE(p.codigo_barras, ''),
-	COALESCE(p.sku, ''), p.fecha_vencimiento, COALESCE(p.imagen, ''), p.id_status,
-	p.id_categoria, p.id_moneda, p.id_unidad, p.created_at, p.updated_at,
-
+	p.id_producto, p.pro_nombre, COALESCE(p.pro_descripcion, ''), COALESCE(p.pro_codigo, ''),
+	COALESCE(p.sku, ''), p.id_status, p.id_categoria, p.created_at, p.updated_at,
+	
 	c.id_categoria, c.nombre,
-	m.id_moneda, m.nombre, m.id_status,
-	u.id_unidad, u.nombre
+	COALESCE(p.id_moneda, '00000000-0000-0000-0000-000000000000'),
+	COALESCE(p.id_unidad, '00000000-0000-0000-0000-000000000000')
 `
 
-// scanRowProducto es un helper centralizado para escanear las columnas definidas en productoSelectFields
+// scanRowProducto centraliza el escaneo de resultados para mantener consistencia.
 func (s *storeProducto) scanRowProducto(scanner interface{ Scan(dest ...any) error }, p *models.Producto) error {
-	if p.Categoria == nil { p.Categoria = &models.Categoria{} }
-	if p.Moneda == nil { p.Moneda = &models.Moneda{} }
-	if p.Unidad == nil { p.Unidad = &models.Unidad{} }
+	if p.Categoria == nil {
+		p.Categoria = &models.Categoria{}
+	}
 
 	return scanner.Scan(
-		&p.IDProducto, &p.Nombre, &p.Descripcion, &p.CodigoBarras, &p.SKU,
-		&p.FechaVencimiento, &p.Imagen, &p.IDStatus, &p.IDCategoria, &p.IDMoneda, &p.IDUnidad,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.IDProducto, &p.Nombre, &p.Descripcion, &p.CodigoBarras,
+		&p.SKU, &p.IDStatus, &p.IDCategoria, &p.CreatedAt, &p.UpdatedAt,
 		&p.Categoria.IDCategoria, &p.Categoria.Nombre,
-		&p.Moneda.IDMoneda, &p.Moneda.Nombre, &p.Moneda.IDStatus,
-		&p.Unidad.IDUnidad, &p.Unidad.Nombre,
+		&p.IDMoneda, &p.IDUnidad,
 	)
 }
 
+// NewProducto crea una nueva instancia del store de productos.
 func NewProducto(db *sql.DB) StoreProducto {
 	return &storeProducto{db: db}
 }
 
+// GetAllProductos obtiene la lista de productos con soporte para paginación.
 func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.PaginationParams) ([]*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "GetAllProductos", performance.DbThreshold, time.Now())
 
@@ -67,8 +68,6 @@ func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.Paginati
 		SELECT %s
 		FROM producto p
 		LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
-		LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
-		LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
 		WHERE p.deleted_at IS NULL
 	`, productoSelectFields)
 
@@ -99,14 +98,13 @@ func (s *storeProducto) GetAllProductos(ctx context.Context, params dto.Paginati
 	return productos, nil
 }
 
+// GetProductoByID busca un producto específico por su identificador único.
 func (s *storeProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "GetProductoByID", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM producto p
 		LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
-		LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
-		LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
 		WHERE p.id_producto = $1 AND p.deleted_at IS NULL
 	`, productoSelectFields)
 
@@ -123,15 +121,14 @@ func (s *storeProducto) GetProductoByID(ctx context.Context, id uuid.UUID) (*mod
 	return p, nil
 }
 
+// GetProductoByCodigo busca un producto por pro_codigo o sku.
 func (s *storeProducto) GetProductoByCodigo(ctx context.Context, codigo string) (*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "GetProductoByCodigo", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM producto p
 		LEFT JOIN categoria c ON c.id_categoria = p.id_categoria
-		LEFT JOIN moneda m ON m.id_moneda = p.id_moneda
-		LEFT JOIN unidad u ON u.id_unidad = p.id_unidad
-		WHERE (p.codigo_barras = $1 OR p.sku = $1) AND p.deleted_at IS NULL
+		WHERE (p.pro_codigo = $1 OR p.sku = $1) AND p.deleted_at IS NULL
 	`, productoSelectFields)
 
 	p := &models.Producto{}
@@ -147,19 +144,22 @@ func (s *storeProducto) GetProductoByCodigo(ctx context.Context, codigo string) 
 	return p, nil
 }
 
+// CreateProducto inserta un nuevo registro en la tabla producto utilizando ExecAudited.
 func (s *storeProducto) CreateProducto(ctx context.Context, producto *models.Producto) (*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "CreateProducto", performance.DbThreshold, time.Now())
-	query := `
-		INSERT INTO producto (nombre, descripcion, codigo_barras, sku, fecha_vencimiento, imagen, id_status, id_categoria, id_moneda, id_unidad)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id_producto, created_at, updated_at
-	`
 
-	err := s.db.QueryRowContext(ctx, query,
-		producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
-		producto.FechaVencimiento, producto.Imagen, producto.IDStatus,
-		producto.IDCategoria, producto.IDMoneda, producto.IDUnidad,
-	).Scan(&producto.IDProducto, &producto.CreatedAt, &producto.UpdatedAt)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			INSERT INTO producto (pro_nombre, pro_descripcion, pro_codigo, sku, id_status, id_categoria, id_moneda, id_unidad)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			RETURNING id_producto, created_at, updated_at
+		`
+		return tx.QueryRowContext(ctx, query,
+			producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
+			producto.IDStatus, producto.IDCategoria, producto.IDMoneda, producto.IDUnidad,
+		).Scan(&producto.IDProducto, &producto.CreatedAt, &producto.UpdatedAt)
+	})
+
 	if err != nil {
 		return nil, fmt.Errorf("error al crear producto: %w", err)
 	}
@@ -167,57 +167,53 @@ func (s *storeProducto) CreateProducto(ctx context.Context, producto *models.Pro
 	return producto, nil
 }
 
+// UpdateProducto actualiza la información de un producto existente.
 func (s *storeProducto) UpdateProducto(ctx context.Context, id uuid.UUID, producto *models.Producto) (*models.Producto, error) {
 	defer performance.Trace(ctx, "store", "UpdateProducto", performance.DbThreshold, time.Now())
-	query := `
-		UPDATE producto
-		SET
-			nombre = $1, descripcion = $2, codigo_barras = $3, sku = $4,
-			fecha_vencimiento = $5, imagen = $6, id_status = $7, id_categoria = $8,
-			id_moneda = $9, id_unidad = $10, updated_at = CURRENT_TIMESTAMP
-		WHERE id_producto = $11 AND deleted_at IS NULL
-		RETURNING
-			id_producto, nombre, COALESCE(descripcion, ''), COALESCE(codigo_barras, ''),
-			COALESCE(sku, ''), fecha_vencimiento, COALESCE(imagen, ''), id_status,
-			id_categoria, id_moneda, id_unidad, created_at, updated_at
-	`
 
-	err := s.db.QueryRowContext(ctx, query,
-		producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
-		producto.FechaVencimiento, producto.Imagen, producto.IDStatus,
-		producto.IDCategoria, producto.IDMoneda, producto.IDUnidad, id,
-	).Scan(
-		&producto.IDProducto, &producto.Nombre, &producto.Descripcion, &producto.CodigoBarras,
-		&producto.SKU, &producto.FechaVencimiento, &producto.Imagen, &producto.IDStatus,
-		&producto.IDCategoria, &producto.IDMoneda, &producto.IDUnidad, &producto.CreatedAt, &producto.UpdatedAt,
-	)
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			UPDATE producto
+			SET
+				pro_nombre = $1, pro_descripcion = $2, pro_codigo = $3, sku = $4,
+				id_status = $5, id_categoria = $6, id_moneda = $7, id_unidad = $8, 
+				updated_at = CURRENT_TIMESTAMP
+			WHERE id_producto = $9 AND deleted_at IS NULL
+			RETURNING created_at, updated_at
+		`
+		return tx.QueryRowContext(ctx, query,
+			producto.Nombre, producto.Descripcion, producto.CodigoBarras, producto.SKU,
+			producto.IDStatus, producto.IDCategoria, producto.IDMoneda, producto.IDUnidad, id,
+		).Scan(&producto.CreatedAt, &producto.UpdatedAt)
+	})
 
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("producto con ID %s no encontrado", id)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar producto: %w", err)
 	}
 
+	producto.IDProducto = id
 	return producto, nil
 }
 
+// DeleteProducto realiza un borrado lógico (soft delete) del producto.
 func (s *storeProducto) DeleteProducto(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteProducto", performance.DbThreshold, time.Now())
-	query := `UPDATE producto SET deleted_at = $1 WHERE id_producto = $2 AND deleted_at IS NULL`
+	
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `UPDATE producto SET deleted_at = CURRENT_TIMESTAMP WHERE id_producto = $1 AND deleted_at IS NULL`
+		result, err := tx.ExecContext(ctx, query, id)
+		if err != nil {
+			return err
+		}
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 
-	result, err := s.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar producto: %w", err)
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rows == 0 {
-		return sql.ErrNoRows
 	}
 
 	return nil

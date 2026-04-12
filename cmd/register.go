@@ -48,6 +48,7 @@ var (
 	// Usuario flags
 	usuIDSucursal string
 	usuIDRol      string
+	usuUsername   string
 	usuEmail      string
 	usuNombre     string
 	usuDni        string
@@ -122,6 +123,7 @@ func init() {
 	}
 	registerUsuarioCmd.Flags().StringVar(&usuIDSucursal, "sucursal", "", "ID de la sucursal (UUID)")
 	registerUsuarioCmd.Flags().StringVar(&usuIDRol, "rol", "", "ID del rol (UUID)")
+	registerUsuarioCmd.Flags().StringVar(&usuUsername, "username", "", "Nombre de usuario (login)")
 	registerUsuarioCmd.Flags().StringVar(&usuEmail, "email", "", "Email del usuario")
 	registerUsuarioCmd.Flags().StringVar(&usuNombre, "nombre", "", "Nombre completo")
 	registerUsuarioCmd.Flags().StringVar(&usuDni, "dni", "", "DNI/Documento")
@@ -129,6 +131,7 @@ func init() {
 	registerUsuarioCmd.Flags().StringVar(&usuIDStatus, "status", "", "ID del estatus (UUID)")
 	registerUsuarioCmd.MarkFlagRequired("sucursal")
 	registerUsuarioCmd.MarkFlagRequired("rol")
+	registerUsuarioCmd.MarkFlagRequired("username")
 	registerUsuarioCmd.MarkFlagRequired("email")
 	registerUsuarioCmd.MarkFlagRequired("nombre")
 	registerUsuarioCmd.MarkFlagRequired("dni")
@@ -298,6 +301,7 @@ func runRegisterUsuario(cmd *cobra.Command, args []string) {
 	model := models.Usuario{
 		IDSucursal: sucID,
 		IDRol:      rolID,
+		Username:   usuUsername,
 		Email:      usuEmail,
 		UsuNombre:  usuNombre,
 		UsuDNI:     usuDni,

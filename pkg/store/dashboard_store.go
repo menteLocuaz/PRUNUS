@@ -16,7 +16,7 @@ type StoreDashboard interface {
 	GetRentabilidadTop(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error)
 	GetAntiguedadDeuda(ctx context.Context, sucursalID uuid.UUID) ([]dto.AntiguedadDeudaDTO, error)
 	GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]dto.InventarioCategoriaDTO, error)
-	GetMermas(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error)
+	GetMermas(ctx context.Context, sucursalID uuid.UUID) (*dto.MermasResponseDTO, error)
 }
 
 type dashboardStore struct {
@@ -52,12 +52,11 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 
 	// 3. Ventas Mes Actual
 	queryVentas := `
-		SELECT COALESCE(SUM(f.cfac_total), 0)
+		SELECT COALESCE(SUM(f.total), 0)
 		FROM factura f
-		JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
-		WHERE ep.id_sucursal = $1 
-		  AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924' -- Pagada
-		  AND f.cfac_fecha_creacion >= date_trunc('month', current_date)
+		WHERE f.id_sucursal = $1
+		  AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924'
+		  AND f.created_at >= date_trunc('month', current_date)
 		  AND f.deleted_at IS NULL`
 	err = s.db.QueryRowContext(ctx, queryVentas, sucursalID).Scan(&resumen.VentasMesActual)
 	if err != nil {
@@ -66,11 +65,10 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 
 	// 4. Cuentas por Cobrar (Facturas Pendientes)
 	queryCxC := `
-		SELECT COALESCE(SUM(f.cfac_total), 0)
+		SELECT COALESCE(SUM(f.total), 0)
 		FROM factura f
-		JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
-		WHERE ep.id_sucursal = $1 
-		  AND f.id_status = '892340e0-4328-491d-9102-80550bb6aac4' -- Pendiente de Pago
+		WHERE f.id_sucursal = $1
+		  AND f.id_status = '892340e0-4328-491d-9102-80550bb6aac4'
 		  AND f.deleted_at IS NULL`
 	err = s.db.QueryRowContext(ctx, queryCxC, sucursalID).Scan(&resumen.CuentasPorCobrar)
 	if err != nil {
@@ -81,10 +79,10 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 	queryCxP := `
 		SELECT COALESCE(SUM(total), 0)
 		FROM orden_compra
-		WHERE id_sucursal = $1 
+		WHERE id_sucursal = $1
 		  AND id_status IN (
-			  '00363491-8508-4220-9661-e99f05b0d545', -- Recibida Parcialmente
-			  '00363491-8508-4220-9661-e99f05b00001'  -- Recibida Completa
+			  '00363491-8508-4220-9661-e99f05b0d545',
+			  '00363491-8508-4220-9661-e99f05b00001'
 		  )
 		  AND deleted_at IS NULL`
 	err = s.db.QueryRowContext(ctx, queryCxP, sucursalID).Scan(&resumen.CuentasPorPagar)
@@ -92,7 +90,7 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 		return nil, err
 	}
 
-	// 6. Gastos Mensuales (Usando la nueva función de Postgres)
+	// 6. Gastos Mensuales
 	queryGastos := `SELECT fn_get_gastos_mensuales($1, current_date)`
 	err = s.db.QueryRowContext(ctx, queryGastos, sucursalID).Scan(&resumen.GastosMensuales)
 	if err != nil {
@@ -102,10 +100,10 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 	// 7. Punto de Equilibrio
 	queryPE := `
 		WITH MargenPromedio AS (
-			SELECT 
+			SELECT
 				COALESCE(SUM((m.precio_unitario - m.costo_unitario) * m.cantidad) / NULLIF(SUM(m.precio_unitario * m.cantidad), 0), 0.2) as margen
 			FROM movimientos_inventario m
-			WHERE m.id_sucursal = $1 
+			WHERE m.id_sucursal = $1
 			  AND m.tipo_movimiento = 'VENTA'
 			  AND m.fecha >= date_trunc('month', current_date)
 		)
@@ -123,8 +121,8 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 		Metricas AS (
 			SELECT COALESCE(SUM(m.costo_unitario * m.cantidad), 0) as cogs
 			FROM movimientos_inventario m
-			WHERE m.id_sucursal = $1 
-			  AND m.tipo_movimiento = 'VENTA' 
+			WHERE m.id_sucursal = $1
+			  AND m.tipo_movimiento = 'VENTA'
 			  AND m.fecha >= current_date - interval '90 days'
 		),
 		InventarioPromedio AS (
@@ -133,23 +131,22 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 			WHERE id_sucursal = $1 AND fecha_snapshot >= current_date - interval '90 days'
 		),
 		VentasCredito AS (
-			SELECT COALESCE(SUM(f.cfac_total), 0) as total_ventas,
-			       COALESCE(AVG(f.cfac_total), 0) as avg_ar
+			SELECT COALESCE(SUM(f.total), 0) as total_ventas,
+			       COALESCE(AVG(f.total), 0) as avg_ar
 			FROM factura f
-			JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
-			WHERE ep.id_sucursal = $1 
-			  AND f.cfac_fecha_creacion >= current_date - interval '90 days'
+			WHERE f.id_sucursal = $1
+			  AND f.created_at >= current_date - interval '90 days'
 			  AND f.fecha_vencimiento IS NOT NULL
 		),
 		ComprasCredito AS (
 			SELECT COALESCE(SUM(total), 0) as total_compras,
 			       COALESCE(AVG(total), 0) as avg_ap
 			FROM orden_compra
-			WHERE id_sucursal = $1 
+			WHERE id_sucursal = $1
 			  AND fecha_emision >= current_date - interval '90 days'
 			  AND fecha_vencimiento IS NOT NULL
 		)
-		SELECT 
+		SELECT
 			COALESCE((i.avg_inv / NULLIF(m.cogs, 0)) * p.dias, 0) as dio,
 			COALESCE((v.avg_ar / NULLIF(v.total_ventas, 0)) * p.dias, 0) as dso,
 			COALESCE((c.avg_ap / NULLIF(c.total_compras, 0)) * p.dias, 0) as dpo
@@ -168,8 +165,8 @@ func (s *dashboardStore) GetStockBajo(ctx context.Context, sucursalID uuid.UUID)
 		SELECT p.nombre, i.stock_actual, 0 as rentabilidad
 		FROM inventario i
 		JOIN producto p ON i.id_producto = p.id_producto
-		WHERE i.id_sucursal = $1 
-		  AND i.stock_actual <= i.stock_minimo 
+		WHERE i.id_sucursal = $1
+		  AND i.stock_actual <= i.stock_minimo
 		  AND i.deleted_at IS NULL
 		ORDER BY i.stock_actual ASC
 		LIMIT 10`
@@ -201,10 +198,11 @@ func (s *dashboardStore) GetVentasVsCompras(ctx context.Context, sucursalID uuid
 			)::date as mes
 		),
 		Ventas AS (
-			SELECT date_trunc('month', f.cfac_fecha_creacion)::date as mes, SUM(f.cfac_total) as total
+			SELECT date_trunc('month', f.created_at)::date as mes, SUM(f.total) as total
 			FROM factura f
-			JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
-			WHERE ep.id_sucursal = $1 AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924'
+			WHERE f.id_sucursal = $1
+			  AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924'
+			  AND f.deleted_at IS NULL
 			GROUP BY 1
 		),
 		Compras AS (
@@ -213,7 +211,7 @@ func (s *dashboardStore) GetVentasVsCompras(ctx context.Context, sucursalID uuid
 			WHERE oc.id_sucursal = $1 AND oc.deleted_at IS NULL
 			GROUP BY 1
 		)
-		SELECT 
+		SELECT
 			to_char(m.mes, 'TMMonth') as mes_nombre,
 			COALESCE(v.total, 0) as ventas,
 			COALESCE(c.total, 0) as compras
@@ -241,13 +239,13 @@ func (s *dashboardStore) GetVentasVsCompras(ctx context.Context, sucursalID uuid
 
 func (s *dashboardStore) GetRentabilidadTop(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error) {
 	query := `
-		SELECT 
+		SELECT
 			p.nombre,
 			SUM(m.cantidad) as total_cantidad,
 			SUM((m.precio_unitario - m.costo_unitario) * m.cantidad) as total_rentabilidad
 		FROM movimientos_inventario m
 		JOIN producto p ON m.id_producto = p.id_producto
-		WHERE m.id_sucursal = $1 
+		WHERE m.id_sucursal = $1
 		  AND m.tipo_movimiento = 'VENTA'
 		  AND m.fecha >= date_trunc('month', current_date - interval '1 month')
 		GROUP BY p.id_producto, p.nombre
@@ -274,18 +272,17 @@ func (s *dashboardStore) GetRentabilidadTop(ctx context.Context, sucursalID uuid
 
 func (s *dashboardStore) GetAntiguedadDeuda(ctx context.Context, sucursalID uuid.UUID) ([]dto.AntiguedadDeudaDTO, error) {
 	query := `
-		SELECT 
-			CASE 
+		SELECT
+			CASE
 				WHEN current_date - fecha_vencimiento::date <= 30 THEN '0-30 días'
 				WHEN current_date - fecha_vencimiento::date <= 60 THEN '31-60 días'
 				WHEN current_date - fecha_vencimiento::date <= 90 THEN '61-90 días'
 				ELSE '90+ días'
 			END as rango,
-			SUM(f.cfac_total) as monto
+			SUM(f.total) as monto
 		FROM factura f
-		JOIN estaciones_pos ep ON f.id_estacion = ep.id_estacion
-		WHERE ep.id_sucursal = $1 
-		  AND f.id_status = '892340e0-4328-491d-9102-80550bb6aac4' -- Pendiente de Pago
+		WHERE f.id_sucursal = $1
+		  AND f.id_status = '892340e0-4328-491d-9102-80550bb6aac4'
 		  AND f.fecha_vencimiento IS NOT NULL
 		  AND f.deleted_at IS NULL
 		GROUP BY 1
@@ -311,7 +308,7 @@ func (s *dashboardStore) GetAntiguedadDeuda(ctx context.Context, sucursalID uuid
 func (s *dashboardStore) GetComposicionCategoria(ctx context.Context, sucursalID uuid.UUID) ([]dto.InventarioCategoriaDTO, error) {
 	query := `
 		WITH StockValores AS (
-			SELECT 
+			SELECT
 				c.nombre as categoria,
 				SUM(i.stock_actual * i.precio_compra) as valor
 			FROM inventario i
@@ -323,9 +320,9 @@ func (s *dashboardStore) GetComposicionCategoria(ctx context.Context, sucursalID
 		Total AS (
 			SELECT SUM(valor) as gran_total FROM StockValores
 		)
-		SELECT 
-			categoria, 
-			valor, 
+		SELECT
+			categoria,
+			valor,
 			COALESCE((valor / NULLIF(gran_total, 0)) * 100, 0) as porcentaje
 		FROM StockValores, Total
 		ORDER BY valor DESC`
@@ -347,19 +344,23 @@ func (s *dashboardStore) GetComposicionCategoria(ctx context.Context, sucursalID
 	return results, nil
 }
 
-func (s *dashboardStore) GetMermas(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error) {
+func (s *dashboardStore) GetMermas(ctx context.Context, sucursalID uuid.UUID) (*dto.MermasResponseDTO, error) {
 	query := `
-		SELECT 
-			p.nombre,
-			SUM(m.cantidad) as total_cantidad,
-			SUM(m.costo_unitario * m.cantidad) as total_perdida
+		SELECT
+			p.id_producto::text,
+			p.pro_nombre,
+			COALESCE(p.pro_codigo, ''),
+			SUM(m.cantidad)                        AS cantidad_merma,
+			m.tipo_movimiento                      AS motivo,
+			SUM(m.costo_unitario * m.cantidad)     AS costo_total,
+			MAX(m.fecha)::text                     AS fecha
 		FROM movimientos_inventario m
 		JOIN producto p ON m.id_producto = p.id_producto
-		WHERE m.id_sucursal = $1 
-		  AND m.tipo_movimiento IN ('MERMA', 'CADUCADO')
+		WHERE m.id_sucursal = $1
+		  AND m.tipo_movimiento IN ('MERMA', 'CADUCADO', 'AJUSTE')
 		  AND m.fecha >= date_trunc('month', current_date)
-		GROUP BY p.id_producto, p.nombre
-		ORDER BY total_perdida DESC
+		GROUP BY p.id_producto, p.pro_nombre, p.pro_codigo, m.tipo_movimiento
+		ORDER BY costo_total DESC
 		LIMIT 10`
 
 	rows, err := s.db.QueryContext(ctx, query, sucursalID)
@@ -368,13 +369,30 @@ func (s *dashboardStore) GetMermas(ctx context.Context, sucursalID uuid.UUID) ([
 	}
 	defer rows.Close()
 
-	var results []dto.TopProductoDTO
+	var items []dto.MermaItemDTO
+	var totalMermas float64
 	for rows.Next() {
-		var item dto.TopProductoDTO
-		if err := rows.Scan(&item.Nombre, &item.Cantidad, &item.Rentabilidad); err != nil {
+		var item dto.MermaItemDTO
+		if err := rows.Scan(
+			&item.IDProducto,
+			&item.ProNombre,
+			&item.ProCodigo,
+			&item.CantidadMerma,
+			&item.Motivo,
+			&item.CostoTotal,
+			&item.Fecha,
+		); err != nil {
 			return nil, err
 		}
-		results = append(results, item)
+		totalMermas += item.CostoTotal
+		items = append(items, item)
 	}
-	return results, nil
+	if items == nil {
+		items = []dto.MermaItemDTO{}
+	}
+	return &dto.MermasResponseDTO{
+		TotalMermas: totalMermas,
+		Moneda:      "USD",
+		Items:       items,
+	}, nil
 }
