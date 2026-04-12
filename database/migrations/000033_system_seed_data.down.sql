@@ -1,0 +1,1 @@
+-- El sembrado no se revierte automáticamente por seguridad de datos iniciales.

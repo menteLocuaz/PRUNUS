@@ -44,17 +44,51 @@ func (h *CajaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CajaHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var c models.Caja
-	if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+	var req models.Caja
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "JSON inválido")
 		return
 	}
-	resp, err := h.service.CreateCaja(r.Context(), c)
+	resp, err := h.service.CreateCaja(r.Context(), req)
 	if err != nil {
 		response.BadRequest(w, err.Error())
 		return
 	}
 	response.Created(w, "Caja creada correctamente", resp)
+}
+
+func (h *CajaHandler) Update(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID inválido")
+		return
+	}
+	var req models.Caja
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+	resp, err := h.service.UpdateCaja(r.Context(), id, req)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Caja actualizada correctamente", resp)
+}
+
+func (h *CajaHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID inválido")
+		return
+	}
+	if err := h.service.DeleteCaja(r.Context(), id); err != nil {
+		response.NotFound(w, "Caja no encontrada")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *CajaHandler) AbrirSesion(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +116,7 @@ func (h *CajaHandler) CerrarSesion(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, "ID de sesión inválido")
 		return
 	}
+
 	var req struct {
 		MontoCierre float64 `json:"monto_cierre"`
 	}
@@ -89,10 +124,48 @@ func (h *CajaHandler) CerrarSesion(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, "JSON inválido")
 		return
 	}
-	resp, err := h.service.CerrarSesion(r.Context(), id, req.MontoCierre)
+
+	// Obtener ID de usuario del contexto (inyectado por middleware)
+	userID, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		response.Unauthorized(w, "Usuario no autenticado")
+		return
+	}
+
+	resp, err := h.service.ArqueoYCierre(r.Context(), id, userID, req.MontoCierre)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
 	}
-	response.Success(w, "Sesión de caja cerrada correctamente", resp)
+
+	response.Success(w, "Arqueo y cierre completado exitosamente", resp)
+}
+
+func (h *CajaHandler) RegistrarMovimiento(w http.ResponseWriter, r *http.Request) {
+	var req models.MovimientoCaja
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+	resp, err := h.service.RegistrarMovimiento(r.Context(), req)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Created(w, "Movimiento registrado correctamente", resp)
+}
+
+func (h *CajaHandler) GetMovimientos(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID de sesión inválido")
+		return
+	}
+	resp, err := h.service.GetMovimientos(r.Context(), id)
+	if err != nil {
+		response.InternalServerError(w, err.Error())
+		return
+	}
+	response.Success(w, "Movimientos obtenidos correctamente", resp)
 }

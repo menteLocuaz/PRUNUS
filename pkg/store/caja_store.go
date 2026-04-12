@@ -26,6 +26,9 @@ type StoreCaja interface {
 	// Movimientos
 	CreateMovimiento(ctx context.Context, m *models.MovimientoCaja) (*models.MovimientoCaja, error)
 	GetMovimientosBySesion(ctx context.Context, sesionID uuid.UUID) ([]*models.MovimientoCaja, error)
+
+	// Arqueo
+	GetVentasEfectivoBySesion(ctx context.Context, sesionID uuid.UUID) (float64, error)
 }
 
 type storeCaja struct {
@@ -131,4 +134,23 @@ func (s *storeCaja) GetMovimientosBySesion(ctx context.Context, sesionID uuid.UU
 		movimientos = append(movimientos, m)
 	}
 	return movimientos, nil
+}
+
+func (s *storeCaja) GetVentasEfectivoBySesion(ctx context.Context, sesionID uuid.UUID) (float64, error) {
+	defer performance.Trace(ctx, "store", "GetVentasEfectivoBySesion", performance.DbThreshold, time.Now())
+	
+	// Sumar pagos en efectivo de facturas asociadas a esta sesión de caja
+	// Unimos factura con forma_pago_factura y forma_pago
+	query := `
+		SELECT COALESCE(SUM(fpf.valor_billete), 0)
+		FROM factura f
+		JOIN forma_pago_factura fpf ON f.id_factura = fpf.id_factura
+		JOIN forma_pago fp ON fpf.id_forma_pago = fp.id_forma_pago
+		WHERE f.id_control_estacion = $1 
+		  AND fp.fmp_codigo = 'EF'
+		  AND f.deleted_at IS NULL
+	`
+	var total float64
+	err := s.db.QueryRowContext(ctx, query, sesionID).Scan(&total)
+	return total, err
 }

@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS gasto_operativo CASCADE;
+DROP TABLE IF EXISTS gasto_categoria CASCADE;

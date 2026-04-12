@@ -54,7 +54,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	posService := services.NewServicePOS(posStore, logsStore, logger)
 	inventarioService := services.NewServiceInventario(inventarioStore, logger)
 	agregadoresService := services.NewServiceAgregadores(agregadoresStore, logger)
-	cajaService := services.NewServiceCaja(cajaStore, logger)
+	cajaService := services.NewServiceCaja(cajaStore, usuarioStore, logger)
 	facturaService := services.NewServiceFactura(facturaStore, cacheStore, logger)
 	ordenPedidoService := services.NewServiceOrdenPedido(ordenPedidoStore, logger)
 	dispositivoPosService := services.NewServiceDispositivoPos(dispositivoPosStore, logger)

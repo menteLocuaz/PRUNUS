@@ -1,0 +1,2 @@
+-- La reversión de esta función no es necesaria ya que sobreescribe la versión anterior
+-- manteniendo la compatibilidad con el sistema de secuenciales.

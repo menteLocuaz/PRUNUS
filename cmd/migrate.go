@@ -1,33 +1,70 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
+	"strconv"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/prunus/pkg/config/database"
-	"github.com/prunus/pkg/config/database/migrations"
 	"github.com/spf13/cobra"
 )
 
 // migrateCmd representa el comando para ejecutar migraciones
 var migrateCmd = &cobra.Command{
 	Use:   "migrate",
-	Short: "Ejecuta las migraciones de la base de datos",
-	Long:  `Este comando se conecta a la base de datos y ejecuta todas las migraciones pendientes del proyecto.`,
+	Short: "Ejecuta las migraciones de la base de datos (SQL)",
+	Long:  `Este comando utiliza golang-migrate para ejecutar los archivos SQL en /database/migrations.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// 1. Conexión a Base de Datos
 		db, err := database.InitDB()
 		if err != nil {
-			log.Fatalf("❌ Error conectando a la base de datos para migración: %v", err)
+			log.Fatalf("❌ Error conectando a la base de datos: %v", err)
 		}
 		defer db.Close()
 
-		// 2. Ejecutar Migraciones
-		log.Println("🛠️ Iniciando migraciones de la base de datos...")
-		if err := migrations.RunMigrations(db); err != nil {
-			log.Fatalf("❌ Error durante la ejecución de migraciones: %v", err)
+		log.Println("🚀 Iniciando ejecución de migraciones SQL...")
+		if err := runSqlMigrations(db); err != nil {
+			log.Fatalf("❌ Error en migraciones SQL: %v", err)
 		}
-		log.Println("✅ Migraciones completadas exitosamente")
+
+		log.Println("✅ Base de datos actualizada correctamente")
 	},
+}
+
+// runSqlMigrations inicializa y ejecuta el motor de golang-migrate
+func runSqlMigrations(db *sql.DB) error {
+	// 1. Asegurar esquema public y search_path
+	_, err := db.Exec("CREATE SCHEMA IF NOT EXISTS public; SET search_path TO public;")
+	if err != nil {
+		log.Printf("⚠️ Advertencia al preparar esquema: %v", err)
+	}
+
+	// 2. Usar ruta relativa estándar para el origen de archivos.
+	// golang-migrate interpreta file:// como relativo a la raíz del proceso.
+	srcURL := "file://database/migrations"
+
+	// 3. Configurar driver con esquema explícito
+	driver, err := postgres.WithInstance(db, &postgres.Config{
+		SchemaName: "public",
+	})
+	if err != nil {
+		return fmt.Errorf("error al crear driver de postgres: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(srcURL, "postgres", driver)
+	if err != nil {
+		return fmt.Errorf("error al inicializar migrate: %w", err)
+	}
+
+	// 4. Ejecutar migraciones
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("error al ejecutar migraciones: %w", err)
+	}
+
+	return nil
 }
 
 // seedCmd representa el comando para poblar datos iniciales
@@ -72,8 +109,50 @@ var seedCmd = &cobra.Command{
 	},
 }
 
+// forceMigrateCmd permite limpiar el estado dirty forzando una versión específica
+var forceMigrateCmd = &cobra.Command{
+	Use:   "force [version]",
+	Short: "Fuerza una versión específica de la migración (limpia estado dirty)",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		version, err := strconv.Atoi(args[0])
+		if err != nil {
+			log.Fatalf("❌ La versión debe ser un número entero: %v", err)
+		}
+
+		db, err := database.InitDB()
+		if err != nil {
+			log.Fatalf("❌ Error conectando a la base de datos: %v", err)
+		}
+		defer db.Close()
+
+		// Asegurar esquema public y search_path
+		_, _ = db.Exec("CREATE SCHEMA IF NOT EXISTS public; SET search_path TO public;")
+
+		srcURL := "file://database/migrations"
+		driver, err := postgres.WithInstance(db, &postgres.Config{
+			SchemaName: "public",
+		})
+		if err != nil {
+			log.Fatalf("❌ Error al crear driver: %v", err)
+		}
+
+		m, err := migrate.NewWithDatabaseInstance(srcURL, "postgres", driver)
+		if err != nil {
+			log.Fatalf("❌ Error al inicializar migrate: %v", err)
+		}
+
+		if err := m.Force(version); err != nil {
+			log.Fatalf("❌ Error al forzar versión: %v", err)
+		}
+
+		log.Printf("✅ Versión forzada a %d correctamente", version)
+	},
+}
+
 func init() {
 	// Registrar el comando en el root
+	migrateCmd.AddCommand(forceMigrateCmd)
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(seedCmd)
 }

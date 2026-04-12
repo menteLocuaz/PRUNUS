@@ -86,3 +86,31 @@ func (s *ServiceFactura) GetFormasPago(ctx context.Context) ([]*models.FormaPago
 
 	return formas, nil
 }
+
+func (s *ServiceFactura) CreateFormaPago(ctx context.Context, f models.FormaPago) (*models.FormaPago, error) {
+	res, err := s.store.CreateFormaPago(ctx, &f)
+	if err == nil {
+		_ = s.cache.Delete(ctx, cacheKeyFormasPago)
+	}
+	return res, err
+}
+
+func (s *ServiceFactura) UpdateFormaPago(ctx context.Context, id uuid.UUID, f models.FormaPago) (*models.FormaPago, error) {
+	res, err := s.store.UpdateFormaPago(ctx, id, &f)
+	if err == nil {
+		_ = s.cache.Delete(ctx, cacheKeyFormasPago)
+	}
+	return res, err
+}
+
+func (s *ServiceFactura) DeleteFormaPago(ctx context.Context, id uuid.UUID) error {
+	err := s.store.DeleteFormaPago(ctx, id)
+	if err == nil {
+		_ = s.cache.Delete(ctx, cacheKeyFormasPago)
+	}
+	return err
+}
+
+func (s *ServiceFactura) GetFormaPagoByID(ctx context.Context, id uuid.UUID) (*models.FormaPago, error) {
+	return s.store.GetFormaPagoByID(ctx, id)
+}

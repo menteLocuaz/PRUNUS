@@ -1,0 +1,3 @@
+-- Revertir: Eliminar función y tabla de módulos
+DROP FUNCTION IF EXISTS modulos_ia_modulo(INTEGER, INTEGER, VARCHAR, VARCHAR, INTEGER, BOOLEAN, INTEGER, VARCHAR);
+DROP TABLE IF EXISTS modulo CASCADE;
