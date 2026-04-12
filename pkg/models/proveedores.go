@@ -6,23 +6,20 @@ import (
 	"github.com/google/uuid"
 )
 
-// Proveedor representa un proveedor asociado a una sucursal y empresa.
+// Proveedor representa un proveedor en el catálogo maestro.
 type Proveedor struct {
-	IDProveedor uuid.UUID `json:"id_proveedor"`
-	Nombre      string    `json:"nombre"`
-	RUC         string    `json:"ruc"`
-	Telefono    string    `json:"telefono"`
-	Direccion   string    `json:"direccion"`
-	Email       string    `json:"email"`
-	IDStatus    uuid.UUID `json:"id_status"`
+	IDProveedor    uuid.UUID              `json:"id_proveedor"`
+	RazonSocial    string                 `json:"razon_social"`    // DB: razon_social
+	NitRut         string                 `json:"nit_rut"`         // DB: nit_rut
+	ContactoNombre string                 `json:"contacto_nombre"` // DB: contacto_nombre
+	Telefono       string                 `json:"telefono"`
+	Direccion      string                 `json:"direccion"`
+	Email          string                 `json:"email"`
+	IDStatus       uuid.UUID              `json:"id_status"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 
-	// Claves foráneas
-	IDSucursal uuid.UUID `json:"id_sucursal"`
-	IDEmpresa  uuid.UUID `json:"id_empresa"`
-
-	// Relaciones de navegación (no se persisten directamente en la tabla)
-	Sucursal *Sucursal `json:"sucursal,omitempty"`
-	Empresa  *Empresa  `json:"empresa,omitempty"`
+	// Relaciones de navegación (Opcional)
+	Status *Estatus `json:"status,omitempty"`
 
 	// Campos para auditoría y eliminación lógica
 	CreatedAt time.Time  `json:"created_at"`

@@ -6,24 +6,27 @@ import (
 	"github.com/google/uuid"
 )
 
+// InventarioCreateRequest define los datos necesarios para crear un registro de inventario.
 type InventarioCreateRequest struct {
 	IDProducto   uuid.UUID `json:"id_producto" validate:"required"`
 	IDSucursal   uuid.UUID `json:"id_sucursal" validate:"required"`
 	StockActual  float64   `json:"stock_actual" validate:"required,gte=0"`
 	StockMinimo  float64   `json:"stock_minimo" validate:"required,gte=0"`
-	StockMaximo  float64   `json:"stock_maximo" validate:"required,gte=0"`
 	PrecioCompra float64   `json:"precio_compra" validate:"required,gte=0"`
 	PrecioVenta  float64   `json:"precio_venta" validate:"required,gte=0"`
+	Ubicacion    string    `json:"ubicacion" validate:"max=100"`
 }
 
+// InventarioUpdateRequest define los datos que pueden ser actualizados en el inventario.
 type InventarioUpdateRequest struct {
 	StockActual  float64 `json:"stock_actual" validate:"required,gte=0"`
 	StockMinimo  float64 `json:"stock_minimo" validate:"required,gte=0"`
-	StockMaximo  float64 `json:"stock_maximo" validate:"required,gte=0"`
 	PrecioCompra float64 `json:"precio_compra" validate:"required,gte=0"`
 	PrecioVenta  float64 `json:"precio_venta" validate:"required,gte=0"`
+	Ubicacion    string  `json:"ubicacion" validate:"max=100"`
 }
 
+// MovimientoCreateRequest define un movimiento individual de inventario.
 type MovimientoCreateRequest struct {
 	IDProducto     uuid.UUID `json:"id_producto" validate:"required"`
 	IDSucursal     uuid.UUID `json:"id_sucursal" validate:"required"`
@@ -37,6 +40,7 @@ type MovimientoItemRequest struct {
 	Cantidad   float64   `json:"cantidad" validate:"required,gt=0"`
 }
 
+// MovimientoMasivoRequest permite registrar múltiples movimientos en una sola operación.
 type MovimientoMasivoRequest struct {
 	IDSucursal     uuid.UUID               `json:"id_sucursal" validate:"required"`
 	TipoMovimiento string                  `json:"tipo_movimiento" validate:"required,oneof=ENTRADA SALIDA AJUSTE DEVOLUCION TRASLADO MERMA CADUCADO"`
@@ -92,11 +96,11 @@ type ValorHistoricoResponse struct {
 
 // PerdidaResponse agrupa las pérdidas por merma o caducidad de un producto.
 type PerdidaResponse struct {
-	IDProducto      uuid.UUID `json:"id_producto"`
-	NombreProducto  string    `json:"nombre_producto"`
-	TipoMovimiento  string    `json:"tipo_movimiento"` // MERMA | CADUCADO
-	UnidadesPerdidas float64  `json:"unidades_perdidas"`
-	ValorPerdido    float64   `json:"valor_perdido"` // unidades * costo_unitario
+	IDProducto       uuid.UUID `json:"id_producto"`
+	NombreProducto   string    `json:"nombre_producto"`
+	TipoMovimiento   string    `json:"tipo_movimiento"` // MERMA | CADUCADO
+	UnidadesPerdidas float64   `json:"unidades_perdidas"`
+	ValorPerdido     float64   `json:"valor_perdido"` // unidades * costo_unitario
 }
 
 // MargenProductoResponse muestra el margen de ganancia real basado en ventas históricas.

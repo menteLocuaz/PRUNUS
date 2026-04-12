@@ -9,10 +9,14 @@ import (
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/store"
 	transport "github.com/prunus/pkg/transport/http"
+	"github.com/prunus/pkg/utils"
 )
 
 // RegisterHandlers centraliza la inyección de dependencias y registro de handlers.
 func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Logger) *routers.Handlers {
+	// 0. Cache Manager (Capa centralizada de caché)
+	cacheMgr := utils.NewCacheManager(cacheStore)
+
 	// 1. Stores (Repositorios)
 	empresaStore := store.NewEmpresa(db)
 	sucursalStore := store.NewSucursal(db)
@@ -42,20 +46,20 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	// 2. Services (Lógica de Negocio)
 	empresaServices := services.NewServiceEmpresa(empresaStore, logger)
 	sucursalServices := services.NewServiceSucursal(sucursalStore, logger)
-	rolService := services.NewServiceRol(rolStore, cacheStore, logger)
+	rolService := services.NewServiceRol(rolStore, cacheMgr, logger)
 	usuarioService := services.NewServiceUsuario(usuarioStore, rolService, logsStore, logger)
-	categoriaService := services.NewServiceCategoria(categoriaStore, cacheStore, logger)
+	categoriaService := services.NewServiceCategoria(categoriaStore, cacheMgr, logger)
 	clienteService := services.NewServiceCliente(clienteStore, logger)
-	medidaService := services.NewServiceUnidad(medidaStore, cacheStore, logger)
-	monedaService := services.NewServiceMoneda(monedaStore, cacheStore, logger)
-	productoService := services.NewServiceProducto(productoStore, inventarioStore, cacheStore, logger)
+	medidaService := services.NewServiceUnidad(medidaStore, cacheMgr, logger)
+	monedaService := services.NewServiceMoneda(monedaStore, cacheMgr, logger)
+	productoService := services.NewServiceProducto(productoStore, inventarioStore, cacheMgr, logger)
 	proveedorService := services.NewServiceProveedor(proveedorStore, logger)
-	estatusService := services.NewServiceEstatus(estatusStore, cacheStore, logger)
+	estatusService := services.NewServiceEstatus(estatusStore, cacheMgr, logger)
 	posService := services.NewServicePOS(posStore, logsStore, logger)
 	inventarioService := services.NewServiceInventario(inventarioStore, logger)
 	agregadoresService := services.NewServiceAgregadores(agregadoresStore, logger)
 	cajaService := services.NewServiceCaja(cajaStore, usuarioStore, logger)
-	facturaService := services.NewServiceFactura(facturaStore, cacheStore, logger)
+	facturaService := services.NewServiceFactura(facturaStore, cacheMgr, logger)
 	ordenPedidoService := services.NewServiceOrdenPedido(ordenPedidoStore, logger)
 	dispositivoPosService := services.NewServiceDispositivoPos(dispositivoPosStore, logger)
 	estacionPosService := services.NewServiceEstacionPos(estacionPosStore, logger)
@@ -63,6 +67,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	periodoService := services.NewServicePeriodo(periodoStore, posStore, logger)
 	configuracionService := services.NewServiceConfiguracion(configuracionStore)
 	dashboardService := services.NewDashboardService(dashboardStore)
+
 
 	// 3. Handlers (Controladores)
 	return &routers.Handlers{

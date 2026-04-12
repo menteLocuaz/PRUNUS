@@ -9,15 +9,16 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"github.com/prunus/pkg/utils"
 )
 
 type ServiceFactura struct {
 	store  store.StoreFactura
-	cache  models.CacheStore
+	cache  *utils.CacheManager
 	logger *slog.Logger
 }
 
-func NewServiceFactura(s store.StoreFactura, c models.CacheStore, logger *slog.Logger) *ServiceFactura {
+func NewServiceFactura(s store.StoreFactura, c *utils.CacheManager, logger *slog.Logger) *ServiceFactura {
 	return &ServiceFactura{
 		store:  s,
 		cache:  c,
@@ -26,8 +27,8 @@ func NewServiceFactura(s store.StoreFactura, c models.CacheStore, logger *slog.L
 }
 
 const (
-	cacheKeyImpuestos  = "catalog:impuestos"
-	cacheKeyFormasPago = "catalog:formas_pago"
+	cacheKeyImpuestos  = "facturas:impuestos"
+	cacheKeyFormasPago = "facturas:formas_pago"
 	cacheTTLStatic     = 24 * time.Hour
 )
 
@@ -48,49 +49,21 @@ func (s *ServiceFactura) GetAllFacturas(ctx context.Context, params dto.Paginati
 }
 
 func (s *ServiceFactura) GetImpuestos(ctx context.Context) ([]*models.Impuesto, error) {
-	var impuestos []*models.Impuesto
-
-	// Intentar caché
-	if err := s.cache.Get(ctx, cacheKeyImpuestos, &impuestos); err == nil {
-		return impuestos, nil
-	}
-
-	// BD
-	impuestos, err := s.store.GetAllImpuestos(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, cacheKeyImpuestos, impuestos, cacheTTLStatic)
-
-	return impuestos, nil
+	return utils.GetOrSet(ctx, s.cache, cacheKeyImpuestos, cacheTTLStatic, func() ([]*models.Impuesto, error) {
+		return s.store.GetAllImpuestos(ctx)
+	})
 }
 
 func (s *ServiceFactura) GetFormasPago(ctx context.Context) ([]*models.FormaPago, error) {
-	var formas []*models.FormaPago
-
-	// Intentar caché
-	if err := s.cache.Get(ctx, cacheKeyFormasPago, &formas); err == nil {
-		return formas, nil
-	}
-
-	// BD
-	formas, err := s.store.GetAllFormasPago(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Guardar en caché
-	_ = s.cache.Set(ctx, cacheKeyFormasPago, formas, cacheTTLStatic)
-
-	return formas, nil
+	return utils.GetOrSet(ctx, s.cache, cacheKeyFormasPago, cacheTTLStatic, func() ([]*models.FormaPago, error) {
+		return s.store.GetAllFormasPago(ctx)
+	})
 }
 
 func (s *ServiceFactura) CreateFormaPago(ctx context.Context, f models.FormaPago) (*models.FormaPago, error) {
 	res, err := s.store.CreateFormaPago(ctx, &f)
 	if err == nil {
-		_ = s.cache.Delete(ctx, cacheKeyFormasPago)
+		s.cache.Invalidate(ctx, "facturas:")
 	}
 	return res, err
 }
@@ -98,7 +71,7 @@ func (s *ServiceFactura) CreateFormaPago(ctx context.Context, f models.FormaPago
 func (s *ServiceFactura) UpdateFormaPago(ctx context.Context, id uuid.UUID, f models.FormaPago) (*models.FormaPago, error) {
 	res, err := s.store.UpdateFormaPago(ctx, id, &f)
 	if err == nil {
-		_ = s.cache.Delete(ctx, cacheKeyFormasPago)
+		s.cache.Invalidate(ctx, "facturas:")
 	}
 	return res, err
 }
@@ -106,7 +79,7 @@ func (s *ServiceFactura) UpdateFormaPago(ctx context.Context, id uuid.UUID, f mo
 func (s *ServiceFactura) DeleteFormaPago(ctx context.Context, id uuid.UUID) error {
 	err := s.store.DeleteFormaPago(ctx, id)
 	if err == nil {
-		_ = s.cache.Delete(ctx, cacheKeyFormasPago)
+		s.cache.Invalidate(ctx, "facturas:")
 	}
 	return err
 }

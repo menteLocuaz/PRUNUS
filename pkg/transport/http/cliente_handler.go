@@ -78,13 +78,14 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Crea un modelo Cliente con los datos recibidos
 	cliente := models.Cliente{
-		EmpresaCliente: req.EmpresaCliente,
-		Nombre:         req.Nombre,
-		RUC:            req.RUC,
-		Direccion:      req.Direccion,
-		Telefono:       req.Telefono,
+		NombreCompleto: req.NombreCompleto,
+		TipoDocumento:  req.TipoDocumento,
+		Documento:      req.Documento,
 		Email:          req.Email,
+		Telefono:       req.Telefono,
+		Direccion:      req.Direccion,
 		IDStatus:       req.IDStatus,
+		Metadata:       req.Metadata,
 	}
 
 	// Llama al servicio para crear the client
@@ -126,13 +127,14 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Crea un modelo Cliente con los datos actualizados
 	cliente := models.Cliente{
-		EmpresaCliente: req.EmpresaCliente,
-		Nombre:         req.Nombre,
-		RUC:            req.RUC,
-		Direccion:      req.Direccion,
-		Telefono:       req.Telefono,
+		NombreCompleto: req.NombreCompleto,
+		TipoDocumento:  req.TipoDocumento,
+		Documento:      req.Documento,
 		Email:          req.Email,
+		Telefono:       req.Telefono,
+		Direccion:      req.Direccion,
 		IDStatus:       req.IDStatus,
+		Metadata:       req.Metadata,
 	}
 
 	// Llama al servicio para actualizar el cliente

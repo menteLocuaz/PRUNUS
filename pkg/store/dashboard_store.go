@@ -162,7 +162,7 @@ func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (
 
 func (s *dashboardStore) GetStockBajo(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error) {
 	query := `
-		SELECT p.nombre, i.stock_actual, 0 as rentabilidad
+		SELECT p.pro_nombre, i.stock_actual, 0 as rentabilidad
 		FROM inventario i
 		JOIN producto p ON i.id_producto = p.id_producto
 		WHERE i.id_sucursal = $1
@@ -240,7 +240,7 @@ func (s *dashboardStore) GetVentasVsCompras(ctx context.Context, sucursalID uuid
 func (s *dashboardStore) GetRentabilidadTop(ctx context.Context, sucursalID uuid.UUID) ([]dto.TopProductoDTO, error) {
 	query := `
 		SELECT
-			p.nombre,
+			p.pro_nombre,
 			SUM(m.cantidad) as total_cantidad,
 			SUM((m.precio_unitario - m.costo_unitario) * m.cantidad) as total_rentabilidad
 		FROM movimientos_inventario m
@@ -248,7 +248,7 @@ func (s *dashboardStore) GetRentabilidadTop(ctx context.Context, sucursalID uuid
 		WHERE m.id_sucursal = $1
 		  AND m.tipo_movimiento = 'VENTA'
 		  AND m.fecha >= date_trunc('month', current_date - interval '1 month')
-		GROUP BY p.id_producto, p.nombre
+		GROUP BY p.id_producto, p.pro_nombre
 		HAVING SUM((m.precio_unitario - m.costo_unitario) * m.cantidad) > 0
 		ORDER BY total_rentabilidad DESC
 		LIMIT 10`

@@ -14,6 +14,7 @@ import (
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/store"
+	"github.com/prunus/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -141,7 +142,7 @@ func init() {
 }
 
 // Funciones auxiliares para inicializar dependencias
-func initCLI() (*sql.DB, models.CacheStore, *slog.Logger) {
+func initCLI() (*sql.DB, *utils.CacheManager, *slog.Logger) {
 	if err := config.Validate("DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"); err != nil {
 		log.Fatalf("❌ Error de configuración: %v", err)
 	}
@@ -152,8 +153,9 @@ func initCLI() (*sql.DB, models.CacheStore, *slog.Logger) {
 	}
 
 	// No inicializamos Redis para operaciones rápidas de CLI a menos que sea necesario
+	cacheMgr := utils.NewCacheManager(nil)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	return db, nil, logger
+	return db, cacheMgr, logger
 }
 
 func runRegisterEstatus(cmd *cobra.Command, args []string) {

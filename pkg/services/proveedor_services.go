@@ -35,21 +35,17 @@ func (s *ServiceProveedor) GetProveedorByID(ctx context.Context, id uuid.UUID) (
 }
 
 func (s *ServiceProveedor) CreateProveedor(ctx context.Context, proveedor models.Proveedor) (*models.Proveedor, error) {
-	if proveedor.Nombre == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de proveedor con nombre vacío")
-		return nil, errors.New("falta el nombre del proveedor")
+	if proveedor.RazonSocial == "" {
+		s.logger.WarnContext(ctx, "Intento de creación de proveedor con razón social vacía")
+		return nil, errors.New("la razón social del proveedor es obligatoria")
 	}
-	if proveedor.IDSucursal == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de proveedor sin sucursal", slog.String("nombre", proveedor.Nombre))
-		return nil, errors.New("falta el id de la sucursal")
-	}
-	if proveedor.IDEmpresa == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de proveedor sin empresa", slog.String("nombre", proveedor.Nombre))
-		return nil, errors.New("falta el id de la empresa")
+	if proveedor.NitRut == "" {
+		s.logger.WarnContext(ctx, "Intento de creación de proveedor sin NIT/RUT", slog.String("razon_social", proveedor.RazonSocial))
+		return nil, errors.New("el NIT/RUT del proveedor es obligatorio")
 	}
 	if proveedor.IDStatus == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de proveedor sin estatus", slog.String("nombre", proveedor.Nombre))
-		return nil, errors.New("falta el id de estatus")
+		s.logger.WarnContext(ctx, "Intento de creación de proveedor sin estatus", slog.String("razon_social", proveedor.RazonSocial))
+		return nil, errors.New("el ID de estatus es obligatorio")
 	}
 	return s.store.CreateProveedor(ctx, &proveedor)
 }
@@ -59,9 +55,9 @@ func (s *ServiceProveedor) UpdateProveedor(ctx context.Context, id uuid.UUID, pr
 		s.logger.WarnContext(ctx, "Intento de actualización de proveedor con ID nulo")
 		return nil, errors.New("el ID del proveedor es requerido")
 	}
-	if proveedor.Nombre == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización de proveedor con nombre vacío", slog.String("id", id.String()))
-		return nil, errors.New("falta el nombre del proveedor")
+	if proveedor.RazonSocial == "" {
+		s.logger.WarnContext(ctx, "Intento de actualización de proveedor con razón social vacía", slog.String("id", id.String()))
+		return nil, errors.New("la razón social del proveedor es obligatoria")
 	}
 	return s.store.UpdateProveedor(ctx, id, &proveedor)
 }
