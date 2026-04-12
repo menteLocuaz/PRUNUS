@@ -28,6 +28,9 @@ type StoreUsuario interface {
 
 	// Permisos y Módulos
 	GetPermisosByRol(ctx context.Context, rolID uuid.UUID) ([]string, error)
+
+	// Turnos
+	UpdateTurnoStatus(ctx context.Context, id uuid.UUID, enTurno bool) error
 }
 
 // storeUsuario implementación de la interfaz StoreUsuario
@@ -39,7 +42,7 @@ type storeUsuario struct {
 const usuarioSelectFields = `
 	u.id_usuario, u.id_sucursal, u.id_rol, u.username, u.email, u.usu_nombre, u.usu_dni,
 	COALESCE(u.usu_telefono, ''), COALESCE(u.usu_tarjeta_nfc, ''), COALESCE(u.usu_pin_pos, ''),
-	COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.created_at, u.updated_at, u.deleted_at,
+	COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.created_at, u.updated_at, u.deleted_at, u.en_turno,
 	
 	r.id_rol, r.nombre_rol, r.id_status,
 	su.id_sucursal, su.nombre_sucursal, su.id_status
@@ -56,7 +59,7 @@ func (s *storeUsuario) scanRowUsuario(scanner interface{ Scan(dest ...any) error
 	return scanner.Scan(
 		&u.IDUsuario, &u.IDSucursal, &u.IDRol, &u.Username, &u.Email, &u.UsuNombre, &u.UsuDNI,
 		&u.UsuTelefono, &u.UsuTarjetaNFC, &u.UsuPinPOS, &u.NombreTicket, &u.Password, &u.IDStatus,
-		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
+		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt, &u.EnTurno,
 		&u.Rol.IDRol, &u.Rol.RolNombre, &u.Rol.IDStatus,
 		&u.Sucursal.IDSucursal, &u.Sucursal.NombreSucursal, &u.Sucursal.IDStatus,
 	)
@@ -333,6 +336,13 @@ func (s *storeUsuario) GetUsuarioByPin(ctx context.Context, pin string) (*models
 		return nil, fmt.Errorf("pin inválido")
 	}
 	return usuario, err
+}
+
+func (s *storeUsuario) UpdateTurnoStatus(ctx context.Context, id uuid.UUID, enTurno bool) error {
+	defer performance.Trace(ctx, "store", "UpdateTurnoStatus", performance.DbThreshold, time.Now())
+	query := `UPDATE usuario SET en_turno = $1, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = $2`
+	_, err := s.db.ExecContext(ctx, query, enTurno, id)
+	return err
 }
 
 

@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS inventario_ia_movimiento(UUID, UUID, VARCHAR, VARCHAR, JSONB);

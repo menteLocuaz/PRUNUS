@@ -22,6 +22,10 @@ type StoreFactura interface {
 
 	// Formas de Pago
 	GetAllFormasPago(ctx context.Context) ([]*models.FormaPago, error)
+	GetFormaPagoByID(ctx context.Context, id uuid.UUID) (*models.FormaPago, error)
+	CreateFormaPago(ctx context.Context, f *models.FormaPago) (*models.FormaPago, error)
+	UpdateFormaPago(ctx context.Context, id uuid.UUID, f *models.FormaPago) (*models.FormaPago, error)
+	DeleteFormaPago(ctx context.Context, id uuid.UUID) error
 }
 
 type storeFactura struct {
@@ -239,7 +243,7 @@ func (s *storeFactura) GetAllImpuestos(ctx context.Context) ([]*models.Impuesto,
 }
 
 func (s *storeFactura) GetAllFormasPago(ctx context.Context) ([]*models.FormaPago, error) {
-	query := `SELECT id_forma_pago, fmp_codigo, fmp_descripcion, id_status FROM forma_pago WHERE deleted_at IS NULL`
+	query := `SELECT id_forma_pago, fmp_codigo, fmp_descripcion, id_status, created_at, updated_at FROM forma_pago WHERE deleted_at IS NULL ORDER BY created_at DESC`
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -249,10 +253,53 @@ func (s *storeFactura) GetAllFormasPago(ctx context.Context) ([]*models.FormaPag
 	var formas []*models.FormaPago
 	for rows.Next() {
 		f := &models.FormaPago{}
-		if err := rows.Scan(&f.IDFormaPago, &f.FmpCodigo, &f.FmpDescripcion, &f.IDStatus); err != nil {
+		if err := rows.Scan(&f.IDFormaPago, &f.FmpCodigo, &f.FmpDescripcion, &f.IDStatus, &f.CreatedAt, &f.UpdatedAt); err != nil {
 			return nil, err
 		}
 		formas = append(formas, f)
 	}
 	return formas, nil
+}
+
+func (s *storeFactura) GetFormaPagoByID(ctx context.Context, id uuid.UUID) (*models.FormaPago, error) {
+	query := `SELECT id_forma_pago, fmp_codigo, fmp_descripcion, id_status, created_at, updated_at FROM forma_pago WHERE id_forma_pago = $1 AND deleted_at IS NULL`
+	f := &models.FormaPago{}
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&f.IDFormaPago, &f.FmpCodigo, &f.FmpDescripcion, &f.IDStatus, &f.CreatedAt, &f.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (s *storeFactura) CreateFormaPago(ctx context.Context, f *models.FormaPago) (*models.FormaPago, error) {
+	query := `INSERT INTO forma_pago (fmp_codigo, fmp_descripcion, id_status) 
+	          VALUES ($1, $2, $3) 
+	          RETURNING id_forma_pago, created_at, updated_at`
+	
+	err := s.db.QueryRowContext(ctx, query, f.FmpCodigo, f.FmpDescripcion, f.IDStatus).Scan(
+		&f.IDFormaPago, &f.CreatedAt, &f.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (s *storeFactura) UpdateFormaPago(ctx context.Context, id uuid.UUID, f *models.FormaPago) (*models.FormaPago, error) {
+	query := `UPDATE forma_pago SET fmp_codigo = $1, fmp_descripcion = $2, id_status = $3, updated_at = NOW() 
+	          WHERE id_forma_pago = $4 AND deleted_at IS NULL
+	          RETURNING updated_at`
+	
+	err := s.db.QueryRowContext(ctx, query, f.FmpCodigo, f.FmpDescripcion, f.IDStatus, id).Scan(&f.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	f.IDFormaPago = id
+	return f, nil
+}
+
+func (s *storeFactura) DeleteFormaPago(ctx context.Context, id uuid.UUID) error {
+	query := `UPDATE forma_pago SET deleted_at = NOW() WHERE id_forma_pago = $1`
+	_, err := s.db.ExecContext(ctx, query, id)
+	return err
 }

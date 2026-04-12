@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -11,14 +12,16 @@ import (
 )
 
 type ServiceCaja struct {
-	store  store.StoreCaja
-	logger *slog.Logger
+	store        store.StoreCaja
+	usuarioStore store.StoreUsuario
+	logger       *slog.Logger
 }
 
-func NewServiceCaja(s store.StoreCaja, logger *slog.Logger) *ServiceCaja {
+func NewServiceCaja(s store.StoreCaja, u store.StoreUsuario, logger *slog.Logger) *ServiceCaja {
 	return &ServiceCaja{
-		store:  s,
-		logger: logger,
+		store:        s,
+		usuarioStore: u,
+		logger:       logger,
 	}
 }
 
@@ -67,4 +70,59 @@ func (s *ServiceCaja) RegistrarMovimiento(ctx context.Context, m models.Movimien
 
 func (s *ServiceCaja) GetMovimientos(ctx context.Context, sesionID uuid.UUID) ([]*models.MovimientoCaja, error) {
 	return s.store.GetMovimientosBySesion(ctx, sesionID)
+}
+
+// ArqueoYCierre realiza el cierre de jornada con comparativa y desasignación
+func (s *ServiceCaja) ArqueoYCierre(ctx context.Context, sesionID, usuarioID uuid.UUID, montoFisico float64) (map[string]interface{}, error) {
+	// 1. Obtener ventas en efectivo registradas en sistema para este turno
+	ventasSistema, err := s.store.GetVentasEfectivoBySesion(ctx, sesionID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener ventas de sistema: %w", err)
+	}
+
+	// 2. Calcular diferencia (Arqueo)
+	diferencia := montoFisico - ventasSistema
+	resultado := "CUADRADO"
+	if diferencia < 0 {
+		resultado = "FALTANTE"
+	} else if diferencia > 0 {
+		resultado = "SOBRANTE"
+	}
+
+	// 3. Cerrar la sesión en el store
+	ahora := time.Now()
+	sesion := &models.SesionCaja{
+		MontoCierre: montoFisico,
+		FechaCierre: &ahora,
+		Estado:      "CERRADA",
+	}
+	_, err = s.store.UpdateSesion(ctx, sesionID, sesion)
+	if err != nil {
+		return nil, fmt.Errorf("error al cerrar sesión: %w", err)
+	}
+
+	// 4. Desasignar al usuario (Seguridad)
+	err = s.usuarioStore.UpdateTurnoStatus(ctx, usuarioID, false)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "Sesión cerrada pero falló desasignación de usuario", 
+			slog.String("id_usuario", usuarioID.String()), 
+			slog.Any("error", err),
+		)
+	}
+
+	s.logger.InfoContext(ctx, "Cierre de jornada completado", 
+		slog.String("id_sesion", sesionID.String()),
+		slog.Float64("sistema", ventasSistema),
+		slog.Float64("fisico", montoFisico),
+		slog.Float64("diferencia", diferencia),
+		slog.String("resultado", resultado),
+	)
+
+	return map[string]interface{}{
+		"ventas_sistema": ventasSistema,
+		"efectivo_fisico": montoFisico,
+		"diferencia":     diferencia,
+		"resultado":      resultado,
+		"mensaje":        fmt.Sprintf("Cierre completado. Resultado: %s", resultado),
+	}, nil
 }

@@ -1,0 +1,2 @@
+-- La reversión de esta función depende de la existencia de la columna producto.stock.
+-- Se mantiene la versión corregida para coherencia con la normalización actual.

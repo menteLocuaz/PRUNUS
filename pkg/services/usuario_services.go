@@ -183,45 +183,48 @@ func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, req models.Log
 	var usuario *models.Usuario
 	var err error
 
+	s.logger.InfoContext(ctx, "[LOGIN] Intento de inicio de sesión", slog.String("email", req.Email), slog.String("username", req.Username))
+
 	// 1. Identificar el método de búsqueda
 	if req.Pin != "" {
-		// Login por PIN (Acceso rápido POS)
 		usuario, err = s.store.GetUsuarioByPin(ctx, req.Pin)
-		if err != nil {
-			return nil, errors.New("PIN inválido")
-		}
 	} else if req.Email != "" {
-		// Login por Email
 		usuario, err = s.store.GetUsuarioByEmail(ctx, strings.TrimSpace(req.Email))
 	} else if req.Username != "" {
-		// Login por Username
 		usuario, err = s.store.GetUsuarioByUsername(ctx, strings.TrimSpace(req.Username))
 	} else {
 		return nil, errors.New("debe proporcionar email, username o pin")
 	}
 
 	if err != nil {
-		s.logger.WarnContext(ctx, "Login fallido: usuario no encontrado", slog.Any("error", err))
+		s.logger.WarnContext(ctx, "[LOGIN] Usuario no encontrado o error en DB", slog.Any("error", err))
 		return nil, errors.New("credenciales inválidas")
 	}
 
-	// 2. Validar estatus activo
-	estatusActivo := uuid.MustParse("3a99d245-b34f-48a5-ac08-a5a010c5822f")
-	if usuario.IDStatus != estatusActivo {
+	// 2. Validar estatus activo (Usando constantes oficiales)
+	if usuario.IDStatus != models.EstatusGlobalActivo {
+		s.logger.WarnContext(ctx, "[LOGIN] Usuario inactivo", 
+			slog.String("id_usuario", usuario.IDUsuario.String()),
+			slog.String("status_actual", usuario.IDStatus.String()),
+			slog.String("status_esperado", models.EstatusGlobalActivo.String()),
+		)
 		return nil, errors.New("su cuenta no está activa")
 	}
 
-	// 3. Validar Password (solo si NO es login por PIN)
+	// 3. Validar Password
 	if req.Pin == "" {
 		if req.Password == "" {
 			return nil, errors.New("la contraseña es requerida")
 		}
 		if err := helper.CheckPassword(req.Password, usuario.Password); err != nil {
+			s.logger.WarnContext(ctx, "[LOGIN] Contraseña incorrecta", slog.String("id_usuario", usuario.IDUsuario.String()))
 			return nil, errors.New("credenciales inválidas")
 		}
 	}
 
-	// 4. Limpiar password y cargar permisos (usando el servicio con cache)
+	s.logger.InfoContext(ctx, "[LOGIN] Autenticación exitosa", slog.String("id_usuario", usuario.IDUsuario.String()))
+
+	// 4. Limpiar password y cargar permisos
 	usuario.Password = ""
 	if permisos, err := s.rolService.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
 		usuario.Permisos = permisos
