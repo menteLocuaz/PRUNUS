@@ -38,3 +38,19 @@ type AntiguedadDeudaDTO struct {
 	Rango string  `json:"rango"` // 0-30, 31-60, 61-90, 90+
 	Monto float64 `json:"monto"`
 }
+
+type MermaItemDTO struct {
+	IDProducto    string  `json:"id_producto"`
+	ProNombre     string  `json:"pro_nombre"`
+	ProCodigo     string  `json:"pro_codigo"`
+	CantidadMerma float64 `json:"cantidad_merma"`
+	Motivo        string  `json:"motivo"`
+	CostoTotal    float64 `json:"costo_total"`
+	Fecha         string  `json:"fecha"`
+}
+
+type MermasResponseDTO struct {
+	TotalMermas float64        `json:"total_mermas"`
+	Moneda      string         `json:"moneda"`
+	Items       []MermaItemDTO `json:"items"`
+}

@@ -300,7 +300,8 @@ func (s *storeInventario) RegistrarMovimiento(ctx context.Context, m *models.Mov
 
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		// Creamos el JSON de items para la función almacenada.
-		itemsJSON := fmt.Sprintf(`[{"id_producto": "%s", "cantidad": %f}]`, m.IDProducto, m.Cantidad)
+		itemsJSON := fmt.Sprintf(`[{"id_producto": "%s", "cantidad": %f, "precio_unitario": %f, "costo_unitario": %f}]`,
+			m.IDProducto, m.Cantidad, m.PrecioUnitario, m.CostoUnitario)
 
 		query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
 		          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
