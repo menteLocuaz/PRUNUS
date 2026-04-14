@@ -27,6 +27,7 @@ type JWTClaims struct {
 	IDRol      uuid.UUID `json:"id_rol"`
 	RolNombre  string    `json:"rol_nombre"`
 	IDSucursal uuid.UUID `json:"id_sucursal"`
+	IDEmpresa  uuid.UUID `json:"id_empresa"`
 	jwt.RegisteredClaims
 }
 

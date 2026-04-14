@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/prunus/pkg/helper"
+	"github.com/prunus/pkg/utils/tenancy"
 )
 
 // RequireAuth es un middleware que valida la presencia y validez del JWT token
@@ -46,6 +47,11 @@ func RequireAuth() func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, "user_email", claims.Email)
 			ctx = context.WithValue(ctx, "user_rol", claims.RolNombre)
 			ctx = context.WithValue(ctx, "user_sucursal", claims.IDSucursal)
+
+			// Inyectar tenancy usando claves tipadas para que los stores
+			// puedan filtrar datos por sucursal/empresa de forma automática
+			ctx = tenancy.WithSucursal(ctx, claims.IDSucursal)
+			ctx = tenancy.WithEmpresa(ctx, claims.IDEmpresa)
 
 			// Continuar con el siguiente handler
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -120,6 +126,8 @@ func OptionalAuth() func(http.Handler) http.Handler {
 			ctx = context.WithValue(ctx, "user_email", claims.Email)
 			ctx = context.WithValue(ctx, "user_rol", claims.RolNombre)
 			ctx = context.WithValue(ctx, "user_sucursal", claims.IDSucursal)
+			ctx = tenancy.WithSucursal(ctx, claims.IDSucursal)
+			ctx = tenancy.WithEmpresa(ctx, claims.IDEmpresa)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
