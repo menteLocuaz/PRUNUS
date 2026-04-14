@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	zaplogger "github.com/prunus/pkg/utils/logger"
@@ -23,8 +24,8 @@ func NewServiceProveedor(s store.StoreProveedor, logger *zap.Logger) *ServicePro
 	}
 }
 
-func (s *ServiceProveedor) GetAllProveedores(ctx context.Context) ([]*models.Proveedor, error) {
-	return s.store.GetAllProveedores(ctx)
+func (s *ServiceProveedor) GetAllProveedores(ctx context.Context, params dto.PaginationParams) ([]*models.Proveedor, error) {
+	return s.store.GetAllProveedores(ctx, params)
 }
 
 func (s *ServiceProveedor) GetProveedorByID(ctx context.Context, id uuid.UUID) (*models.Proveedor, error) {

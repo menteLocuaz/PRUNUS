@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
@@ -15,7 +16,7 @@ import (
 // StoreCliente define las operaciones de persistencia para el catálogo de clientes.
 // Sigue el patrón Repository para desacoplar la lógica de negocio de la base de datos.
 type StoreCliente interface {
-	GetAllClientes(ctx context.Context) ([]*models.Cliente, error)
+	GetAllClientes(ctx context.Context, params dto.PaginationParams) ([]*models.Cliente, error)
 	GetClienteByID(ctx context.Context, id uuid.UUID) (*models.Cliente, error)
 	CreateCliente(ctx context.Context, cliente *models.Cliente) (*models.Cliente, error)
 	UpdateCliente(ctx context.Context, id uuid.UUID, cliente *models.Cliente) (*models.Cliente, error)
@@ -58,18 +59,30 @@ func (s *storeCliente) scanRowCliente(scanner interface{ Scan(dest ...any) error
 	return nil
 }
 
-// GetAllClientes recupera todos los clientes activos (no eliminados lógicamente).
-func (s *storeCliente) GetAllClientes(ctx context.Context) ([]*models.Cliente, error) {
+// GetAllClientes recupera todos los clientes activos con soporte para paginación.
+func (s *storeCliente) GetAllClientes(ctx context.Context, params dto.PaginationParams) ([]*models.Cliente, error) {
 	defer performance.Trace(ctx, "store", "GetAllClientes", performance.DbThreshold, time.Now())
 	
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM cliente c
 		WHERE c.deleted_at IS NULL
-		ORDER BY c.nombre_completo ASC
 	`, clienteSelectFields)
 
-	rows, err := s.db.QueryContext(ctx, query)
+	var args []interface{}
+	if params.LastDate != nil {
+		query += " AND c.created_at < $1"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY c.created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener clientes: %w", err)
 	}

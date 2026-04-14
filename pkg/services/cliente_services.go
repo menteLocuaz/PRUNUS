@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	zaplogger "github.com/prunus/pkg/utils/logger"
@@ -25,9 +26,9 @@ func NewServiceCliente(s store.StoreCliente, logger *zap.Logger) *ServiceCliente
 	}
 }
 
-// GetAllClientes recupera la lista completa de clientes desde el store.
-func (s *ServiceCliente) GetAllClientes(ctx context.Context) ([]*models.Cliente, error) {
-	return s.store.GetAllClientes(ctx)
+// GetAllClientes recupera una lista paginada de clientes.
+func (s *ServiceCliente) GetAllClientes(ctx context.Context, params dto.PaginationParams) ([]*models.Cliente, error) {
+	return s.store.GetAllClientes(ctx, params)
 }
 
 // GetClienteByID busca un cliente específico validando que el ID sea correcto.

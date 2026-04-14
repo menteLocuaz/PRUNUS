@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
 
 // StoreUsuario interfaz que define las operaciones de acceso a datos para usuario
 type StoreUsuario interface {
-	GetAllUsuarios(ctx context.Context) ([]*models.Usuario, error)
+	GetAllUsuarios(ctx context.Context, params dto.PaginationParams) ([]*models.Usuario, error)
 	GetUsuarioByID(ctx context.Context, id uuid.UUID) (*models.Usuario, error)
 	GetUsuarioByEmail(ctx context.Context, email string) (*models.Usuario, error)
 	GetUsuarioByUsername(ctx context.Context, username string) (*models.Usuario, error)
@@ -80,19 +81,32 @@ func NewUsuario(db *sql.DB) StoreUsuario {
 	return &storeUsuario{db: db}
 }
 
-// GetAllUsuarios obtiene todos los usuarios activos (no eliminados) con su rol
-func (s *storeUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, error) {
+// GetAllUsuarios obtiene todos los usuarios activos con soporte para paginación.
+func (s *storeUsuario) GetAllUsuarios(ctx context.Context, params dto.PaginationParams) ([]*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "GetAllUsuarios", performance.DbThreshold, time.Now())
+	
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM usuario u
 		LEFT JOIN rol r ON u.id_rol = r.id_rol
 		LEFT JOIN sucursal su ON su.id_sucursal = u.id_sucursal
 		WHERE u.deleted_at IS NULL
-		ORDER BY u.created_at DESC
 	`, usuarioSelectFields)
 
-	rows, err := s.db.QueryContext(ctx, query)
+	var args []interface{}
+	if params.LastDate != nil {
+		query += " AND u.created_at < $1"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY u.created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener usuarios: %w", err)
 	}

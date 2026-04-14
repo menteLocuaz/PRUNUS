@@ -1,140 +1,105 @@
-# Guía de Comandos CLI - Prunus API
+# Referencia de Comandos CLI - Prunus API
 
-Esta documentación detalla el uso de la interfaz de línea de comandos (CLI) de Prunus, construida sobre **Cobra** y **Viper**. La CLI permite gestionar el ciclo de vida de la aplicación, desde la ejecución de migraciones hasta el despliegue del servidor.
+Esta guía proporciona una referencia técnica detallada de la interfaz de línea de comandos (CLI) de Prunus. La CLI está diseñada para gestionar el ciclo de vida de la aplicación, la base de datos y los servicios auxiliares.
 
-## 1. Entorno de Desarrollo
+## 1. Comando `serve`
 
-Para la ejecución rápida durante el desarrollo sin necesidad de compilar manualmente, utilice `go run`.
+Inicia el servidor API REST y levanta los servicios en segundo plano (workers).
 
-### Iniciar Servidor
+### Uso
 ```bash
-# Ejecución estándar (Puerto por defecto: 9090)
-go run ./cmd/ serve
+./prunus serve [flags]
+```
 
-# Especificar un puerto dinámico
-go run ./cmd/ serve --port 8080
+### Flags Específicos
+| Flag | Tipo | Descripción | Por defecto |
+|------|------|-------------|-------------|
+| `--port`, `-p` | string | Puerto de escucha del servidor HTTP. | `9090` |
+| `--auto-migrate` | bool | Ejecuta automáticamente las migraciones pendientes (`migrate up`) antes de iniciar el servidor. | `false` |
 
-# Cargar un archivo de configuración específico
-go run ./cmd/ serve --config .env.dev
+### Comportamiento al inicio
+- Valida las variables de entorno críticas (`DB_*`, `JWT_SECRET`).
+- Establece conexiones a PostgreSQL y Redis.
+- **Trazabilidad de Versión:** Si `--auto-migrate` no está activo, el servidor consulta y muestra en los logs la versión actual de la base de datos y su estado (limpio/dirty).
+- Inicia el worker de snapshots de inventario (cada 24 horas).
+
+---
+
+## 2. Comando `migrate`
+
+Gestión avanzada del esquema de la base de datos mediante archivos SQL en `database/migrations`.
+
+### Subcomandos
+
+#### `migrate up`
+Aplica todas las migraciones pendientes para actualizar el esquema a la última versión disponible.
+```bash
+./prunus migrate up
+```
+
+#### `migrate down [n]`
+Revierte las migraciones aplicadas. Por defecto revierte la última.
+```bash
+# Revertir solo la última
+./prunus migrate down
+
+# Revertir las últimas 3
+./prunus migrate down 3
+```
+
+#### `migrate version`
+Muestra la versión actual aplicada en la base de datos y detecta si el estado es **DIRTY** (indicando una migración fallida que requiere intervención).
+```bash
+./prunus migrate version
+```
+
+#### `migrate force <version>`
+Fuerza la base de datos a una versión específica. Se utiliza principalmente para limpiar el estado **DIRTY** después de corregir manualmente un error de migración.
+```bash
+./prunus migrate force 41
 ```
 
 ---
 
-## 2. Producción y Despliegue
+## 3. Comando `seed`
 
-En entornos de producción (como Debian/Linux), se recomienda compilar el proyecto para obtener un binario optimizado.
+Puebla la base de datos con datos maestros esenciales para el funcionamiento inicial del sistema.
 
-### Compilación
+### Uso
 ```bash
-# Generar el binario 'prunus'
-go build -o prunus ./cmd/
+./prunus seed
 ```
 
-### Ejecución del Binario
-Una vez compilado, el binario puede ejecutarse directamente:
-```bash
-./prunus serve
-```
+### Datos Incluidos
+- **Módulos Base:** Inserta o actualiza los módulos de Configuración, Sucursales, Usuarios, Productos, Ventas y Caja.
+- **Permisos Administrativos:** Asigna permisos completos (Lectura, Escritura, Actualización, Borrado) sobre todos los módulos a cualquier rol con el nombre "Administrador".
 
 ---
 
-## 3. Gestión de Base de Datos
+## 4. Comando `cache`
 
-Prunus utiliza comandos dedicados para la administración del esquema de base de datos. Se recomienda ejecutar las migraciones antes de iniciar el servicio en entornos productivos.
+Gestión del almacenamiento volátil en Redis.
 
-### Ejecutar Migraciones
-```bash
-./prunus migrate
-```
-
-### Flujo de Despliegue Recomendado
-```bash
-# 1. Actualizar esquema
-./prunus migrate
-
-# 2. Iniciar servicio si el paso anterior fue exitoso
-./prunus serve
-```
+### Subcomandos
+- `clear`: Ejecuta un `FlushDB` en la instancia de Redis configurada para limpiar todos los datos cacheados (catálogos, sesiones, etc.).
 
 ---
 
-## 4. Gestión de Caché
+## Flags Globales
 
-Prunus utiliza Redis para el almacenamiento de caché de catálogos y sesiones. Puede gestionar la limpieza de la base de datos de caché de forma manual.
+Estos flags están disponibles para todos los comandos de la CLI.
 
-### Limpiar Caché (FlushDB)
-```bash
-# Ejecución con go run
-go run ./cmd/ cache clear
-
-# Con el binario compilado
-./prunus cache clear
-```
+| Flag | Descripción |
+|------|-------------|
+| `--config` | Ruta al archivo de configuración de entorno (ej. `.env.production`). Por defecto busca `.env` en el directorio raíz. |
+| `--help`, `-h` | Muestra la ayuda detallada del comando o subcomando. |
 
 ---
 
-## 5. Referencia y Ayuda
+## Flujo de Despliegue Recomendado (Receta)
 
-La CLI es autodocumentada. Puede consultar la ayuda global o específica de cada comando en cualquier momento.
+Para un despliegue seguro en entornos de producción, se recomienda el siguiente orden de ejecución:
 
-### Ayuda Global
-```bash
-./prunus --help
-```
-
-### Ayuda por Comando
-```bash
-./prunus serve --help
-./prunus migrate --help
-./prunus cache --help
-```
-
----
-
-## Parámetros Comunes (Flags)
-
-| Flag | Descripción | Ejemplo |
-|------|-------------|---------|
-| `--port` | Define el puerto de escucha del servidor HTTP. | `--port 9090` |
-| `--config` | Especifica la ruta del archivo de configuración (.env). | `--config .env.prod` |
-| `--help` | Muestra información detallada del comando. | `-h` o `--help` |
-
----
-
-## 6. Configuración en Debian (systemd)
-
-Para asegurar que Prunus se inicie automáticamente tras un reinicio del servidor y se mantenga en ejecución, utilice el archivo de servicio de `systemd` incluido en `deployment/systemd/prunus.service`.
-
-### Pasos de Instalación
-
-1. **Preparar Directorios y Usuario**:
-   ```bash
-   # Crear directorio de instalación
-   sudo mkdir -p /opt/prunus
-   sudo chown www-data:www-data /opt/prunus
-
-   # Copiar binario y archivos necesarios
-   sudo cp prunus .env /opt/prunus/
-   
-   # Crear directorio de logs
-   sudo mkdir -p /var/log/prunus
-   sudo chown www-data:www-data /var/log/prunus
-   ```
-
-2. **Instalar el Servicio**:
-   ```bash
-   sudo cp deployment/systemd/prunus.service /etc/systemd/system/prunus.service
-   sudo systemctl daemon-reload
-   ```
-
-3. **Gestionar el Servicio**:
-   ```bash
-   # Iniciar el servicio y habilitarlo al arranque
-   sudo systemctl enable --now prunus
-
-   # Consultar el estado
-   sudo systemctl status prunus
-
-   # Ver logs en tiempo real
-   sudo journalctl -u prunus -f
-   ```
+1. **Migrar:** `./prunus migrate up` (o usar el flag `--auto-migrate` en el paso 3).
+2. **Seed (Opcional):** `./prunus seed` (solo si es una instalación nueva o se añadieron módulos).
+3. **Servir:** `./prunus serve --port 80`

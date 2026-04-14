@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/helper"
 	"github.com/prunus/pkg/middleware"
 	"github.com/prunus/pkg/models"
@@ -61,9 +62,9 @@ func (s *ServiceUsuario) validateUser(u *models.Usuario, isUpdate bool) error {
 	return nil
 }
 
-// GetAllUsuarios obtiene todos los usuarios del sistema
-func (s *ServiceUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario, error) {
-	return s.store.GetAllUsuarios(ctx)
+// GetAllUsuarios obtiene una lista paginada de usuarios del sistema
+func (s *ServiceUsuario) GetAllUsuarios(ctx context.Context, params dto.PaginationParams) ([]*models.Usuario, error) {
+	return s.store.GetAllUsuarios(ctx, params)
 }
 
 // GetUsuarioByID obtiene un usuario por su ID con sus permisos cargados (vía cache)

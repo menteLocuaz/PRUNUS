@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
 
 // StoreProveedor define las operaciones de persistencia para el catálogo de proveedores.
 type StoreProveedor interface {
-	GetAllProveedores(ctx context.Context) ([]*models.Proveedor, error)
+	GetAllProveedores(ctx context.Context, params dto.PaginationParams) ([]*models.Proveedor, error)
 	GetProveedorByID(ctx context.Context, id uuid.UUID) (*models.Proveedor, error)
 	CreateProveedor(ctx context.Context, proveedor *models.Proveedor) (*models.Proveedor, error)
 	UpdateProveedor(ctx context.Context, id uuid.UUID, proveedor *models.Proveedor) (*models.Proveedor, error)
@@ -55,16 +56,29 @@ func (s *storeProveedor) scanRowProveedor(scanner interface{ Scan(dest ...any) e
 	return nil
 }
 
-func (s *storeProveedor) GetAllProveedores(ctx context.Context) ([]*models.Proveedor, error) {
+func (s *storeProveedor) GetAllProveedores(ctx context.Context, params dto.PaginationParams) ([]*models.Proveedor, error) {
 	defer performance.Trace(ctx, "store", "GetAllProveedores", performance.DbThreshold, time.Now())
+	
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM proveedor p
 		WHERE p.deleted_at IS NULL
-		ORDER BY p.razon_social ASC
 	`, proveedorSelectFields)
 
-	rows, err := s.db.QueryContext(ctx, query)
+	var args []interface{}
+	if params.LastDate != nil {
+		query += " AND p.created_at < $1"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY p.created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener proveedores: %w", err)
 	}
