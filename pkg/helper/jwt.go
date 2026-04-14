@@ -64,6 +64,12 @@ func GenerateToken(usuario *models.Usuario) (string, int64, error) {
 		idRol = usuario.Rol.IDRol
 	}
 
+	// Extraer empresa del tenant (disponible cuando la sucursal se cargó con join)
+	idEmpresa := uuid.Nil
+	if usuario.Sucursal != nil {
+		idEmpresa = usuario.Sucursal.IDEmpresa
+	}
+
 	// Crear los claims
 	claims := &models.JWTClaims{
 		IDUsuario:  usuario.IDUsuario,
@@ -71,6 +77,7 @@ func GenerateToken(usuario *models.Usuario) (string, int64, error) {
 		IDRol:      idRol,
 		RolNombre:  rolNombre,
 		IDSucursal: usuario.IDSucursal,
+		IDEmpresa:  idEmpresa,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

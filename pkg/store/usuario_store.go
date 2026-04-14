@@ -39,14 +39,15 @@ type storeUsuario struct {
 	db *sql.DB
 }
 
-// Campos base para SELECT de usuario con sus joins de Rol y Sucursal
+// Campos base para SELECT de usuario con sus joins de Rol y Sucursal.
+// Se incluye su.id_empresa para que el JWT pueda transportar el tenant de empresa.
 const usuarioSelectFields = `
 	u.id_usuario, u.id_sucursal, u.id_rol, u.username, u.email, u.usu_nombre, u.usu_dni,
 	COALESCE(u.usu_telefono, ''), COALESCE(u.usu_tarjeta_nfc, ''), COALESCE(u.usu_pin_pos, ''),
 	COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.metadata, u.created_at, u.updated_at, u.deleted_at, u.en_turno,
-	
+
 	r.id_rol, r.nombre_rol, r.id_status,
-	su.id_sucursal, su.nombre_sucursal, su.id_status
+	su.id_sucursal, su.nombre_sucursal, su.id_status, su.id_empresa
 `
 
 // scanRowUsuario es un helper centralizado para escanear las columnas definidas en usuarioSelectFields
@@ -63,7 +64,7 @@ func (s *storeUsuario) scanRowUsuario(scanner interface{ Scan(dest ...any) error
 		&u.UsuTelefono, &u.UsuTarjetaNFC, &u.UsuPinPOS, &u.NombreTicket, &u.Password, &u.IDStatus, &metadataJSON,
 		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt, &u.EnTurno,
 		&u.Rol.IDRol, &u.Rol.RolNombre, &u.Rol.IDStatus,
-		&u.Sucursal.IDSucursal, &u.Sucursal.NombreSucursal, &u.Sucursal.IDStatus,
+		&u.Sucursal.IDSucursal, &u.Sucursal.NombreSucursal, &u.Sucursal.IDStatus, &u.Sucursal.IDEmpresa,
 	)
 	if err != nil {
 		return err
