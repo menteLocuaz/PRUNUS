@@ -2,19 +2,19 @@ package services
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"go.uber.org/zap"
 )
 
 type ServiceOrdenPedido struct {
 	store  store.StoreOrdenPedido
-	logger *slog.Logger
+	logger *zap.Logger
 }
 
-func NewServiceOrdenPedido(s store.StoreOrdenPedido, logger *slog.Logger) *ServiceOrdenPedido {
+func NewServiceOrdenPedido(s store.StoreOrdenPedido, logger *zap.Logger) *ServiceOrdenPedido {
 	return &ServiceOrdenPedido{
 		store:  s,
 		logger: logger,

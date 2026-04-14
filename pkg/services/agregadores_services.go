@@ -2,19 +2,19 @@ package services
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"go.uber.org/zap"
 )
 
 type ServiceAgregadores struct {
 	store  store.StoreAgregadores
-	logger *slog.Logger
+	logger *zap.Logger
 }
 
-func NewServiceAgregadores(s store.StoreAgregadores, logger *slog.Logger) *ServiceAgregadores {
+func NewServiceAgregadores(s store.StoreAgregadores, logger *zap.Logger) *ServiceAgregadores {
 	return &ServiceAgregadores{
 		store:  s,
 		logger: logger,

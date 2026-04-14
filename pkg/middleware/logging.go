@@ -2,13 +2,15 @@ package middleware
 
 import (
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	zaplogger "github.com/prunus/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 // loggingResponseWriter es un wrapper de http.ResponseWriter que captura
@@ -53,17 +55,8 @@ type LogConfig struct {
 	// LogUserAgent indica si se debe loguear el User-Agent
 	LogUserAgent bool
 
-	// TimeFormat es el formato de tiempo a usar (mantenido por compatibilidad)
-	TimeFormat string
-
 	// Output es donde se escribirán los logs (default: os.Stdout)
 	Output io.Writer
-
-	// UseJSON indica si los logs deben ser en formato JSON estructurado
-	UseJSON bool
-
-	// ColorOutput indica si usar colores (mantenido por compatibilidad, slog no lo soporta nativamente en TextHandler)
-	ColorOutput bool
 }
 
 // DefaultLogConfig retorna una configuración por defecto para el middleware.
@@ -73,24 +66,18 @@ func DefaultLogConfig() *LogConfig {
 		LogHeaders:     false,
 		LogQueryParams: true,
 		LogUserAgent:   true,
-		TimeFormat:     time.RFC3339,
 		Output:         os.Stdout,
-		UseJSON:        true,
-		ColorOutput:    false,
 	}
 }
 
-// SimpleLogConfig retorna una configuración simple para logs en texto plano.
+// SimpleLogConfig retorna una configuración simple.
 func SimpleLogConfig() *LogConfig {
 	return &LogConfig{
 		SkipPaths:      []string{},
 		LogHeaders:     false,
 		LogQueryParams: false,
 		LogUserAgent:   false,
-		TimeFormat:     "2006-01-02 15:04:05",
 		Output:         os.Stdout,
-		UseJSON:        false,
-		ColorOutput:    true,
 	}
 }
 
@@ -101,10 +88,7 @@ func ProductionLogConfig() *LogConfig {
 		LogHeaders:     false,
 		LogQueryParams: true,
 		LogUserAgent:   true,
-		TimeFormat:     time.RFC3339,
 		Output:         os.Stdout,
-		UseJSON:        true,
-		ColorOutput:    false,
 	}
 }
 
@@ -115,10 +99,7 @@ func VerboseLogConfig() *LogConfig {
 		LogHeaders:     true,
 		LogQueryParams: true,
 		LogUserAgent:   true,
-		TimeFormat:     time.RFC3339Nano,
 		Output:         os.Stdout,
-		UseJSON:        true,
-		ColorOutput:    false,
 	}
 }
 
@@ -129,35 +110,20 @@ func DevelopmentLogConfig() *LogConfig {
 		LogHeaders:     false,
 		LogQueryParams: true,
 		LogUserAgent:   false,
-		TimeFormat:     "15:04:05",
 		Output:         os.Stdout,
-		UseJSON:        false,
-		ColorOutput:    true,
 	}
 }
 
-// Logger es el middleware de logging optimizado que registra información de cada petición HTTP usando slog.
-func Logger(config *LogConfig) func(http.Handler) http.Handler {
+// Logger es el middleware de logging que registra cada petición HTTP en formato JSON
+// usando zap. Incluye automáticamente request_id y user_id del contexto en cada log,
+// lo que permite correlación de trazas en ELK / Grafana.
+func Logger(config *LogConfig, log *zap.Logger) func(http.Handler) http.Handler {
 	if config == nil {
 		config = DefaultLogConfig()
 	}
-
 	if config.Output == nil {
 		config.Output = os.Stdout
 	}
-
-	var slogHandler slog.Handler
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}
-
-	if config.UseJSON {
-		slogHandler = slog.NewJSONHandler(config.Output, opts)
-	} else {
-		slogHandler = slog.NewTextHandler(config.Output, opts)
-	}
-
-	logger := slog.New(slogHandler)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,55 +148,44 @@ func Logger(config *LogConfig) func(http.Handler) http.Handler {
 			next.ServeHTTP(lrw, r)
 
 			latency := time.Since(start)
-			ctx := r.Context()
 
-			// Pre-asignar slice de atributos para evitar re-allocations constantes (capacidad estimada de 16)
-			attrs := make([]slog.Attr, 0, 16)
-
-			// Extraer Request ID del contexto si existe
-			if reqID := GetRequestID(ctx); reqID != "" {
-				attrs = append(attrs, slog.String("request_id", reqID))
-			}
-
-			attrs = append(attrs,
-				slog.String("method", r.Method),
-				slog.String("path", r.URL.Path),
-				slog.Int("status", lrw.statusCode),
-				slog.Duration("latency", latency),
-				slog.Int64("latency_ms", latency.Milliseconds()),
-				slog.String("client_ip", getClientIP(r)),
-				slog.Int64("bytes_out", lrw.written),
+			// Logger enriquecido con request_id y user_id del contexto
+			entry := zaplogger.WithContext(r.Context(), log).With(
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path),
+				zap.Int("status", lrw.statusCode),
+				zap.Duration("latency", latency),
+				zap.Int64("latency_ms", latency.Milliseconds()),
+				zap.String("client_ip", getClientIP(r)),
+				zap.Int64("bytes_out", lrw.written),
 			)
 
 			if config.LogQueryParams && r.URL.RawQuery != "" {
-				attrs = append(attrs, slog.String("query", r.URL.RawQuery))
+				entry = entry.With(zap.String("query", r.URL.RawQuery))
 			}
 
 			if config.LogUserAgent {
-				attrs = append(attrs, slog.String("user_agent", r.UserAgent()))
+				entry = entry.With(zap.String("user_agent", r.UserAgent()))
 			}
 
 			if config.LogHeaders {
-				headerAttrs := make([]slog.Attr, 0, len(r.Header))
+				headerFields := make([]zap.Field, 0, len(r.Header))
 				for key, values := range r.Header {
-					headerAttrs = append(headerAttrs, slog.String(key, strings.Join(values, ", ")))
+					headerFields = append(headerFields, zap.String(key, strings.Join(values, ", ")))
 				}
-				attrs = append(attrs, slog.Attr{
-					Key:   "headers",
-					Value: slog.GroupValue(headerAttrs...),
-				})
+				entry = entry.With(zap.Namespace("headers"))
+				entry = entry.With(headerFields...)
 			}
 
-			// Determinar el nivel de log basado en el código de estado
-			level := slog.LevelInfo
-			if lrw.statusCode >= 500 {
-				level = slog.LevelError
-			} else if lrw.statusCode >= 400 {
-				level = slog.LevelWarn
+			// Nivel de log según código de estado
+			switch {
+			case lrw.statusCode >= 500:
+				entry.Error("Petición HTTP completada")
+			case lrw.statusCode >= 400:
+				entry.Warn("Petición HTTP completada")
+			default:
+				entry.Info("Petición HTTP completada")
 			}
-
-			// Usar el contexto de la petición para permitir tracing y propagación de datos
-			logger.LogAttrs(r.Context(), level, "Petición HTTP completada", attrs...)
 		})
 	}
 }

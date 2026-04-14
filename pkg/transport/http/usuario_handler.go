@@ -1,15 +1,13 @@
 package transport
 
 import (
-	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils/request"
 	"github.com/prunus/pkg/utils/response"
-	"github.com/prunus/pkg/utils/validator"
 )
 
 // UsuarioHandler maneja las solicitudes HTTP relacionadas con usuarios
@@ -34,10 +32,9 @@ func (h *UsuarioHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 
 // GetByID obtiene un usuario por ID
 func (h *UsuarioHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
+	id, err := request.GetID(r, "id")
 	if err != nil {
-		response.BadRequest(w, "ID inválido")
+		response.HandleError(w, err)
 		return
 	}
 
@@ -52,13 +49,8 @@ func (h *UsuarioHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // Create crea un nuevo usuario
 func (h *UsuarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.UsuarioCreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "JSON inválido")
-		return
-	}
-
-	if err := validator.Validate.Struct(req); err != nil {
-		response.ValidationError(w, validator.FormatErrors(err))
+	if err := request.DecodeAndValidate(r, &req); err != nil {
+		response.HandleError(w, err)
 		return
 	}
 
@@ -72,21 +64,15 @@ func (h *UsuarioHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // Update actualiza un usuario existente
 func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
+	id, err := request.GetID(r, "id")
 	if err != nil {
-		response.BadRequest(w, "ID inválido")
+		response.HandleError(w, err)
 		return
 	}
 
 	var req dto.UsuarioUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "JSON inválido")
-		return
-	}
-
-	if err := validator.Validate.Struct(req); err != nil {
-		response.ValidationError(w, validator.FormatErrors(err))
+	if err := request.DecodeAndValidate(r, &req); err != nil {
+		response.HandleError(w, err)
 		return
 	}
 
@@ -101,13 +87,8 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 // Administrar maneja la gestión integral de un usuario (Supermercado)
 func (h *UsuarioHandler) Administrar(w http.ResponseWriter, r *http.Request) {
 	var req dto.UsuarioCreateRequest // Reutilizamos el create para administración integral
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "JSON inválido")
-		return
-	}
-
-	if err := validator.Validate.Struct(req); err != nil {
-		response.ValidationError(w, validator.FormatErrors(err))
+	if err := request.DecodeAndValidate(r, &req); err != nil {
+		response.HandleError(w, err)
 		return
 	}
 
@@ -118,14 +99,10 @@ func (h *UsuarioHandler) Administrar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	var userID uuid.UUID
-	if idStr != "" {
-		userID, _ = uuid.Parse(idStr)
-	}
+	id, _ := request.GetID(r, "id") // Puede ser uuid.Nil si no está presente
 
 	usuario := req.ToModel()
-	usuario.IDUsuario = userID
+	usuario.IDUsuario = id
 
 	resp, err := h.service.AdministrarUsuario(r.Context(), usuario, adminID)
 	if err != nil {
@@ -137,10 +114,9 @@ func (h *UsuarioHandler) Administrar(w http.ResponseWriter, r *http.Request) {
 
 // Delete elimina un usuario
 func (h *UsuarioHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
+	id, err := request.GetID(r, "id")
 	if err != nil {
-		response.BadRequest(w, "ID inválido")
+		response.HandleError(w, err)
 		return
 	}
 

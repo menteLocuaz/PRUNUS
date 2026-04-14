@@ -11,6 +11,7 @@ import (
 	"github.com/prunus/pkg/utils/performance"
 )
 
+// StoreEstatus define la interfaz para el acceso a datos de la tabla estatus.
 type StoreEstatus interface {
 	GetAllEstatus(ctx context.Context) ([]*models.Estatus, error)
 	GetEstatusByID(ctx context.Context, id uuid.UUID) (*models.Estatus, error)
@@ -25,30 +26,39 @@ type storeEstatus struct {
 	db *sql.DB
 }
 
+// NewEstatus crea una nueva instancia de StoreEstatus.
 func NewEstatus(db *sql.DB) StoreEstatus {
 	return &storeEstatus{db: db}
 }
 
-// estatusSelectFields incluye COALESCE para std_tipo_estado para evitar errores 500 con nulos.
+// estatusSelectFields incluye todos los campos necesarios para poblar el modelo models.Estatus.
+// Se utiliza COALESCE para manejar posibles valores nulos en columnas agregadas recientemente.
 const estatusSelectFields = `
 	id_status, 
 	std_descripcion, 
 	COALESCE(std_tipo_estado, '') as std_tipo_estado, 
+	COALESCE(factor, '') as factor,
+	COALESCE(nivel, 0) as nivel,
 	mdl_id, 
 	is_active,
 	created_at, 
-	updated_at
+	updated_at,
+	deleted_at
 `
 
+// scanRowEstatus centraliza el mapeo de las columnas de la base de datos al struct del modelo.
 func (s *storeEstatus) scanRowEstatus(scanner interface{ Scan(dest ...any) error }, e *models.Estatus) error {
 	return scanner.Scan(
 		&e.IDStatus,
 		&e.StdDescripcion,
 		&e.StdTipoEstado,
+		&e.Factor,
+		&e.Nivel,
 		&e.MdlID,
 		&e.IsActive,
 		&e.CreatedAt,
 		&e.UpdatedAt,
+		&e.DeletedAt,
 	)
 }
 
@@ -58,7 +68,7 @@ func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, er
 		SELECT %s 
 		FROM estatus 
 		WHERE deleted_at IS NULL 
-		ORDER BY created_at DESC
+		ORDER BY mdl_id, nivel, std_descripcion
 	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query)
@@ -133,7 +143,7 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 		SELECT %s 
 		FROM estatus 
 		WHERE mdl_id = $1 AND deleted_at IS NULL
-		ORDER BY std_descripcion ASC
+		ORDER BY nivel, std_descripcion ASC
 	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query, moduloID)
@@ -156,22 +166,27 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 
 func (s *storeEstatus) CreateEstatus(ctx context.Context, estatus *models.Estatus) (*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "CreateEstatus", performance.DbThreshold, time.Now())
-	query := `
-	INSERT INTO estatus (std_descripcion, std_tipo_estado, mdl_id, is_active)
-	VALUES ($1, $2, $3, $4)
-	RETURNING id_status, created_at, updated_at
-	`
+	
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			INSERT INTO estatus (std_descripcion, std_tipo_estado, factor, nivel, mdl_id, is_active)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id_status, created_at, updated_at
+		`
+		return tx.QueryRowContext(ctx, query, 
+			estatus.StdDescripcion, 
+			estatus.StdTipoEstado, 
+			estatus.Factor,
+			estatus.Nivel,
+			estatus.MdlID,
+			estatus.IsActive,
+		).Scan(
+			&estatus.IDStatus,
+			&estatus.CreatedAt,
+			&estatus.UpdatedAt,
+		)
+	})
 
-	err := s.db.QueryRowContext(ctx, query, 
-		estatus.StdDescripcion, 
-		estatus.StdTipoEstado, 
-		estatus.MdlID,
-		estatus.IsActive,
-	).Scan(
-		&estatus.IDStatus,
-		&estatus.CreatedAt,
-		&estatus.UpdatedAt,
-	)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear estatus: %w", err)
 	}
@@ -181,37 +196,36 @@ func (s *storeEstatus) CreateEstatus(ctx context.Context, estatus *models.Estatu
 
 func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus *models.Estatus) (*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "UpdateEstatus", performance.DbThreshold, time.Now())
-	query := `
-	UPDATE estatus
-	SET 
-		std_descripcion = $1, 
-		std_tipo_estado = $2, 
-		mdl_id = $3, 
-		is_active = $4,
-		updated_at = CURRENT_TIMESTAMP
-	WHERE id_status = $5 AND deleted_at IS NULL
-	RETURNING id_status, std_descripcion, std_tipo_estado, mdl_id, is_active, created_at, updated_at
-	`
+	
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `
+			UPDATE estatus
+			SET 
+				std_descripcion = $1, 
+				std_tipo_estado = $2, 
+				factor = $3,
+				nivel = $4,
+				mdl_id = $5, 
+				is_active = $6,
+				updated_at = CURRENT_TIMESTAMP
+			WHERE id_status = $7 AND deleted_at IS NULL
+			RETURNING id_status, created_at, updated_at
+		`
+		return tx.QueryRowContext(ctx, query, 
+			estatus.StdDescripcion, 
+			estatus.StdTipoEstado, 
+			estatus.Factor,
+			estatus.Nivel,
+			estatus.MdlID, 
+			estatus.IsActive,
+			id,
+		).Scan(
+			&estatus.IDStatus,
+			&estatus.CreatedAt,
+			&estatus.UpdatedAt,
+		)
+	})
 
-	err := s.db.QueryRowContext(ctx, query, 
-		estatus.StdDescripcion, 
-		estatus.StdTipoEstado, 
-		estatus.MdlID, 
-		estatus.IsActive,
-		id,
-	).Scan(
-		&estatus.IDStatus,
-		&estatus.StdDescripcion,
-		&estatus.StdTipoEstado,
-		&estatus.MdlID,
-		&estatus.IsActive,
-		&estatus.CreatedAt,
-		&estatus.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("estatus con ID %s no encontrado", id)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar estatus: %w", err)
 	}
@@ -221,21 +235,22 @@ func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus 
 
 func (s *storeEstatus) DeleteEstatus(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteEstatus", performance.DbThreshold, time.Now())
-	query := `UPDATE estatus SET deleted_at = CURRENT_TIMESTAMP WHERE id_status = $1 AND deleted_at IS NULL`
+	
+	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `UPDATE estatus SET deleted_at = CURRENT_TIMESTAMP WHERE id_status = $1 AND deleted_at IS NULL`
+		result, err := tx.ExecContext(ctx, query, id)
+		if err != nil {
+			return fmt.Errorf("error al eliminar estatus: %w", err)
+		}
 
-	result, err := s.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return fmt.Errorf("error al eliminar estatus: %w", err)
-	}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rows == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
+		if rows == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 }

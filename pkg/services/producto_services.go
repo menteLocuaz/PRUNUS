@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,16 +11,18 @@ import (
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	"github.com/prunus/pkg/utils"
+	zaplogger "github.com/prunus/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 type ServiceProducto struct {
 	store           store.StoreProducto
 	inventarioStore store.StoreInventario
 	cache           *utils.CacheManager
-	logger          *slog.Logger
+	logger          *zap.Logger
 }
 
-func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, c *utils.CacheManager, logger *slog.Logger) *ServiceProducto {
+func NewServiceProducto(s store.StoreProducto, inv store.StoreInventario, c *utils.CacheManager, logger *zap.Logger) *ServiceProducto {
 	return &ServiceProducto{
 		store:           s,
 		inventarioStore: inv,
@@ -63,28 +64,23 @@ func (s *ServiceProducto) GetProductoByCodigo(ctx context.Context, codigo string
 	})
 }
 
-// CreateProducto ahora es una operación coordinada entre Catálogo e Inventario
+// CreateProducto es una operación coordinada entre Catálogo e Inventario
 func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCreateRequest) (*models.Producto, error) {
 	if req.Nombre == "" {
 		return nil, errors.New("falta el nombre del producto")
 	}
 
-	// 1. Convertir DTO a Modelo usando el helper centralizado
 	producto := req.ToModel()
 
-	// 2. Lógica de negocio adicional (estatus por defecto)
 	if producto.IDStatus == uuid.Nil {
-		// Estatus 'Disponible' para Módulo Producto (ID según catálogo)
 		producto.IDStatus = uuid.MustParse("31f4e127-e7e1-414d-aaef-6e92e4c5d970")
 	}
 
-	// 3. Crear Producto en Catálogo Maestro
 	res, err := s.store.CreateProducto(ctx, &producto)
 	if err != nil {
 		return nil, fmt.Errorf("error al crear catálogo de producto: %w", err)
 	}
 
-	// 4. Crear Inventario Inicial para la Sucursal enviada
 	inv := &models.Inventario{
 		IDProducto:   res.IDProducto,
 		IDSucursal:   req.IDSucursal,
@@ -95,23 +91,20 @@ func (s *ServiceProducto) CreateProducto(ctx context.Context, req dto.ProductoCr
 
 	_, err = s.inventarioStore.CreateInventario(ctx, inv)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Catálogo creado pero falló inicialización de inventario",
-			slog.String("id_producto", res.IDProducto.String()),
-			slog.Any("error", err),
+		zaplogger.WithContext(ctx, s.logger).Error("Catálogo creado pero falló inicialización de inventario",
+			zap.String("id_producto", res.IDProducto.String()),
+			zap.Error(err),
 		)
-		// Retornamos el producto pero informamos del error de inventario
 		return res, fmt.Errorf("producto creado pero sin stock inicial: %w", err)
 	}
 
-	s.logger.InfoContext(ctx, "Producto e inventario creados exitosamente",
-		slog.String("id_producto", res.IDProducto.String()),
-		slog.String("id_sucursal", req.IDSucursal.String()),
+	zaplogger.WithContext(ctx, s.logger).Info("Producto e inventario creados exitosamente",
+		zap.String("id_producto", res.IDProducto.String()),
+		zap.String("id_sucursal", req.IDSucursal.String()),
 	)
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "productos:")
 
-	// 5. Retornar el producto completamente poblado (con relaciones)
 	return s.store.GetProductoByID(ctx, res.IDProducto)
 }
 
@@ -120,7 +113,6 @@ func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, req 
 		return nil, errors.New("falta el nombre del producto")
 	}
 
-	// Convertir DTO a Modelo
 	producto := req.ToModel()
 	producto.IDProducto = id
 
@@ -129,10 +121,8 @@ func (s *ServiceProducto) UpdateProducto(ctx context.Context, id uuid.UUID, req 
 		return nil, err
 	}
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "productos:")
 
-	// Retornar el producto completamente poblado (con relaciones)
 	return s.store.GetProductoByID(ctx, res.IDProducto)
 }
 
@@ -142,7 +132,6 @@ func (s *ServiceProducto) DeleteProducto(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "productos:")
 
 	return nil

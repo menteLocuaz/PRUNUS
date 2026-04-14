@@ -3,20 +3,20 @@ package services
 import (
 	"context"
 	"errors"
-	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	"go.uber.org/zap"
 )
 
 type ServiceInventario struct {
 	store  store.StoreInventario
-	logger *slog.Logger
+	logger *zap.Logger
 }
 
-func NewServiceInventario(s store.StoreInventario, logger *slog.Logger) *ServiceInventario {
+func NewServiceInventario(s store.StoreInventario, logger *zap.Logger) *ServiceInventario {
 	return &ServiceInventario{
 		store:  s,
 		logger: logger,
@@ -36,7 +36,6 @@ func (s *ServiceInventario) GetInventarioBySucursal(ctx context.Context, idSucur
 }
 
 func (s *ServiceInventario) CreateInventario(ctx context.Context, inventario models.Inventario) (*models.Inventario, error) {
-	// Verificar si ya existe inventario para ese producto en esa sucursal
 	existing, err := s.store.GetInventarioByProductoYSucursal(ctx, inventario.IDProducto, inventario.IDSucursal)
 	if err != nil {
 		return nil, err
@@ -85,6 +84,14 @@ func (s *ServiceInventario) GetAnalisisRotacion(ctx context.Context, sucursalID 
 
 func (s *ServiceInventario) CreateLote(ctx context.Context, lote models.Lote) (*models.Lote, error) {
 	return s.store.CreateLote(ctx, &lote)
+}
+
+func (s *ServiceInventario) AdjustStock(ctx context.Context, idInventario uuid.UUID, delta float64) error {
+	return s.store.AdjustStock(ctx, idInventario, delta)
+}
+
+func (s *ServiceInventario) AdjustLoteStock(ctx context.Context, idLote uuid.UUID, delta float64) error {
+	return s.store.AdjustLoteStock(ctx, idLote, delta)
 }
 
 func (s *ServiceInventario) GetRotacionDetalle(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.RotacionProductoResponse, error) {

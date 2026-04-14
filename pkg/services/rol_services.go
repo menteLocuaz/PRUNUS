@@ -4,24 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	"github.com/prunus/pkg/utils"
+	zaplogger "github.com/prunus/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 // ServiceRol servicio que encapsula la lógica de negocio para rol
 type ServiceRol struct {
 	store  store.StoreRol
 	cache  *utils.CacheManager
-	logger *slog.Logger
+	logger *zap.Logger
 }
 
 // NewServiceRol crea una nueva instancia del servicio de rol
-func NewServiceRol(s store.StoreRol, c *utils.CacheManager, logger *slog.Logger) *ServiceRol {
+func NewServiceRol(s store.StoreRol, c *utils.CacheManager, logger *zap.Logger) *ServiceRol {
 	return &ServiceRol{
 		store:  s,
 		cache:  c,
@@ -59,7 +60,7 @@ func (s *ServiceRol) GetAllRoles(ctx context.Context) ([]*models.Rol, error) {
 // GetRolByID obtiene un rol por su ID
 func (s *ServiceRol) GetRolByID(ctx context.Context, id uuid.UUID) (*models.Rol, error) {
 	if id == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de obtener rol con ID nulo")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de obtener rol con ID nulo")
 		return nil, errors.New("el ID del rol es requerido")
 	}
 
@@ -72,17 +73,15 @@ func (s *ServiceRol) GetRolByID(ctx context.Context, id uuid.UUID) (*models.Rol,
 
 // CreateRol crea un nuevo rol con validaciones de negocio
 func (s *ServiceRol) CreateRol(ctx context.Context, rol models.Rol) (*models.Rol, error) {
-	// Validar campos obligatorios
 	if rol.RolNombre == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de rol con nombre vacío")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de rol con nombre vacío")
 		return nil, errors.New("el nombre del rol es requerido")
 	}
 	if rol.IDSucursal == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de rol sin sucursal", slog.String("nombre", rol.RolNombre))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de rol sin sucursal", zap.String("nombre", rol.RolNombre))
 		return nil, errors.New("el ID de la sucursal es requerido")
 	}
 
-	// Asignar estatus automático si no se proporciona
 	if rol.IDStatus == uuid.Nil {
 		rol.IDStatus = models.EstatusActivo
 	}
@@ -92,7 +91,6 @@ func (s *ServiceRol) CreateRol(ctx context.Context, rol models.Rol) (*models.Rol
 		return nil, err
 	}
 
-	// Invalidar caché del grupo roles
 	s.cache.Invalidate(ctx, cacheTagRoles)
 
 	return result, nil
@@ -101,15 +99,15 @@ func (s *ServiceRol) CreateRol(ctx context.Context, rol models.Rol) (*models.Rol
 // UpdateRol actualiza un rol existente con validaciones
 func (s *ServiceRol) UpdateRol(ctx context.Context, id uuid.UUID, rol models.Rol) (*models.Rol, error) {
 	if id == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de actualización de rol con ID nulo")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de actualización de rol con ID nulo")
 		return nil, errors.New("el ID del rol es requerido")
 	}
 	if rol.RolNombre == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización de rol con nombre vacío", slog.String("id", id.String()))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de actualización de rol con nombre vacío", zap.String("id", id.String()))
 		return nil, errors.New("el nombre del rol es requerido")
 	}
 	if rol.IDSucursal == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de actualización de rol sin sucursal", slog.String("id", id.String()))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de actualización de rol sin sucursal", zap.String("id", id.String()))
 		return nil, errors.New("el ID de la sucursal es requerido")
 	}
 
@@ -118,7 +116,6 @@ func (s *ServiceRol) UpdateRol(ctx context.Context, id uuid.UUID, rol models.Rol
 		return nil, err
 	}
 
-	// Invalidar caché del grupo roles
 	s.cache.Invalidate(ctx, cacheTagRoles)
 
 	return result, nil
@@ -127,7 +124,7 @@ func (s *ServiceRol) UpdateRol(ctx context.Context, id uuid.UUID, rol models.Rol
 // DeleteRol elimina un rol (soft delete)
 func (s *ServiceRol) DeleteRol(ctx context.Context, id uuid.UUID) error {
 	if id == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de eliminación de rol con ID nulo")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de eliminación de rol con ID nulo")
 		return errors.New("el ID del rol es requerido")
 	}
 
@@ -136,7 +133,6 @@ func (s *ServiceRol) DeleteRol(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	// Invalidar caché del grupo roles
 	s.cache.Invalidate(ctx, cacheTagRoles)
 
 	return nil

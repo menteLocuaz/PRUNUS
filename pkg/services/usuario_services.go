@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"regexp"
 	"strings"
 
@@ -13,6 +12,8 @@ import (
 	"github.com/prunus/pkg/middleware"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
+	zaplogger "github.com/prunus/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
@@ -22,11 +23,11 @@ type ServiceUsuario struct {
 	store      store.StoreUsuario
 	rolService *ServiceRol
 	logsStore  store.StoreLogs
-	logger     *slog.Logger
+	logger     *zap.Logger
 }
 
 // NewServiceUsuario crea una nueva instancia del servicio de usuario
-func NewServiceUsuario(s store.StoreUsuario, r *ServiceRol, l store.StoreLogs, logger *slog.Logger) *ServiceUsuario {
+func NewServiceUsuario(s store.StoreUsuario, r *ServiceRol, l store.StoreLogs, logger *zap.Logger) *ServiceUsuario {
 	return &ServiceUsuario{
 		store:      s,
 		rolService: r,
@@ -68,7 +69,7 @@ func (s *ServiceUsuario) GetAllUsuarios(ctx context.Context) ([]*models.Usuario,
 // GetUsuarioByID obtiene un usuario por su ID con sus permisos cargados (vía cache)
 func (s *ServiceUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*models.Usuario, error) {
 	if id == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de obtener usuario con ID nulo")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de obtener usuario con ID nulo")
 		return nil, errors.New("el ID del usuario es requerido")
 	}
 	usuario, err := s.store.GetUsuarioByID(ctx, id)
@@ -76,7 +77,6 @@ func (s *ServiceUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*mod
 		return nil, err
 	}
 
-	// Usar el servicio de roles que tiene caching para los permisos
 	if permisos, err := s.rolService.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
 		usuario.Permisos = permisos
 	}
@@ -87,11 +87,13 @@ func (s *ServiceUsuario) GetUsuarioByID(ctx context.Context, id uuid.UUID) (*mod
 // CreateUsuario crea un nuevo usuario con validaciones de negocio
 func (s *ServiceUsuario) CreateUsuario(ctx context.Context, usuario models.Usuario) (*models.Usuario, error) {
 	if err := s.validateUser(&usuario, false); err != nil {
-		s.logger.WarnContext(ctx, "Fallo de validación al crear usuario", slog.String("email", usuario.Email), slog.Any("error", err))
+		zaplogger.WithContext(ctx, s.logger).Warn("Fallo de validación al crear usuario",
+			zap.String("email", usuario.Email),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
-	// Aqui se hashea la contraseña
 	hashearPassword, err := helper.HashPassword(usuario.Password)
 	if err != nil {
 		return nil, errors.New("error al generar hash de la contraseña")
@@ -104,16 +106,18 @@ func (s *ServiceUsuario) CreateUsuario(ctx context.Context, usuario models.Usuar
 // UpdateUsuario actualiza un usuario existente con validaciones
 func (s *ServiceUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario models.Usuario) (*models.Usuario, error) {
 	if id == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de actualización de usuario con ID nulo")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de actualización de usuario con ID nulo")
 		return nil, errors.New("el ID del usuario es requerido")
 	}
 
 	if err := s.validateUser(&usuario, true); err != nil {
-		s.logger.WarnContext(ctx, "Fallo de validación al actualizar usuario", slog.String("id", id.String()), slog.Any("error", err))
+		zaplogger.WithContext(ctx, s.logger).Warn("Fallo de validación al actualizar usuario",
+			zap.String("id", id.String()),
+			zap.Error(err),
+		)
 		return nil, err
 	}
 
-	// SOLO si viene contraseña nueva → hashear
 	if usuario.Password != "" {
 		hashearPasword, err := helper.HashPassword(usuario.Password)
 		if err != nil {
@@ -128,18 +132,17 @@ func (s *ServiceUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuari
 // DeleteUsuario elimina un usuario (soft delete)
 func (s *ServiceUsuario) DeleteUsuario(ctx context.Context, id uuid.UUID) error {
 	if id == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de eliminación de usuario con ID nulo")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de eliminación de usuario con ID nulo")
 		return errors.New("el ID del usuario es requerido")
 	}
 	return s.store.DeleteUsuario(ctx, id)
 }
 
-// AdministrarUsuario gestiona la creación/actualización integral del usuario, incluyendo accesos multi-sucursal (Supermercado)
+// AdministrarUsuario gestiona la creación/actualización integral del usuario, incluyendo accesos multi-sucursal
 func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.Usuario, adminID uuid.UUID) (*models.Usuario, error) {
 	var result *models.Usuario
 	var err error
 
-	// 1. Validar y Procesar Password
 	if usuario.Password != "" {
 		hp, err := helper.HashPassword(usuario.Password)
 		if err != nil {
@@ -148,7 +151,6 @@ func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.
 		usuario.Password = hp
 	}
 
-	// 2. Ejecutar Operación Principal (Create o Update)
 	if usuario.IDUsuario == uuid.Nil {
 		result, err = s.store.CreateUsuario(ctx, &usuario)
 	} else {
@@ -159,14 +161,12 @@ func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.
 		return nil, err
 	}
 
-	// 3. Gestionar Accesos Multi-Sucursal
 	if len(usuario.Sucursales) > 0 {
 		if err := s.store.AssignSucursales(ctx, result.IDUsuario, usuario.Sucursales); err != nil {
-			s.logger.ErrorContext(ctx, "Error asignando sucursales", slog.Any("error", err))
+			zaplogger.WithContext(ctx, s.logger).Error("Error asignando sucursales", zap.Error(err))
 		}
 	}
 
-	// 4. Auditoría
 	s.logsStore.CreateLog(ctx, &models.LogSistema{
 		IDUsuario:  adminID,
 		Accion:     "ADMINISTRAR_USUARIO",
@@ -183,9 +183,11 @@ func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, req models.Log
 	var usuario *models.Usuario
 	var err error
 
-	s.logger.InfoContext(ctx, "[LOGIN] Intento de inicio de sesión", slog.String("email", req.Email), slog.String("username", req.Username))
+	zaplogger.WithContext(ctx, s.logger).Info("[LOGIN] Intento de inicio de sesión",
+		zap.String("email", req.Email),
+		zap.String("username", req.Username),
+	)
 
-	// 1. Identificar el método de búsqueda
 	if req.Pin != "" {
 		usuario, err = s.store.GetUsuarioByPin(ctx, req.Pin)
 	} else if req.Email != "" {
@@ -197,34 +199,31 @@ func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, req models.Log
 	}
 
 	if err != nil {
-		s.logger.WarnContext(ctx, "[LOGIN] Usuario no encontrado o error en DB", slog.Any("error", err))
+		zaplogger.WithContext(ctx, s.logger).Warn("[LOGIN] Usuario no encontrado o error en DB", zap.Error(err))
 		return nil, errors.New("credenciales inválidas")
 	}
 
-	// 2. Validar estatus activo (Usando constantes oficiales)
 	if usuario.IDStatus != models.EstatusGlobalActivo {
-		s.logger.WarnContext(ctx, "[LOGIN] Usuario inactivo", 
-			slog.String("id_usuario", usuario.IDUsuario.String()),
-			slog.String("status_actual", usuario.IDStatus.String()),
-			slog.String("status_esperado", models.EstatusGlobalActivo.String()),
+		zaplogger.WithContext(ctx, s.logger).Warn("[LOGIN] Usuario inactivo",
+			zap.String("id_usuario", usuario.IDUsuario.String()),
+			zap.String("status_actual", usuario.IDStatus.String()),
+			zap.String("status_esperado", models.EstatusGlobalActivo.String()),
 		)
 		return nil, errors.New("su cuenta no está activa")
 	}
 
-	// 3. Validar Password
 	if req.Pin == "" {
 		if req.Password == "" {
 			return nil, errors.New("la contraseña es requerida")
 		}
 		if err := helper.CheckPassword(req.Password, usuario.Password); err != nil {
-			s.logger.WarnContext(ctx, "[LOGIN] Contraseña incorrecta", slog.String("id_usuario", usuario.IDUsuario.String()))
+			zaplogger.WithContext(ctx, s.logger).Warn("[LOGIN] Contraseña incorrecta", zap.String("id_usuario", usuario.IDUsuario.String()))
 			return nil, errors.New("credenciales inválidas")
 		}
 	}
 
-	s.logger.InfoContext(ctx, "[LOGIN] Autenticación exitosa", slog.String("id_usuario", usuario.IDUsuario.String()))
+	zaplogger.WithContext(ctx, s.logger).Info("[LOGIN] Autenticación exitosa", zap.String("id_usuario", usuario.IDUsuario.String()))
 
-	// 4. Limpiar password y cargar permisos
 	usuario.Password = ""
 	if permisos, err := s.rolService.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
 		usuario.Permisos = permisos
