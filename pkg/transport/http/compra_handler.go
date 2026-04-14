@@ -9,6 +9,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
 )
@@ -22,7 +23,8 @@ func NewCompraHandler(s *services.ServiceCompra) *CompraHandler {
 }
 
 func (h *CompraHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllOrdenes(r.Context())
+	params := utils.ParsePaginationParams(r)
+	resp, err := h.service.GetAllOrdenes(r.Context(), params)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return

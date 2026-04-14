@@ -9,6 +9,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
 )
@@ -23,10 +24,13 @@ func NewClienteHandler(s *services.ServiceCliente) *ClienteHandler {
 	return &ClienteHandler{service: s}
 }
 
-// GetAll obtiene todos los clientes
+// GetAll obtiene una lista paginada de clientes.
 func (h *ClienteHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	// Llama al servicio para obtener todos los clientes
-	resp, err := h.service.GetAllClientes(r.Context())
+	// Parsea los parámetros de paginación de la solicitud
+	params := utils.ParsePaginationParams(r)
+
+	// Llama al servicio con los parámetros de paginación
+	resp, err := h.service.GetAllClientes(r.Context(), params)
 	if err != nil {
 		// En caso de error, responde con error 500
 		response.InternalServerError(w, err.Error())

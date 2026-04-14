@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
@@ -16,7 +17,7 @@ type StoreCompra interface {
 	GetOrdenByID(ctx context.Context, id uuid.UUID) (*models.OrdenCompra, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, statusID uuid.UUID, fechaRecepcion *time.Time) error
 	UpdateDetalleRecepcion(ctx context.Context, idDetalle uuid.UUID, cantidad float64) error
-	GetAllOrdenes(ctx context.Context) ([]*models.OrdenCompra, error)
+	GetAllOrdenes(ctx context.Context, params dto.PaginationParams) ([]*models.OrdenCompra, error)
 }
 
 type storeCompra struct {
@@ -157,17 +158,29 @@ func (s *storeCompra) UpdateDetalleRecepcion(ctx context.Context, idDetalle uuid
 	return err
 }
 
-func (s *storeCompra) GetAllOrdenes(ctx context.Context) ([]*models.OrdenCompra, error) {
+func (s *storeCompra) GetAllOrdenes(ctx context.Context, params dto.PaginationParams) ([]*models.OrdenCompra, error) {
 	defer performance.Trace(ctx, "store", "GetAllOrdenes", performance.DbThreshold, time.Now())
 	
+	if params.Limit <= 0 {
+		params.Limit = dto.DefaultLimit
+	}
+
 	query := fmt.Sprintf(`
 		SELECT %s 
 		FROM orden_compra 
 		WHERE deleted_at IS NULL 
-		ORDER BY created_at DESC
 	`, ordenCompraSelectFields)
+
+	var args []interface{}
+	if params.LastDate != nil {
+		query += " AND created_at < $1"
+		args = append(args, params.LastDate)
+	}
+
+	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
+	args = append(args, params.Limit)
 	
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

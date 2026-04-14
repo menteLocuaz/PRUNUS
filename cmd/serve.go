@@ -22,6 +22,7 @@ import (
 )
 
 var port string
+var autoMigrate bool
 
 // serveCmd representa el comando para iniciar el servidor
 var serveCmd = &cobra.Command{
@@ -43,6 +44,26 @@ var serveCmd = &cobra.Command{
 			log.Fatalf("❌ Error crítico conectando a la base de datos: %v", err)
 		}
 		defer db.Close()
+
+		// 2b. Migraciones Automáticas (Opcional vía flag)
+		if autoMigrate {
+			log.Println("🚀 Revisando migraciones automáticas...")
+			if err := RunMigrationsIfNeeded(db); err != nil {
+				log.Fatalf("❌ Error en migraciones automáticas: %v", err)
+			}
+		} else {
+			// Mostrar versión actual por trazabilidad
+			m, err := newMigrator(db)
+			if err == nil {
+				v, dirty, _ := m.Version()
+				// NOTA: No llamamos a m.migrate.Close() para evitar que cierre la conexión 'db'
+				status := "limpio"
+				if dirty {
+					status = "DIRTY"
+				}
+				log.Printf("📊 Base de Datos en versión: %d (%s)", v, status)
+			}
+		}
 
 		// 3. Conexión a Redis
 		rdb, err := database.InitRedis()
@@ -109,6 +130,7 @@ var serveCmd = &cobra.Command{
 
 func init() {
 	serveCmd.Flags().StringVarP(&port, "port", "p", "9090", "Puerto en el que escuchará el servidor")
+	serveCmd.Flags().BoolVar(&autoMigrate, "auto-migrate", false, "Ejecutar migraciones automáticas al iniciar el servidor")
 	rootCmd.AddCommand(serveCmd)
 }
 

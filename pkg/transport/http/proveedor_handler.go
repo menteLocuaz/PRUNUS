@@ -9,6 +9,7 @@ import (
 	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
+	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
 )
@@ -23,9 +24,10 @@ func NewProveedorHandler(s *services.ServiceProveedor) *ProveedorHandler {
 	return &ProveedorHandler{service: s}
 }
 
-// GetAll obtiene todos los proveedores y responde con JSON
+// GetAll obtiene una lista paginada de proveedores y responde con JSON
 func (h *ProveedorHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.service.GetAllProveedores(r.Context())
+	params := utils.ParsePaginationParams(r)
+	resp, err := h.service.GetAllProveedores(r.Context(), params)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return

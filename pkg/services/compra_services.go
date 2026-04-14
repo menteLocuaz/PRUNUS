@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 )
@@ -26,9 +27,10 @@ func (s *ServiceCompra) CreateOrden(ctx context.Context, o *models.OrdenCompra) 
 	return s.store.CreateOrden(ctx, o)
 }
 
-func (s *ServiceCompra) GetAllOrdenes(ctx context.Context) ([]*models.OrdenCompra, error) {
-	return s.store.GetAllOrdenes(ctx)
+func (s *ServiceCompra) GetAllOrdenes(ctx context.Context, params dto.PaginationParams) ([]*models.OrdenCompra, error) {
+	return s.store.GetAllOrdenes(ctx, params)
 }
+
 
 func (s *ServiceCompra) GetOrdenByID(ctx context.Context, id uuid.UUID) (*models.OrdenCompra, error) {
 	return s.store.GetOrdenByID(ctx, id)

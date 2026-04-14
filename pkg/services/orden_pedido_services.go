@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	"go.uber.org/zap"
@@ -29,8 +30,8 @@ func (s *ServiceOrdenPedido) GetOrdenByID(ctx context.Context, id uuid.UUID) (*m
 	return s.store.GetOrdenByID(ctx, id)
 }
 
-func (s *ServiceOrdenPedido) GetAllOrdenes(ctx context.Context) ([]*models.OrdenPedido, error) {
-	return s.store.GetAllOrdenes(ctx)
+func (s *ServiceOrdenPedido) GetAllOrdenes(ctx context.Context, params dto.PaginationParams) ([]*models.OrdenPedido, error) {
+	return s.store.GetAllOrdenes(ctx, params)
 }
 
 func (s *ServiceOrdenPedido) UpdateStatus(ctx context.Context, id uuid.UUID, statusID uuid.UUID) error {
