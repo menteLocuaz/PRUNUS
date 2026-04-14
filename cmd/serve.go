@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,7 +16,9 @@ import (
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/routers"
 	"github.com/prunus/pkg/store"
+	zaplogger "github.com/prunus/pkg/utils/logger"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var port string
@@ -53,12 +54,13 @@ var serveCmd = &cobra.Command{
 		}
 
 		// 4. Logger
-		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-		slog.SetDefault(logger)
+		logger := zaplogger.New()
+		defer logger.Sync() //nolint:errcheck
+		zap.ReplaceGlobals(logger)
 
 		// 5. Handlers y Router
 		h := RegisterHandlers(db, cacheStore, logger)
-		router := routers.NewMainRouter(h)
+		router := routers.NewMainRouter(h, logger)
 
 		// 5b. Worker de Segundo Plano para Snapshots de Inventario
 		go StartBackgroundWorker(db)

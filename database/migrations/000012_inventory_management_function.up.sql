@@ -68,12 +68,12 @@ BEGIN
             p_referencia,
             CURRENT_TIMESTAMP
         )
-        RETURNING
+        RETURNING 
             movimientos_inventario.id_movimiento,
             movimientos_inventario.id_producto,
-            movimientos_inventario.stock_anterior,
+            COALESCE(movimientos_inventario.stock_anterior, 0),
             movimientos_inventario.cantidad,
-            movimientos_inventario.stock_posterior
+            COALESCE(movimientos_inventario.stock_posterior, 0)
         INTO
             id_movimiento,
             id_producto,

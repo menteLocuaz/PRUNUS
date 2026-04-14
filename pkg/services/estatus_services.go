@@ -4,22 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	"github.com/prunus/pkg/utils"
+	zaplogger "github.com/prunus/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 type ServiceEstatus struct {
 	store  store.StoreEstatus
 	cache  *utils.CacheManager
-	logger *slog.Logger
+	logger *zap.Logger
 }
 
-func NewServiceEstatus(s store.StoreEstatus, c *utils.CacheManager, logger *slog.Logger) *ServiceEstatus {
+func NewServiceEstatus(s store.StoreEstatus, c *utils.CacheManager, logger *zap.Logger) *ServiceEstatus {
 	return &ServiceEstatus{
 		store:  s,
 		cache:  c,
@@ -33,10 +34,9 @@ const (
 	cacheKeyEstatusID       = "estatus:id:%s"
 	cacheKeyEstatusTipo     = "estatus:tipo:%s"
 	cacheKeyEstatusModuloID = "estatus:modulo:%d"
-	cacheExpirationEstatus  = 24 * time.Hour // Los estatus no cambian frecuentemente
+	cacheExpirationEstatus  = 24 * time.Hour
 )
 
-// Nombres de módulos (puedes mover esto a un archivo de constantes global si es necesario)
 var moduloNames = map[int]string{
 	1: "Empresa",
 	2: "Sucursal",
@@ -50,13 +50,11 @@ var moduloNames = map[int]string{
 
 func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (map[int]interface{}, error) {
 	return utils.GetOrSet(ctx, s.cache, cacheKeyEstatusMaster, cacheExpirationEstatus, func() (map[int]interface{}, error) {
-		// Obtener todos
 		all, err := s.store.GetAllEstatus(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		// Agrupar por módulo
 		catalog := make(map[int]interface{})
 		for _, e := range all {
 			if _, ok := catalog[e.MdlID]; !ok {
@@ -73,7 +71,6 @@ func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (map[int]interfac
 				}
 			}
 
-			// Hack para añadir al slice de una interfaz{} (o podrías usar structs tipados en el servicio)
 			group := catalog[e.MdlID].(struct {
 				Modulo string            `json:"modulo"`
 				Items  []*models.Estatus `json:"items"`
@@ -114,15 +111,15 @@ func (s *ServiceEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) (
 
 func (s *ServiceEstatus) CreateEstatus(ctx context.Context, estatus models.Estatus) (*models.Estatus, error) {
 	if estatus.StdDescripcion == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de estatus con descripción vacía")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de estatus con descripción vacía")
 		return nil, errors.New("la descripción es obligatoria")
 	}
 	if estatus.StdTipoEstado == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de estatus sin tipo de estado", slog.String("descripcion", estatus.StdDescripcion))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de estatus sin tipo de estado", zap.String("descripcion", estatus.StdDescripcion))
 		return nil, errors.New("el tipo de estado es obligatorio")
 	}
 	if estatus.MdlID == 0 {
-		s.logger.WarnContext(ctx, "Intento de creación de estatus sin ID de módulo", slog.String("descripcion", estatus.StdDescripcion))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de estatus sin ID de módulo", zap.String("descripcion", estatus.StdDescripcion))
 		return nil, errors.New("el módulo (mdl_id) es obligatorio")
 	}
 
@@ -131,7 +128,6 @@ func (s *ServiceEstatus) CreateEstatus(ctx context.Context, estatus models.Estat
 		return nil, err
 	}
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "estatus:")
 
 	return result, nil
@@ -139,7 +135,7 @@ func (s *ServiceEstatus) CreateEstatus(ctx context.Context, estatus models.Estat
 
 func (s *ServiceEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus models.Estatus) (*models.Estatus, error) {
 	if estatus.StdDescripcion == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización de estatus con descripción vacía", slog.String("id", id.String()))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de actualización de estatus con descripción vacía", zap.String("id", id.String()))
 		return nil, errors.New("la descripción es obligatoria")
 	}
 
@@ -148,7 +144,6 @@ func (s *ServiceEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatu
 		return nil, err
 	}
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "estatus:")
 
 	return result, nil
@@ -159,7 +154,6 @@ func (s *ServiceEstatus) DeleteEstatus(ctx context.Context, id uuid.UUID) error 
 		return err
 	}
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "estatus:")
 
 	return nil

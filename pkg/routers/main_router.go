@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prunus/pkg/middleware"
 	transport "github.com/prunus/pkg/transport/http"
+	"go.uber.org/zap"
 )
 
 // Handlers agrupa todos los handlers de la aplicación
@@ -38,14 +39,14 @@ type Handlers struct {
 }
 
 // NewMainRouter crea el router principal que combina todos los recursos
-func NewMainRouter(h *Handlers) http.Handler {
+func NewMainRouter(h *Handlers, log *zap.Logger) http.Handler {
 	r := chi.NewRouter()
 
 	// Middleware Global
 	r.Use(middleware.CORS())
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Timeout(10 * time.Second)) // Timeout global de 10 segundos
-	r.Use(middleware.Logger(middleware.ProductionLogConfig()))
+	r.Use(middleware.Logger(middleware.ProductionLogConfig(), log))
 	r.Use(middleware.MaxPayloadSize)
 	r.Use(middleware.SecureHeaders)
 	r.Use(middleware.ClientIP)

@@ -7,11 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-type contextKey string
-
 const (
 	// RequestIDKey es la clave usada para almacenar el Request ID en el contexto.
-	RequestIDKey contextKey = "request_id"
+	// Tipo string explícito para que pkg/utils/logger pueda leerlo sin importar este paquete.
+	RequestIDKey = "request_id"
 	// RequestIDHeader es el header HTTP usado para el Request ID.
 	RequestIDHeader = "X-Request-ID"
 )

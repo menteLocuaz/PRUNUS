@@ -9,7 +9,8 @@ import (
 
 const (
 	// ClientIPKey es la clave usada para almacenar la IP del cliente en el contexto.
-	ClientIPKey contextKey = "client_ip"
+	// Tipo string explícito para consistencia con RequestIDKey.
+	ClientIPKey = "client_ip"
 )
 
 // MaxPayloadSize limita el tamaño de la solicitud entrante (1MB por defecto)

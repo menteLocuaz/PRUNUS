@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -42,7 +43,7 @@ type storeUsuario struct {
 const usuarioSelectFields = `
 	u.id_usuario, u.id_sucursal, u.id_rol, u.username, u.email, u.usu_nombre, u.usu_dni,
 	COALESCE(u.usu_telefono, ''), COALESCE(u.usu_tarjeta_nfc, ''), COALESCE(u.usu_pin_pos, ''),
-	COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.created_at, u.updated_at, u.deleted_at, u.en_turno,
+	COALESCE(u.nombre_ticket, ''), u.password, u.id_status, u.metadata, u.created_at, u.updated_at, u.deleted_at, u.en_turno,
 	
 	r.id_rol, r.nombre_rol, r.id_status,
 	su.id_sucursal, su.nombre_sucursal, su.id_status
@@ -56,13 +57,21 @@ func (s *storeUsuario) scanRowUsuario(scanner interface{ Scan(dest ...any) error
 	if u.Sucursal == nil {
 		u.Sucursal = &models.Sucursal{}
 	}
-	return scanner.Scan(
+	var metadataJSON []byte
+	err := scanner.Scan(
 		&u.IDUsuario, &u.IDSucursal, &u.IDRol, &u.Username, &u.Email, &u.UsuNombre, &u.UsuDNI,
-		&u.UsuTelefono, &u.UsuTarjetaNFC, &u.UsuPinPOS, &u.NombreTicket, &u.Password, &u.IDStatus,
+		&u.UsuTelefono, &u.UsuTarjetaNFC, &u.UsuPinPOS, &u.NombreTicket, &u.Password, &u.IDStatus, &metadataJSON,
 		&u.CreatedAt, &u.UpdatedAt, &u.DeletedAt, &u.EnTurno,
 		&u.Rol.IDRol, &u.Rol.RolNombre, &u.Rol.IDStatus,
 		&u.Sucursal.IDSucursal, &u.Sucursal.NombreSucursal, &u.Sucursal.IDStatus,
 	)
+	if err != nil {
+		return err
+	}
+	if len(metadataJSON) > 0 {
+		json.Unmarshal(metadataJSON, &u.Metadata)
+	}
+	return nil
 }
 
 // NewUsuario crea una nueva instancia del store de usuario
@@ -153,16 +162,17 @@ func (s *storeUsuario) CreateUsuario(ctx context.Context, usuario *models.Usuari
 	defer performance.Trace(ctx, "store", "CreateUsuario", performance.DbThreshold, time.Now())
 
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		metadataJSON, _ := json.Marshal(usuario.Metadata)
 		query := `
-			INSERT INTO usuario (id_sucursal, id_rol, username, email, usu_nombre, usu_dni, usu_telefono, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket, password, id_status)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			INSERT INTO usuario (id_sucursal, id_rol, username, email, usu_nombre, usu_dni, usu_telefono, usu_tarjeta_nfc, usu_pin_pos, nombre_ticket, password, id_status, metadata)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			RETURNING id_usuario, created_at, updated_at
 		`
 		return tx.QueryRowContext(
 			ctx, query,
 			usuario.IDSucursal, usuario.IDRol, usuario.Username, usuario.Email, usuario.UsuNombre,
 			usuario.UsuDNI, usuario.UsuTelefono, usuario.UsuTarjetaNFC, usuario.UsuPinPOS,
-			usuario.NombreTicket, usuario.Password, usuario.IDStatus,
+			usuario.NombreTicket, usuario.Password, usuario.IDStatus, metadataJSON,
 		).Scan(&usuario.IDUsuario, &usuario.CreatedAt, &usuario.UpdatedAt)
 	})
 
@@ -178,24 +188,26 @@ func (s *storeUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuario 
 	defer performance.Trace(ctx, "store", "UpdateUsuario", performance.DbThreshold, time.Now())
 
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		metadataJSON, _ := json.Marshal(usuario.Metadata)
 		query := `
 			UPDATE usuario
 			SET
 				id_sucursal = $1, id_rol = $2, username = $3, email = $4, usu_nombre = $5,
 				usu_dni = $6, usu_telefono = $7, usu_tarjeta_nfc = $8, usu_pin_pos = $9,
 				nombre_ticket = $10, password = CASE WHEN $11 <> '' THEN $11 ELSE password END,
-				id_status = $12, updated_at = CURRENT_TIMESTAMP
-			WHERE id_usuario = $13 AND deleted_at IS NULL
+				id_status = $12, metadata = $13, updated_at = CURRENT_TIMESTAMP
+			WHERE id_usuario = $14 AND deleted_at IS NULL
 			RETURNING
 				id_usuario, id_sucursal, id_rol, username, email, usu_nombre, usu_dni,
 				COALESCE(usu_telefono, ''), COALESCE(usu_tarjeta_nfc, ''), COALESCE(usu_pin_pos, ''),
 				COALESCE(nombre_ticket, ''), password, id_status, created_at, updated_at
 		`
+		// Nota: El RETURNING en el Scan original no incluía metadata, voy a ajustarlo para que sea consistente pero simplificar el retorno
 		return tx.QueryRowContext(
 			ctx, query,
 			usuario.IDSucursal, usuario.IDRol, usuario.Username, usuario.Email, usuario.UsuNombre,
 			usuario.UsuDNI, usuario.UsuTelefono, usuario.UsuTarjetaNFC, usuario.UsuPinPOS,
-			usuario.NombreTicket, usuario.Password, usuario.IDStatus, id,
+			usuario.NombreTicket, usuario.Password, usuario.IDStatus, metadataJSON, id,
 		).Scan(
 			&usuario.IDUsuario, &usuario.IDSucursal, &usuario.IDRol, &usuario.Username, &usuario.Email,
 			&usuario.UsuNombre, &usuario.UsuDNI, &usuario.UsuTelefono, &usuario.UsuTarjetaNFC,
@@ -344,5 +356,3 @@ func (s *storeUsuario) UpdateTurnoStatus(ctx context.Context, id uuid.UUID, enTu
 	_, err := s.db.ExecContext(ctx, query, enTurno, id)
 	return err
 }
-
-

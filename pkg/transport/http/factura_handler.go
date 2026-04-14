@@ -112,6 +112,73 @@ func (h *FacturaHandler) GetImpuestos(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, "Impuestos obtenidos correctamente", resp)
 }
 
+func (h *FacturaHandler) GetImpuestoByID(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID inválido")
+		return
+	}
+	resp, err := h.service.GetImpuestoByID(r.Context(), id)
+	if err != nil {
+		response.NotFound(w, "Impuesto no encontrado")
+		return
+	}
+	response.Success(w, "Impuesto obtenido correctamente", resp)
+}
+
+func (h *FacturaHandler) CreateImpuesto(w http.ResponseWriter, r *http.Request) {
+	var req models.Impuesto
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	resp, err := h.service.CreateImpuesto(r.Context(), req)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Created(w, "Impuesto creado correctamente", resp)
+}
+
+func (h *FacturaHandler) UpdateImpuesto(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID inválido")
+		return
+	}
+
+	var req models.Impuesto
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "JSON inválido")
+		return
+	}
+
+	resp, err := h.service.UpdateImpuesto(r.Context(), id, req)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	response.Success(w, "Impuesto actualizado correctamente", resp)
+}
+
+func (h *FacturaHandler) DeleteImpuesto(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "ID inválido")
+		return
+	}
+
+	if err := h.service.DeleteImpuesto(r.Context(), id); err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *FacturaHandler) GetFormasPago(ctx http.ResponseWriter, r *http.Request) {
 	resp, err := h.service.GetFormasPago(r.Context())
 	if err != nil {

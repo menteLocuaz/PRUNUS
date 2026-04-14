@@ -4,22 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	"github.com/prunus/pkg/utils"
+	zaplogger "github.com/prunus/pkg/utils/logger"
+	"go.uber.org/zap"
 )
 
 type ServiceCategoria struct {
 	store  store.StoreCategoria
 	cache  *utils.CacheManager
-	logger *slog.Logger
+	logger *zap.Logger
 }
 
-func NewServiceCategoria(s store.StoreCategoria, c *utils.CacheManager, logger *slog.Logger) *ServiceCategoria {
+func NewServiceCategoria(s store.StoreCategoria, c *utils.CacheManager, logger *zap.Logger) *ServiceCategoria {
 	return &ServiceCategoria{
 		store:  s,
 		cache:  c,
@@ -48,15 +49,15 @@ func (s *ServiceCategoria) GetCategoriaByID(ctx context.Context, id uuid.UUID) (
 
 func (s *ServiceCategoria) CreateCategoria(ctx context.Context, categoria models.Categoria) (*models.Categoria, error) {
 	if categoria.Nombre == "" {
-		s.logger.WarnContext(ctx, "Intento de creación de categoría con nombre vacío")
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de categoría con nombre vacío")
 		return nil, errors.New("falta el nombre de la categoria")
 	}
 	if categoria.IDSucursal == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de categoría sin sucursal", slog.String("nombre", categoria.Nombre))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de categoría sin sucursal", zap.String("nombre", categoria.Nombre))
 		return nil, errors.New("falta el id de la sucursal")
 	}
 	if categoria.IDStatus == uuid.Nil {
-		s.logger.WarnContext(ctx, "Intento de creación de categoría sin estatus", slog.String("nombre", categoria.Nombre))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de creación de categoría sin estatus", zap.String("nombre", categoria.Nombre))
 		return nil, errors.New("falta el id de estatus")
 	}
 
@@ -65,7 +66,6 @@ func (s *ServiceCategoria) CreateCategoria(ctx context.Context, categoria models
 		return nil, err
 	}
 
-	// Invalidar caché de la lista completa
 	s.cache.Invalidate(ctx, "categorias:")
 
 	return result, nil
@@ -73,7 +73,7 @@ func (s *ServiceCategoria) CreateCategoria(ctx context.Context, categoria models
 
 func (s *ServiceCategoria) UpdateCategoria(ctx context.Context, id uuid.UUID, categoria models.Categoria) (*models.Categoria, error) {
 	if categoria.Nombre == "" {
-		s.logger.WarnContext(ctx, "Intento de actualización de categoría con nombre vacío", slog.String("id", id.String()))
+		zaplogger.WithContext(ctx, s.logger).Warn("Intento de actualización de categoría con nombre vacío", zap.String("id", id.String()))
 		return nil, errors.New("falta el nombre de la categoria")
 	}
 
@@ -82,7 +82,6 @@ func (s *ServiceCategoria) UpdateCategoria(ctx context.Context, id uuid.UUID, ca
 		return nil, err
 	}
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "categorias:")
 
 	return result, nil
@@ -94,7 +93,6 @@ func (s *ServiceCategoria) DeleteCategoria(ctx context.Context, id uuid.UUID) er
 		return err
 	}
 
-	// Invalidar caché
 	s.cache.Invalidate(ctx, "categorias:")
 
 	return nil

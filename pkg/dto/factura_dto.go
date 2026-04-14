@@ -15,16 +15,16 @@ type FacturaCompletaRequest struct {
 type FacturaCabeceraJSON struct {
 	FacNumero         string                 `json:"fac_numero"`
 	Subtotal          float64                `json:"subtotal" validate:"required,gte=0"`
-	Iva               float64                `json:"iva" validate:"gte=0"`
+	Impuesto          float64                `json:"impuesto" validate:"required,gte=0"`
 	Total             float64                `json:"total" validate:"required,gt=0"`
 	Observacion       string                 `json:"observacion"`
 	IDEstacion        uuid.UUID              `json:"id_estacion" validate:"required,uuid"`
+	IDSucursal        uuid.UUID              `json:"id_sucursal" validate:"required,uuid"`
 	IDOrdenPedido     uuid.UUID              `json:"id_orden_pedido" validate:"omitempty,uuid"`
 	IDCliente         uuid.UUID              `json:"id_cliente" validate:"required,uuid"`
 	IDPeriodo         uuid.UUID              `json:"id_periodo" validate:"required,uuid"`
 	IDControlEstacion uuid.UUID              `json:"id_control_estacion" validate:"required,uuid"`
 	BaseImpuesto      float64                `json:"base_impuesto" validate:"gte=0"`
-	Impuesto          float64                `json:"impuesto" validate:"gte=0"`
 	ValorImpuesto     float64                `json:"valor_impuesto" validate:"gte=0"`
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`
 }
@@ -41,9 +41,9 @@ type FacturaDetalleJSON struct {
 
 // FacturaPagoJSON mapea los pagos realizados para la función de base de datos.
 type FacturaPagoJSON struct {
-	IDFormaPago  uuid.UUID `json:"id_forma_pago" validate:"required,uuid"`
-	ValorBillete float64   `json:"valor_billete" validate:"required,gte=0"`
-	TotalPagar   float64   `json:"total_pagar" validate:"required,gt=0"`
+	MetodoPago string  `json:"metodo_pago" validate:"required"`
+	Monto      float64 `json:"monto" validate:"required,gt=0"`
+	Referencia string  `json:"referencia"`
 }
 
 // FacturaResponse es la respuesta tras registrar una factura mediante la función almacenada.

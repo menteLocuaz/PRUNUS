@@ -3,6 +3,8 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/prunus/pkg/utils/validator"
 )
 
 // APIResponse es la estructura estándar para todas las respuestas de la API
@@ -24,6 +26,22 @@ func JSON(w http.ResponseWriter, status int, success bool, message string, data 
 	}
 
 	json.NewEncoder(w).Encode(resp)
+}
+
+// HandleError maneja errores de validación y otros errores de forma centralizada
+func HandleError(w http.ResponseWriter, err error) {
+	if err == nil {
+		return
+	}
+
+	// Si es un error de validación
+	if errors := validator.FormatErrors(err); len(errors) > 0 {
+		ValidationError(w, errors)
+		return
+	}
+
+	// Otros errores (BadRequest por defecto si no es validación pero fue capturado en request)
+	BadRequest(w, err.Error())
 }
 
 // Success envía una respuesta exitosa (200 OK)

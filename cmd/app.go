@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"log/slog"
 
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/routers"
@@ -10,10 +9,11 @@ import (
 	"github.com/prunus/pkg/store"
 	transport "github.com/prunus/pkg/transport/http"
 	"github.com/prunus/pkg/utils"
+	"go.uber.org/zap"
 )
 
 // RegisterHandlers centraliza la inyección de dependencias y registro de handlers.
-func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Logger) *routers.Handlers {
+func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *zap.Logger) *routers.Handlers {
 	// 0. Cache Manager (Capa centralizada de caché)
 	cacheMgr := utils.NewCacheManager(cacheStore)
 
@@ -32,7 +32,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *slog.Log
 	posStore := store.NewPOSStore(db)
 	inventarioStore := store.NewInventario(db)
 	agregadoresStore := store.NewAgregadores(db)
-	cajaStore := store.NewCaja(db)
+	cajaStore := store.NewCajaStore(db)
 	facturaStore := store.NewFactura(db)
 	ordenPedidoStore := store.NewOrdenPedido(db)
 	dispositivoPosStore := store.NewDispositivoPosStore(db)

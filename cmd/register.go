@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"log/slog"
-	"os"
 
 	"github.com/google/uuid"
 	"github.com/prunus/pkg/config"
@@ -15,7 +13,9 @@ import (
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/store"
 	"github.com/prunus/pkg/utils"
+	zaplogger "github.com/prunus/pkg/utils/logger"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // registerCmd representa el comando base para registro de entidades
@@ -142,7 +142,7 @@ func init() {
 }
 
 // Funciones auxiliares para inicializar dependencias
-func initCLI() (*sql.DB, *utils.CacheManager, *slog.Logger) {
+func initCLI() (*sql.DB, *utils.CacheManager, *zap.Logger) {
 	if err := config.Validate("DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"); err != nil {
 		log.Fatalf("❌ Error de configuración: %v", err)
 	}
@@ -152,9 +152,9 @@ func initCLI() (*sql.DB, *utils.CacheManager, *slog.Logger) {
 		log.Fatalf("❌ Error conectando a la base de datos: %v", err)
 	}
 
-	// No inicializamos Redis para operaciones rápidas de CLI a menos que sea necesario
+	// No inicializamos Redis para operaciones rápidas de CLI
 	cacheMgr := utils.NewCacheManager(nil)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := zaplogger.NewDevelopment()
 	return db, cacheMgr, logger
 }
 

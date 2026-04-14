@@ -34,7 +34,7 @@ type StoreInventario interface {
 	// Lotes
 	CreateLote(ctx context.Context, lote *models.Lote) (*models.Lote, error)
 	GetLotesByProducto(ctx context.Context, idProducto, idSucursal uuid.UUID) ([]*models.Lote, error)
-	UpdateLoteCantidad(ctx context.Context, idLote uuid.UUID, cantidad float64) error
+	AdjustLoteStock(ctx context.Context, idLote uuid.UUID, delta float64) error
 
 	// Analítica operativa
 	GetRotacionDetalle(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.RotacionProductoResponse, error)
@@ -46,6 +46,9 @@ type StoreInventario interface {
 	GetValorHistorico(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.ValorHistoricoResponse, error)
 	GetPerdidas(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.PerdidaResponse, error)
 	GetMargenGanancia(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.MargenProductoResponse, error)
+
+	// Stock adjustment (Optimized)
+	AdjustStock(ctx context.Context, idInventario uuid.UUID, delta float64) error
 }
 
 type storeInventario struct {
@@ -69,7 +72,7 @@ func (s *storeInventario) scanRowInventario(scanner interface{ Scan(dest ...any)
 // Campos base para SELECT de movimientos.
 const movimientoSelectFields = `
 	id_movimiento, id_producto, id_sucursal, tipo_movimiento, cantidad, 
-	costo_unitario, precio_unitario, stock_anterior, stock_posterior, 
+	costo_unitario, precio_unitario, COALESCE(stock_anterior, 0), COALESCE(stock_posterior, 0), 
 	fecha, id_usuario, referencia
 `
 
@@ -256,6 +259,12 @@ func (s *storeInventario) UpdateInventario(ctx context.Context, id uuid.UUID, in
 	defer performance.Trace(ctx, "store", "UpdateInventario", performance.DbThreshold, time.Now())
 
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		// BLOQUEO PESIMISTA: Asegura exclusividad antes de actualizar campos críticos
+		_, err := tx.ExecContext(ctx, "SELECT 1 FROM inventario WHERE id_inventario = $1 FOR UPDATE", id)
+		if err != nil {
+			return err
+		}
+
 		query := `
 			UPDATE inventario
 			SET 
@@ -276,6 +285,38 @@ func (s *storeInventario) UpdateInventario(ctx context.Context, id uuid.UUID, in
 
 	inventario.IDInventario = id
 	return inventario, nil
+}
+
+// AdjustStock realiza un ajuste relativo de stock directamente en la base de datos
+// con bloqueo pesimista para evitar condiciones de carrera (Race Conditions).
+func (s *storeInventario) AdjustStock(ctx context.Context, idInventario uuid.UUID, delta float64) error {
+	defer performance.Trace(ctx, "store", "AdjustStock", performance.DbThreshold, time.Now())
+
+	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		// 1. Bloqueo Pesimista
+		_, err := tx.ExecContext(ctx, "SELECT 1 FROM inventario WHERE id_inventario = $1 FOR UPDATE", idInventario)
+		if err != nil {
+			return err
+		}
+
+		// 2. Cómputo en DB (Atomic Increment/Decrement)
+		query := `
+			UPDATE inventario 
+			SET stock_actual = stock_actual + $1, 
+			    updated_at = CURRENT_TIMESTAMP 
+			WHERE id_inventario = $2 AND deleted_at IS NULL
+		`
+		result, err := tx.ExecContext(ctx, query, delta, idInventario)
+		if err != nil {
+			return err
+		}
+
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 }
 
 func (s *storeInventario) DeleteInventario(ctx context.Context, id uuid.UUID) error {
@@ -306,7 +347,7 @@ func (s *storeInventario) RegistrarMovimiento(ctx context.Context, m *models.Mov
 		itemsJSON := fmt.Sprintf(`[{"id_producto": "%s", "cantidad": %f, "precio_unitario": %f, "costo_unitario": %f}]`,
 			m.IDProducto, m.Cantidad, m.PrecioUnitario, m.CostoUnitario)
 
-		query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
+		query := `SELECT id_movimiento, id_producto, COALESCE(stock_anterior, 0), cantidad, COALESCE(stock_posterior, 0) 
 		          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
 
 		return tx.QueryRowContext(ctx, query,
@@ -335,7 +376,7 @@ func (s *storeInventario) RegistrarMovimientoMasivo(ctx context.Context, idSucur
 
 	var resultados []*models.MovimientoInventario
 	err = ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
-		query := `SELECT id_movimiento, id_producto, stock_anterior, cantidad, stock_posterior 
+		query := `SELECT id_movimiento, id_producto, COALESCE(stock_anterior, 0), cantidad, COALESCE(stock_posterior, 0) 
 		          FROM inventario_ia_movimiento($1, $2, $3, $4, $5)`
 
 		rows, err := tx.QueryContext(ctx, query, idSucursal, idUsuario, tipoMov, referencia, itemsJSON)
@@ -548,11 +589,31 @@ func (s *storeInventario) GetLotesByProducto(ctx context.Context, idProducto, id
 	return lotes, nil
 }
 
-func (s *storeInventario) UpdateLoteCantidad(ctx context.Context, idLote uuid.UUID, cantidad float64) error {
-	defer performance.Trace(ctx, "store", "UpdateLoteCantidad", performance.DbThreshold, time.Now())
-	query := `UPDATE lotes SET cantidad_actual = $1, updated_at = CURRENT_TIMESTAMP WHERE id_lote = $2`
-	_, err := s.db.ExecContext(ctx, query, cantidad, idLote)
-	return err
+// AdjustLoteStock realiza un ajuste relativo de la cantidad de un lote
+// directamente en la base de datos con bloqueo pesimista.
+func (s *storeInventario) AdjustLoteStock(ctx context.Context, idLote uuid.UUID, delta float64) error {
+	defer performance.Trace(ctx, "store", "AdjustLoteStock", performance.DbThreshold, time.Now())
+
+	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		// 1. Bloqueo Pesimista
+		_, err := tx.ExecContext(ctx, "SELECT 1 FROM lotes WHERE id_lote = $1 FOR UPDATE", idLote)
+		if err != nil {
+			return err
+		}
+
+		// 2. Cómputo en DB
+		query := `UPDATE lotes SET cantidad_actual = cantidad_actual + $1, updated_at = CURRENT_TIMESTAMP WHERE id_lote = $2 AND deleted_at IS NULL`
+		result, err := tx.ExecContext(ctx, query, delta, idLote)
+		if err != nil {
+			return err
+		}
+
+		rows, _ := result.RowsAffected()
+		if rows == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
 }
 
 func (s *storeInventario) GetRotacionDetalle(ctx context.Context, sucursalID uuid.UUID, params dto.RotacionFiltroParams) ([]*dto.RotacionProductoResponse, error) {
