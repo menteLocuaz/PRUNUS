@@ -2,34 +2,39 @@ package dto
 
 import (
 	"time"
-
 	"github.com/google/uuid"
 )
 
-// AbrirCajaDTO entrada para iniciar una sesión de caja (Control Estación)
-type AbrirCajaDTO struct {
-	IDEstacion uuid.UUID `json:"id_estacion" validate:"required"`
-	FondoBase  float64   `json:"fondo_base" validate:"min=0"`
-	IDUserPos  uuid.UUID `json:"id_user_pos" validate:"required"`
+type CajaDTO struct {
+	IDCaja      uuid.UUID `json:"id_caja"`
+	Nombre      string    `json:"nombre"`
+	IDSucursal  uuid.UUID `json:"id_sucursal"`
+	IDStatus    uuid.UUID `json:"id_status"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
-// MovimientoCajaDTO entrada para registrar un retiro o ingreso
-type MovimientoCajaDTO struct {
-	Monto  float64 `json:"monto" validate:"required,gt=0"`
-	Motivo string  `json:"motivo" validate:"required"`
+type DenominacionDTO struct {
+	ValorNominal float64 `json:"valor_nominal"`
+	Cantidad     int     `json:"cantidad"`
+	Subtotal     float64 `json:"subtotal"`
 }
 
-// CierreCajaDTO entrada para finalizar el turno
-type CierreCajaDTO struct {
-	FondoRetirado float64 `json:"fondo_retirado" validate:"required,min=0"`
+type CierreCajaRequest struct {
+	IDControlEstacion uuid.UUID         `json:"id_control_estacion"`
+	MontoDeclarado    float64           `json:"monto_declarado"`
+	Desglose          []DenominacionDTO `json:"desglose"`
+	Observaciones     string            `json:"observaciones"`
 }
 
-// EstadoCajaDTO respuesta con el resumen actual de la caja
-type EstadoCajaDTO struct {
-	IDControlEstacion uuid.UUID `json:"id_control_estacion"`
-	NombreEstacion    string    `json:"nombre_estacion"`
-	FondoBase         float64   `json:"fondo_base"`
-	IDStatus          uuid.UUID `json:"id_status"`
-	StatusDescripcion string    `json:"status_descripcion"`
-	FechaInicio       time.Time `json:"fecha_inicio"`
+type ResumenCierreDTO struct {
+	FondoInicial      float64 `json:"fondo_inicial"`
+	VentasEfectivo    float64 `json:"ventas_efectivo"`
+	VentasTarjeta     float64 `json:"ventas_tarjeta"`
+	VentasTransfer    float64 `json:"ventas_transferencia"`
+	TotalRetiros      float64 `json:"total_retiros"`
+	TotalGastos       float64 `json:"total_gastos"`
+	SaldoEsperado     float64 `json:"saldo_esperado"`
+	SaldoReal         float64 `json:"saldo_real"`
+	Diferencia        float64 `json:"diferencia"`
+	Resultado         string  `json:"resultado"` // CUADRADO, FALTANTE, SOBRANTE
 }

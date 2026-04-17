@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	zaplogger "github.com/prunus/pkg/utils/logger"
@@ -27,6 +28,10 @@ func NewServiceCaja(s store.StoreCaja, u store.StoreUsuario, logger *zap.Logger)
 		usuarioStore: u,
 		logger:       logger,
 	}
+}
+
+func (s *ServiceCaja) Logger() *zap.Logger {
+	return s.logger
 }
 
 func (s *ServiceCaja) validateCaja(c *models.Caja) error {
@@ -82,7 +87,7 @@ func (s *ServiceCaja) DeleteCaja(ctx context.Context, id uuid.UUID) error {
 }
 
 // AbrirSesion inicia un nuevo turno para un cajero en una caja específica.
-func (s *ServiceCaja) AbrirSesion(ctx context.Context, cajaID, usuarioID uuid.UUID, montoApertura float64) (*models.SesionCaja, error) {
+func (s *ServiceCaja) AbrirSesion(ctx context.Context, cajaID, usuarioID uuid.UUID, montoApertura float64, desglose []dto.DenominacionDTO) (*models.SesionCaja, error) {
 	zaplogger.WithContext(ctx, s.logger).Info("Intentando abrir sesión de caja",
 		zap.String("id_caja", cajaID.String()),
 		zap.String("id_usuario", usuarioID.String()),
@@ -106,6 +111,11 @@ func (s *ServiceCaja) AbrirSesion(ctx context.Context, cajaID, usuarioID uuid.UU
 		return nil, err
 	}
 
+	// Registrar desglose inicial si existe
+	if len(desglose) > 0 {
+		_ = s.store.RegistrarArqueoDesglose(ctx, res.IDSesion, "APERTURA", desglose)
+	}
+
 	if err := s.usuarioStore.UpdateTurnoStatus(ctx, usuarioID, true); err != nil {
 		zaplogger.WithContext(ctx, s.logger).Error("Sesión abierta pero falló actualización de estado de usuario", zap.Error(err))
 	}
@@ -125,11 +135,12 @@ func (s *ServiceCaja) RegistrarMovimiento(ctx context.Context, m models.Movimien
 	return s.store.CreateMovimiento(ctx, &m)
 }
 
-// ArqueoYCierre realiza el cierre de jornada comparando el efectivo físico con el registrado en sistema.
-func (s *ServiceCaja) ArqueoYCierre(ctx context.Context, sesionID, usuarioID uuid.UUID, montoFisico float64) (map[string]interface{}, error) {
-	zaplogger.WithContext(ctx, s.logger).Info("Iniciando arqueo y cierre de caja", zap.String("id_sesion", sesionID.String()))
+// ArqueoYCierre realiza una conciliación financiera completa antes de cerrar la jornada.
+func (s *ServiceCaja) ArqueoYCierre(ctx context.Context, req dto.CierreCajaRequest, usuarioID uuid.UUID) (*dto.ResumenCierreDTO, error) {
+	zaplogger.WithContext(ctx, s.logger).Info("Iniciando arqueo y cierre avanzado", zap.String("id_sesion", req.IDControlEstacion.String()))
 
-	sesionActual, err := s.store.GetSesionByID(ctx, sesionID)
+	// 1. Validar sesión
+	sesionActual, err := s.store.GetSesionByID(ctx, req.IDControlEstacion)
 	if err != nil {
 		return nil, err
 	}
@@ -137,53 +148,54 @@ func (s *ServiceCaja) ArqueoYCierre(ctx context.Context, sesionID, usuarioID uui
 		return nil, errors.New("la sesión ya se encuentra cerrada")
 	}
 
-	ventasSistema, err := s.store.GetVentasEfectivoBySesion(ctx, sesionID)
+	// 2. Obtener Resumen Financiero de Sistema (Ventas, Retiros, Gastos)
+	resumen, err := s.store.GetResumenFinanciero(ctx, req.IDControlEstacion)
 	if err != nil {
-		return nil, fmt.Errorf("error al obtener ventas de sistema: %w", err)
+		return nil, fmt.Errorf("error al conciliar montos: %w", err)
 	}
 
-	diferencia := montoFisico - ventasSistema
-	resultado := "CUADRADO"
-	if diferencia < -0.01 {
-		resultado = "FALTANTE"
-	} else if diferencia > 0.01 {
-		resultado = "SOBRANTE"
+	// 3. Cruzar con lo declarado físicamente
+	resumen.SaldoReal = req.MontoDeclarado
+	resumen.Diferencia = resumen.SaldoReal - resumen.SaldoEsperado
+	
+	resumen.Resultado = "CUADRADO"
+	if resumen.Diferencia < -0.01 {
+		resumen.Resultado = "FALTANTE"
+	} else if resumen.Diferencia > 0.01 {
+		resumen.Resultado = "SOBRANTE"
 	}
 
+	// 4. Registrar desglose físico de monedas/billetes
+	if len(req.Desglose) > 0 {
+		err = s.store.RegistrarArqueoDesglose(ctx, req.IDControlEstacion, "CIERRE", req.Desglose)
+		if err != nil {
+			zaplogger.WithContext(ctx, s.logger).Error("Fallo al registrar desglose físico", zap.Error(err))
+		}
+	}
+
+	// 5. Cerrar sesión en BD
 	ahora := time.Now()
 	sesionUpdate := &models.SesionCaja{
-		MontoCierre: montoFisico,
+		MontoCierre: resumen.SaldoReal,
 		FechaCierre: &ahora,
 		Estado:      "CERRADA",
 	}
-	_, err = s.store.UpdateSesion(ctx, sesionID, sesionUpdate)
+	_, err = s.store.UpdateSesion(ctx, req.IDControlEstacion, sesionUpdate)
 	if err != nil {
 		return nil, fmt.Errorf("error al cerrar sesión: %w", err)
 	}
 
-	err = s.usuarioStore.UpdateTurnoStatus(ctx, usuarioID, false)
-	if err != nil {
-		zaplogger.WithContext(ctx, s.logger).Error("Sesión cerrada pero falló desasignación de usuario",
-			zap.String("id_usuario", usuarioID.String()),
-			zap.Error(err),
-		)
-	}
+	// 6. Liberar usuario
+	_ = s.usuarioStore.UpdateTurnoStatus(ctx, usuarioID, false)
 
-	zaplogger.WithContext(ctx, s.logger).Info("Cierre de jornada completado",
-		zap.String("id_sesion", sesionID.String()),
-		zap.Float64("sistema", ventasSistema),
-		zap.Float64("fisico", montoFisico),
-		zap.Float64("diferencia", diferencia),
-		zap.String("resultado", resultado),
+	zaplogger.WithContext(ctx, s.logger).Info("Cierre de jornada avanzado completado",
+		zap.String("id_sesion", req.IDControlEstacion.String()),
+		zap.Float64("esperado", resumen.SaldoEsperado),
+		zap.Float64("real", resumen.SaldoReal),
+		zap.String("resultado", resumen.Resultado),
 	)
 
-	return map[string]interface{}{
-		"ventas_sistema":  ventasSistema,
-		"efectivo_fisico": montoFisico,
-		"diferencia":      diferencia,
-		"resultado":       resultado,
-		"mensaje":         fmt.Sprintf("Cierre completado. Resultado: %s", resultado),
-	}, nil
+	return resumen, nil
 }
 
 // GetMovimientos obtiene el historial de movimientos de una sesión.

@@ -21,3 +21,18 @@ type Periodo struct {
 	UpdatedAt          time.Time  `json:"updated_at"`
 	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
 }
+
+type PeriodoSnapshot struct {
+	IDSnapshot       uuid.UUID              `json:"id_snapshot"`
+	IDPeriodo        uuid.UUID              `json:"id_periodo"`
+	FechaCierre      time.Time              `json:"fecha_cierre"`
+	TotalVentas      float64                `json:"total_ventas"`
+	TotalEfectivo    float64                `json:"total_efectivo"`
+	TotalTarjeta     float64                `json:"total_tarjeta"`
+	TotalOtros       float64                `json:"total_otros"`
+	TotalDiferencias float64                `json:"total_diferencias"`
+	TotalOperaciones int                    `json:"total_operaciones"`
+	DataJSON         map[string]interface{} `json:"data_json"`
+	IDUsuarioCierre  uuid.UUID              `json:"id_usuario_cierre"`
+	CreatedAt        time.Time              `json:"created_at"`
+}

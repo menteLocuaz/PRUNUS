@@ -26,6 +26,7 @@ type StorePOS interface {
 	// Periodos
 	GetActivePeriodo(ctx context.Context) (*models.Periodo, error)
 	GetTotalActiveControls(ctx context.Context) (int, error)
+	GetActiveControlByUser(ctx context.Context, idUsuario uuid.UUID) (*models.ControlEstacion, error)
 
 	// Desmontar (Migración SP)
 	DesmontarCajero(ctx context.Context, ctrlID uuid.UUID, idStatusInactivo uuid.UUID, idStatusRetiroTotal uuid.UUID, idStatusDesmontado uuid.UUID, motivoDescuadre string) error
@@ -106,6 +107,26 @@ func (s *storePOS) GetTotalActiveControls(ctx context.Context) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx, query).Scan(&count)
 	return count, err
+}
+
+func (s *storePOS) GetActiveControlByUser(ctx context.Context, idUsuario uuid.UUID) (*models.ControlEstacion, error) {
+	defer performance.Trace(ctx, "store", "GetActiveControlByUser", performance.DbThreshold, time.Now())
+	query := `
+		SELECT id_control_estacion, id_estacion, fecha_inicio, fecha_salida, fondo_base, 
+		       usuario_asignado, id_status, id_user_pos, id_periodo, created_at, updated_at
+		FROM control_estacion
+		WHERE usuario_asignado = $1 AND fecha_salida IS NULL AND deleted_at IS NULL
+		LIMIT 1
+	`
+	c := &models.ControlEstacion{}
+	err := s.db.QueryRowContext(ctx, query, idUsuario).Scan(
+		&c.IDControlEstacion, &c.IDEstacion, &c.FechaInicio, &c.FechaSalida, &c.FondoBase,
+		&c.UsuarioAsignado, &c.IDStatus, &c.IDUserPos, &c.IDPeriodo, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return c, err
 }
 
 func (s *storePOS) GetActiveControlByEstacion(ctx context.Context, idEstacion uuid.UUID) (*models.ControlEstacion, error) {
