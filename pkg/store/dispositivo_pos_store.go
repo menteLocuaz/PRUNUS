@@ -105,15 +105,15 @@ func (s *storeDispositivoPos) GetByEstacion(ctx context.Context, idEstacion uuid
 
 func (s *storeDispositivoPos) Create(ctx context.Context, d *models.DispositivoPos) (*models.DispositivoPos, error) {
 	defer performance.Trace(ctx, "store", "CreateDispositivoPos", performance.DbThreshold, time.Now())
-	
+
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		configJSON, _ := json.Marshal(d.Configuracion)
 		query := `
 			INSERT INTO dispositivos_pos (id_estacion, nombre, tipo_dispositivo, configuracion, id_status) 
 			VALUES ($1, $2, $3, $4, $5) 
 			RETURNING id_dispositivo, created_at, updated_at`
-		
-		return tx.QueryRowContext(ctx, query, 
+
+		return tx.QueryRowContext(ctx, query,
 			d.IDEstacion, d.Nombre, d.TipoDispositivo, configJSON, d.IDStatus,
 		).Scan(&d.IDDispositivo, &d.CreatedAt, &d.UpdatedAt)
 	})
@@ -126,7 +126,7 @@ func (s *storeDispositivoPos) Create(ctx context.Context, d *models.DispositivoP
 
 func (s *storeDispositivoPos) Update(ctx context.Context, id uuid.UUID, d *models.DispositivoPos) (*models.DispositivoPos, error) {
 	defer performance.Trace(ctx, "store", "UpdateDispositivoPos", performance.DbThreshold, time.Now())
-	
+
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		configJSON, _ := json.Marshal(d.Configuracion)
 		query := `
@@ -134,8 +134,8 @@ func (s *storeDispositivoPos) Update(ctx context.Context, id uuid.UUID, d *model
 			SET id_estacion = $1, nombre = $2, tipo_dispositivo = $3, configuracion = $4, id_status = $5, updated_at = CURRENT_TIMESTAMP 
 			WHERE id_dispositivo = $6 AND deleted_at IS NULL 
 			RETURNING created_at, updated_at`
-		
-		return tx.QueryRowContext(ctx, query, 
+
+		return tx.QueryRowContext(ctx, query,
 			d.IDEstacion, d.Nombre, d.TipoDispositivo, configJSON, d.IDStatus, id,
 		).Scan(&d.CreatedAt, &d.UpdatedAt)
 	})
@@ -146,14 +146,14 @@ func (s *storeDispositivoPos) Update(ctx context.Context, id uuid.UUID, d *model
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar dispositivo: %w", err)
 	}
-	
+
 	d.IDDispositivo = id
 	return d, nil
 }
 
 func (s *storeDispositivoPos) Delete(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteDispositivoPos", performance.DbThreshold, time.Now())
-	
+
 	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `UPDATE dispositivos_pos SET deleted_at = CURRENT_TIMESTAMP WHERE id_dispositivo = $1 AND deleted_at IS NULL`
 		result, err := tx.ExecContext(ctx, query, id)

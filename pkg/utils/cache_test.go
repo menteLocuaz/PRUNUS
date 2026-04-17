@@ -15,10 +15,16 @@ type MockStore struct {
 	preFunc func(ctx context.Context, prefix string) error
 }
 
-func (m *MockStore) Get(ctx context.Context, key string, dest interface{}) error { return m.getFunc(ctx, key, dest) }
-func (m *MockStore) Set(ctx context.Context, key string, value interface{}, exp time.Duration) error { return m.setFunc(ctx, key, value, exp) }
+func (m *MockStore) Get(ctx context.Context, key string, dest interface{}) error {
+	return m.getFunc(ctx, key, dest)
+}
+func (m *MockStore) Set(ctx context.Context, key string, value interface{}, exp time.Duration) error {
+	return m.setFunc(ctx, key, value, exp)
+}
 func (m *MockStore) Delete(ctx context.Context, key string) error { return m.delFunc(ctx, key) }
-func (m *MockStore) DeleteByPrefix(ctx context.Context, prefix string) error { return m.preFunc(ctx, prefix) }
+func (m *MockStore) DeleteByPrefix(ctx context.Context, prefix string) error {
+	return m.preFunc(ctx, prefix)
+}
 
 func TestGetOrSet(t *testing.T) {
 	ctx := context.Background()

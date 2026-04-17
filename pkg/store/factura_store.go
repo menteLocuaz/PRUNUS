@@ -294,7 +294,7 @@ func (s *storeFactura) CreateImpuesto(ctx context.Context, i *models.Impuesto) (
 		query := `INSERT INTO impuesto (nombre, porcentaje, id_status) 
 		          VALUES ($1, $2, $3) 
 		          RETURNING id_impuesto, created_at, updated_at`
-		
+
 		return tx.QueryRowContext(ctx, query, i.Nombre, i.Porcentaje, i.IDStatus).Scan(
 			&i.IDImpuesto, &i.CreatedAt, &i.UpdatedAt,
 		)
@@ -311,7 +311,7 @@ func (s *storeFactura) UpdateImpuesto(ctx context.Context, id uuid.UUID, i *mode
 		query := `UPDATE impuesto SET nombre = $1, porcentaje = $2, id_status = $3, updated_at = CURRENT_TIMESTAMP 
 		          WHERE id_impuesto = $4 AND deleted_at IS NULL
 		          RETURNING created_at, updated_at`
-		
+
 		return tx.QueryRowContext(ctx, query, i.Nombre, i.Porcentaje, i.IDStatus, id).Scan(&i.CreatedAt, &i.UpdatedAt)
 	})
 	if err != nil {
@@ -367,7 +367,7 @@ func (s *storeFactura) CreateFormaPago(ctx context.Context, f *models.FormaPago)
 		query := `INSERT INTO forma_pago (nombre, requiere_ref, id_status) 
 		          VALUES ($1, $2, $3) 
 		          RETURNING id_forma_pago, created_at, updated_at`
-		
+
 		return tx.QueryRowContext(ctx, query, f.Nombre, f.RequiereRef, f.IDStatus).Scan(
 			&f.IDFormaPago, &f.CreatedAt, &f.UpdatedAt,
 		)
@@ -384,7 +384,7 @@ func (s *storeFactura) UpdateFormaPago(ctx context.Context, id uuid.UUID, f *mod
 		query := `UPDATE forma_pago SET nombre = $1, requiere_ref = $2, id_status = $3, updated_at = NOW() 
 		          WHERE id_forma_pago = $4 AND deleted_at IS NULL
 		          RETURNING created_at, updated_at`
-		
+
 		return tx.QueryRowContext(ctx, query, f.Nombre, f.RequiereRef, f.IDStatus, id).Scan(&f.CreatedAt, &f.UpdatedAt)
 	})
 	if err != nil {

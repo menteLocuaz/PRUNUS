@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
@@ -14,6 +15,7 @@ import (
 type StorePOS interface {
 	// Control Estación
 	GetActiveControlByEstacion(ctx context.Context, idEstacion uuid.UUID) (*models.ControlEstacion, error)
+	GetEstadoCompletoEstacion(ctx context.Context, idEstacion uuid.UUID) (*dto.EstadoCajaDTO, error)
 	CreateControlEstacion(ctx context.Context, control *models.ControlEstacion) (*models.ControlEstacion, error)
 	UpdateControlEstacion(ctx context.Context, control *models.ControlEstacion) error
 
@@ -38,6 +40,64 @@ type storePOS struct {
 
 func NewPOSStore(db *sql.DB) StorePOS {
 	return &storePOS{db: db}
+}
+
+// GetEstadoCompletoEstacion optimiza la consulta de estado usando un solo JOIN.
+func (s *storePOS) GetEstadoCompletoEstacion(ctx context.Context, idEstacion uuid.UUID) (*dto.EstadoCajaDTO, error) {
+	defer performance.Trace(ctx, "store", "GetEstadoCompletoEstacion", performance.DbThreshold, time.Now())
+
+	query := `
+		SELECT 
+			e.nombre,
+			c.id_control_estacion,
+			c.fondo_base,
+			c.id_status,
+			c.fecha_inicio,
+			COALESCE(s.std_descripcion, 'Cerrada') as status_descripcion
+		FROM estaciones_pos e
+		LEFT JOIN control_estacion c ON e.id_estacion = c.id_estacion 
+		     AND c.fecha_salida IS NULL 
+		     AND c.deleted_at IS NULL
+		LEFT JOIN estatus s ON (CASE WHEN c.id_status IS NOT NULL THEN c.id_status ELSE e.id_status END) = s.id_status
+		WHERE e.id_estacion = $1 AND e.deleted_at IS NULL
+	`
+
+	res := &dto.EstadoCajaDTO{}
+	var idControl, idStatus *uuid.UUID
+	var fechaInicio *time.Time
+	var fondoBase *float64
+
+	err := s.db.QueryRowContext(ctx, query, idEstacion).Scan(
+		&res.NombreEstacion,
+		&idControl,
+		&fondoBase,
+		&idStatus,
+		&fechaInicio,
+		&res.StatusDescripcion,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, sql.ErrNoRows
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener estado de estacion: %w", err)
+	}
+
+	// Asignación segura de punteros a los campos del DTO
+	if idControl != nil {
+		res.IDControlEstacion = *idControl
+	}
+	if idStatus != nil {
+		res.IDStatus = *idStatus
+	}
+	if fechaInicio != nil {
+		res.FechaInicio = *fechaInicio
+	}
+	if fondoBase != nil {
+		res.FondoBase = *fondoBase
+	}
+
+	return res, nil
 }
 
 func (s *storePOS) GetTotalActiveControls(ctx context.Context) (int, error) {

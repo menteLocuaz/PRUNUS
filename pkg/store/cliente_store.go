@@ -62,7 +62,7 @@ func (s *storeCliente) scanRowCliente(scanner interface{ Scan(dest ...any) error
 // GetAllClientes recupera todos los clientes activos con soporte para paginación.
 func (s *storeCliente) GetAllClientes(ctx context.Context, params dto.PaginationParams) ([]*models.Cliente, error) {
 	defer performance.Trace(ctx, "store", "GetAllClientes", performance.DbThreshold, time.Now())
-	
+
 	if params.Limit <= 0 {
 		params.Limit = dto.DefaultLimit
 	}
@@ -103,7 +103,7 @@ func (s *storeCliente) GetAllClientes(ctx context.Context, params dto.Pagination
 // GetClienteByID busca un cliente por su identificador único.
 func (s *storeCliente) GetClienteByID(ctx context.Context, id uuid.UUID) (*models.Cliente, error) {
 	defer performance.Trace(ctx, "store", "GetClienteByID", performance.DbThreshold, time.Now())
-	
+
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM cliente c

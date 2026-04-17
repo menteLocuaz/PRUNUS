@@ -9,20 +9,20 @@ import (
 // Producto representa el catálogo maestro de artículos en el sistema.
 // Sigue la estructura definida en la base de datos (tabla: producto).
 type Producto struct {
-	IDProducto   uuid.UUID `json:"id_producto"`
-	IDCategoria  uuid.UUID `json:"id_categoria"`
-	IDStatus     uuid.UUID `json:"id_status"`
-	
+	IDProducto  uuid.UUID `json:"id_producto"`
+	IDCategoria uuid.UUID `json:"id_categoria"`
+	IDStatus    uuid.UUID `json:"id_status"`
+
 	// Campos con discrepancia corregida según el esquema DB
-	Nombre       string    `json:"pro_nombre"`      // DB: pro_nombre
-	Descripcion  string    `json:"pro_descripcion"` // DB: pro_descripcion
-	CodigoBarras string    `json:"pro_codigo"`      // DB: pro_codigo (Código principal)
-	SKU          string    `json:"sku"`             // DB: sku (Añadido en migración 000021)
-	
+	Nombre       string `json:"pro_nombre"`      // DB: pro_nombre
+	Descripcion  string `json:"pro_descripcion"` // DB: pro_descripcion
+	CodigoBarras string `json:"pro_codigo"`      // DB: pro_codigo (Código principal)
+	SKU          string `json:"sku"`             // DB: sku (Añadido en migración 000021)
+
 	// Identificadores adicionales (Migración 000021)
-	// Nota: Si se requiere usar el campo codigo_barras de la DB además de pro_codigo, 
+	// Nota: Si se requiere usar el campo codigo_barras de la DB además de pro_codigo,
 	// se debería añadir un campo extra aquí.
-	
+
 	// Campos que no están en la tabla 'producto' base pero se usan en la lógica
 	// TODO: Verificar si estos campos deben ser añadidos a la tabla via migración
 	FechaVencimiento *time.Time `json:"fecha_vencimiento,omitempty"`
@@ -31,8 +31,8 @@ type Producto struct {
 	IDUnidad         uuid.UUID  `json:"id_unidad,omitempty"`
 
 	// Metadatos y búsqueda (PostgreSQL Optimization)
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-	SearchVector  string                 `json:"-"` // tsvector no se expone en JSON
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	SearchVector string                 `json:"-"` // tsvector no se expone en JSON
 
 	// Relaciones (Navegación)
 	Categoria *Categoria `json:"categoria,omitempty"`

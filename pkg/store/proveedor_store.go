@@ -58,7 +58,7 @@ func (s *storeProveedor) scanRowProveedor(scanner interface{ Scan(dest ...any) e
 
 func (s *storeProveedor) GetAllProveedores(ctx context.Context, params dto.PaginationParams) ([]*models.Proveedor, error) {
 	defer performance.Trace(ctx, "store", "GetAllProveedores", performance.DbThreshold, time.Now())
-	
+
 	if params.Limit <= 0 {
 		params.Limit = dto.DefaultLimit
 	}

@@ -34,16 +34,17 @@ func NewEstatus(db *sql.DB) StoreEstatus {
 // estatusSelectFields incluye todos los campos necesarios para poblar el modelo models.Estatus.
 // Se utiliza COALESCE para manejar posibles valores nulos en columnas agregadas recientemente.
 const estatusSelectFields = `
-	id_status, 
-	std_descripcion, 
-	COALESCE(std_tipo_estado, '') as std_tipo_estado, 
-	COALESCE(factor, '') as factor,
-	COALESCE(nivel, 0) as nivel,
-	mdl_id, 
-	is_active,
-	created_at, 
-	updated_at,
-	deleted_at
+	e.id_status, 
+	e.std_descripcion, 
+	COALESCE(e.std_tipo_estado, '') as std_tipo_estado, 
+	COALESCE(e.factor, '') as factor,
+	COALESCE(e.nivel, 0) as nivel,
+	e.mdl_id, 
+	COALESCE(m.mdl_descripcion, 'Módulo Desconocido') as mdl_descripcion,
+	e.is_active,
+	e.created_at, 
+	e.updated_at,
+	e.deleted_at
 `
 
 // scanRowEstatus centraliza el mapeo de las columnas de la base de datos al struct del modelo.
@@ -55,6 +56,7 @@ func (s *storeEstatus) scanRowEstatus(scanner interface{ Scan(dest ...any) error
 		&e.Factor,
 		&e.Nivel,
 		&e.MdlID,
+		&e.MdlDescripcion,
 		&e.IsActive,
 		&e.CreatedAt,
 		&e.UpdatedAt,
@@ -66,9 +68,10 @@ func (s *storeEstatus) GetAllEstatus(ctx context.Context) ([]*models.Estatus, er
 	defer performance.Trace(ctx, "store", "GetAllEstatus", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s 
-		FROM estatus 
-		WHERE deleted_at IS NULL 
-		ORDER BY mdl_id, nivel, std_descripcion
+		FROM estatus e
+		LEFT JOIN modulo m ON e.mdl_id = m.mdl_id
+		WHERE e.deleted_at IS NULL 
+		ORDER BY e.mdl_id, e.nivel, e.std_descripcion
 	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query)
@@ -93,8 +96,9 @@ func (s *storeEstatus) GetEstatusByID(ctx context.Context, id uuid.UUID) (*model
 	defer performance.Trace(ctx, "store", "GetEstatusByID", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s 
-		FROM estatus 
-		WHERE id_status = $1 AND deleted_at IS NULL
+		FROM estatus e
+		LEFT JOIN modulo m ON e.mdl_id = m.mdl_id
+		WHERE e.id_status = $1 AND e.deleted_at IS NULL
 	`, estatusSelectFields)
 
 	e := &models.Estatus{}
@@ -114,9 +118,10 @@ func (s *storeEstatus) GetEstatusByTipo(ctx context.Context, tipo string) ([]*mo
 	defer performance.Trace(ctx, "store", "GetEstatusByTipo", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s 
-		FROM estatus 
-		WHERE std_tipo_estado = $1 AND deleted_at IS NULL
-		ORDER BY std_descripcion ASC
+		FROM estatus e
+		LEFT JOIN modulo m ON e.mdl_id = m.mdl_id
+		WHERE e.std_tipo_estado = $1 AND e.deleted_at IS NULL
+		ORDER BY e.std_descripcion ASC
 	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query, tipo)
@@ -141,9 +146,10 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 	defer performance.Trace(ctx, "store", "GetEstatusByModulo", performance.DbThreshold, time.Now())
 	query := fmt.Sprintf(`
 		SELECT %s 
-		FROM estatus 
-		WHERE mdl_id = $1 AND deleted_at IS NULL
-		ORDER BY nivel, std_descripcion ASC
+		FROM estatus e
+		LEFT JOIN modulo m ON e.mdl_id = m.mdl_id
+		WHERE e.mdl_id = $1 AND e.deleted_at IS NULL
+		ORDER BY e.nivel, e.std_descripcion ASC
 	`, estatusSelectFields)
 
 	rows, err := s.db.QueryContext(ctx, query, moduloID)
@@ -166,16 +172,16 @@ func (s *storeEstatus) GetEstatusByModulo(ctx context.Context, moduloID int) ([]
 
 func (s *storeEstatus) CreateEstatus(ctx context.Context, estatus *models.Estatus) (*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "CreateEstatus", performance.DbThreshold, time.Now())
-	
+
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `
 			INSERT INTO estatus (std_descripcion, std_tipo_estado, factor, nivel, mdl_id, is_active)
 			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING id_status, created_at, updated_at
 		`
-		return tx.QueryRowContext(ctx, query, 
-			estatus.StdDescripcion, 
-			estatus.StdTipoEstado, 
+		return tx.QueryRowContext(ctx, query,
+			estatus.StdDescripcion,
+			estatus.StdTipoEstado,
 			estatus.Factor,
 			estatus.Nivel,
 			estatus.MdlID,
@@ -196,7 +202,7 @@ func (s *storeEstatus) CreateEstatus(ctx context.Context, estatus *models.Estatu
 
 func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus *models.Estatus) (*models.Estatus, error) {
 	defer performance.Trace(ctx, "store", "UpdateEstatus", performance.DbThreshold, time.Now())
-	
+
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `
 			UPDATE estatus
@@ -211,12 +217,12 @@ func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus 
 			WHERE id_status = $7 AND deleted_at IS NULL
 			RETURNING id_status, created_at, updated_at
 		`
-		return tx.QueryRowContext(ctx, query, 
-			estatus.StdDescripcion, 
-			estatus.StdTipoEstado, 
+		return tx.QueryRowContext(ctx, query,
+			estatus.StdDescripcion,
+			estatus.StdTipoEstado,
 			estatus.Factor,
 			estatus.Nivel,
-			estatus.MdlID, 
+			estatus.MdlID,
 			estatus.IsActive,
 			id,
 		).Scan(
@@ -235,7 +241,7 @@ func (s *storeEstatus) UpdateEstatus(ctx context.Context, id uuid.UUID, estatus 
 
 func (s *storeEstatus) DeleteEstatus(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteEstatus", performance.DbThreshold, time.Now())
-	
+
 	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `UPDATE estatus SET deleted_at = CURRENT_TIMESTAMP WHERE id_status = $1 AND deleted_at IS NULL`
 		result, err := tx.ExecContext(ctx, query, id)

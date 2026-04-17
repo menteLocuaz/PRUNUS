@@ -1,24 +1,24 @@
 package dto
 
 type DashboardResumen struct {
-	ValorInventarioTotal float64            `json:"valor_inventario_total"`
-	ProductosBajoStock   int                `json:"productos_bajo_stock"`
-	VentasMesActual      float64            `json:"ventas_mes_actual"`
-	CuentasPorCobrar     float64            `json:"cuentas_por_cobrar"`
-	CuentasPorPagar      float64            `json:"cuentas_por_pagar"`
-	GastosMensuales      float64            `json:"gastos_mensuales"`
-	PuntoEquilibrio      float64            `json:"punto_equilibrio"`
-	CicloConversionEfectivo float64         `json:"ciclo_conversion_efectivo"`
-	DIO                  float64            `json:"dio"` // Días de Inventario
-	DSO                  float64            `json:"dso"` // Días de Cobro
-	DPO                  float64            `json:"dpo"` // Días de Pago
-	TopProductos         []TopProductoDTO   `json:"top_productos"`
-	VentasVsCompras      []VentasComprasDTO `json:"ventas_vs_compras"`
+	ValorInventarioTotal    float64            `json:"valor_inventario_total"`
+	ProductosBajoStock      int                `json:"productos_bajo_stock"`
+	VentasMesActual         float64            `json:"ventas_mes_actual"`
+	CuentasPorCobrar        float64            `json:"cuentas_por_cobrar"`
+	CuentasPorPagar         float64            `json:"cuentas_por_pagar"`
+	GastosMensuales         float64            `json:"gastos_mensuales"`
+	PuntoEquilibrio         float64            `json:"punto_equilibrio"`
+	CicloConversionEfectivo float64            `json:"ciclo_conversion_efectivo"`
+	DIO                     float64            `json:"dio"` // Días de Inventario
+	DSO                     float64            `json:"dso"` // Días de Cobro
+	DPO                     float64            `json:"dpo"` // Días de Pago
+	TopProductos            []TopProductoDTO   `json:"top_productos"`
+	VentasVsCompras         []VentasComprasDTO `json:"ventas_vs_compras"`
 }
 
 type TopProductoDTO struct {
-	Nombre     string  `json:"nombre"`
-	Cantidad   float64 `json:"cantidad"`
+	Nombre       string  `json:"nombre"`
+	Cantidad     float64 `json:"cantidad"`
 	Rentabilidad float64 `json:"rentabilidad"`
 }
 
@@ -29,8 +29,8 @@ type VentasComprasDTO struct {
 }
 
 type InventarioCategoriaDTO struct {
-	Categoria string  `json:"categoria"`
-	Valor     float64 `json:"valor"`
+	Categoria  string  `json:"categoria"`
+	Valor      float64 `json:"valor"`
 	Porcentaje float64 `json:"porcentaje"`
 }
 

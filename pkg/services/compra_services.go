@@ -31,7 +31,6 @@ func (s *ServiceCompra) GetAllOrdenes(ctx context.Context, params dto.Pagination
 	return s.store.GetAllOrdenes(ctx, params)
 }
 
-
 func (s *ServiceCompra) GetOrdenByID(ctx context.Context, id uuid.UUID) (*models.OrdenCompra, error) {
 	return s.store.GetOrdenByID(ctx, id)
 }

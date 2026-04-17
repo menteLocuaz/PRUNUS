@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/store"
 	"github.com/prunus/pkg/utils"
@@ -37,45 +38,39 @@ const (
 	cacheExpirationEstatus  = 24 * time.Hour
 )
 
-var moduloNames = map[int]string{
-	1: "Empresa",
-	2: "Sucursal",
-	3: "Usuario",
-	4: "Producto",
-	5: "Venta",
-	6: "Compra",
-	7: "Finanzas",
-	8: "Caja/POS",
-}
-
-func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (map[int]interface{}, error) {
-	return utils.GetOrSet(ctx, s.cache, cacheKeyEstatusMaster, cacheExpirationEstatus, func() (map[int]interface{}, error) {
+// GetMasterCatalog retorna el catálogo completo de estados agrupados por módulo.
+// Utiliza caché para mejorar el rendimiento y obtiene los nombres de módulos desde la BD vía JOIN.
+func (s *ServiceEstatus) GetMasterCatalog(ctx context.Context) (dto.EstatusMasterCatalog, error) {
+	return utils.GetOrSet(ctx, s.cache, cacheKeyEstatusMaster, cacheExpirationEstatus, func() (dto.EstatusMasterCatalog, error) {
 		all, err := s.store.GetAllEstatus(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error al obtener todos los estatus: %w", err)
 		}
 
-		catalog := make(map[int]interface{})
+		catalog := make(dto.EstatusMasterCatalog)
 		for _, e := range all {
-			if _, ok := catalog[e.MdlID]; !ok {
-				name := "Módulo Desconocido"
-				if n, exists := moduloNames[e.MdlID]; exists {
-					name = n
-				}
-				catalog[e.MdlID] = struct {
-					Modulo string            `json:"modulo"`
-					Items  []*models.Estatus `json:"items"`
-				}{
-					Modulo: name,
-					Items:  []*models.Estatus{},
+			group, exists := catalog[e.MdlID]
+			if !exists {
+				group = dto.EstatusModuleGroup{
+					Modulo: e.MdlDescripcion,
+					Items:  []dto.EstatusResponse{},
 				}
 			}
 
-			group := catalog[e.MdlID].(struct {
-				Modulo string            `json:"modulo"`
-				Items  []*models.Estatus `json:"items"`
-			})
-			group.Items = append(group.Items, e)
+			// Mapear modelo a DTO
+			item := dto.EstatusResponse{
+				IDStatus:       e.IDStatus,
+				StdDescripcion: e.StdDescripcion,
+				StdTipoEstado:  e.StdTipoEstado,
+				Factor:         e.Factor,
+				Nivel:          e.Nivel,
+				MdlID:          e.MdlID,
+				IsActive:       e.IsActive,
+				CreatedAt:      e.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:      e.UpdatedAt.Format(time.RFC3339),
+			}
+
+			group.Items = append(group.Items, item)
 			catalog[e.MdlID] = group
 		}
 		return catalog, nil

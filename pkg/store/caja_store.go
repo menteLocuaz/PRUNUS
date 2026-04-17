@@ -274,7 +274,7 @@ func (s *storeCaja) GetMovimientosBySesion(ctx context.Context, sesionID uuid.UU
 
 func (s *storeCaja) GetVentasEfectivoBySesion(ctx context.Context, sesionID uuid.UUID) (float64, error) {
 	defer performance.Trace(ctx, "store", "GetVentasEfectivoBySesion", performance.DbThreshold, time.Now())
-	
+
 	// Sumar pagos en efectivo de facturas asociadas a esta sesión de caja.
 	// NOTA: Se asocia vía id_control_estacion que en la lógica de negocio se mapea a la sesión activa.
 	query := `

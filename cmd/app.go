@@ -68,7 +68,6 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *zap.Logg
 	configuracionService := services.NewServiceConfiguracion(configuracionStore)
 	dashboardService := services.NewDashboardService(dashboardStore)
 
-
 	// 3. Handlers (Controladores)
 	return &routers.Handlers{
 		Empresa:        transport.NewEmpresaHandler(empresaServices),

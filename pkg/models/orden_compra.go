@@ -7,20 +7,20 @@ import (
 )
 
 type OrdenCompra struct {
-	IDOrdenCompra  uuid.UUID  `json:"id_orden_compra"`
-	NumeroOrden    string     `json:"numero_orden"`
-	IDProveedor    uuid.UUID  `json:"id_proveedor"`
-	IDSucursal     uuid.UUID  `json:"id_sucursal"`
-	IDUsuario      uuid.UUID  `json:"id_usuario"`
-	IDMoneda       uuid.UUID  `json:"id_moneda"`
-	IDStatus       uuid.UUID  `json:"id_status"`
-	FechaEmision   time.Time  `json:"fecha_emision"`
-	FechaRecepcion *time.Time `json:"fecha_recepcion,omitempty"`
+	IDOrdenCompra    uuid.UUID  `json:"id_orden_compra"`
+	NumeroOrden      string     `json:"numero_orden"`
+	IDProveedor      uuid.UUID  `json:"id_proveedor"`
+	IDSucursal       uuid.UUID  `json:"id_sucursal"`
+	IDUsuario        uuid.UUID  `json:"id_usuario"`
+	IDMoneda         uuid.UUID  `json:"id_moneda"`
+	IDStatus         uuid.UUID  `json:"id_status"`
+	FechaEmision     time.Time  `json:"fecha_emision"`
+	FechaRecepcion   *time.Time `json:"fecha_recepcion,omitempty"`
 	FechaVencimiento *time.Time `json:"fecha_vencimiento,omitempty"`
-	Subtotal       float64    `json:"subtotal"`
-	Impuesto       float64    `json:"impuesto"`
-	Total          float64    `json:"total"`
-	Observaciones  string     `json:"observaciones"`
+	Subtotal         float64    `json:"subtotal"`
+	Impuesto         float64    `json:"impuesto"`
+	Total            float64    `json:"total"`
+	Observaciones    string     `json:"observaciones"`
 
 	// Relaciones
 	Proveedor *Proveedor            `json:"proveedor,omitempty"`

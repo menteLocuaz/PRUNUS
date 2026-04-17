@@ -29,6 +29,6 @@ type Usuario struct {
 	Rol        *Rol        `json:"rol,omitempty"`
 	Sucursal   *Sucursal   `json:"sucursal,omitempty"`
 	Sucursales []uuid.UUID `json:"sucursales_acceso,omitempty"` // IDs de sucursales habilitadas
-	Permisos   []string    `json:"permisos"`            // Slugs o rutas de módulos permitidos
-	EnTurno    bool        `json:"en_turno"`            // Indica si el usuario puede operar caja
+	Permisos   []string    `json:"permisos"`                    // Slugs o rutas de módulos permitidos
+	EnTurno    bool        `json:"en_turno"`                    // Indica si el usuario puede operar caja
 }
