@@ -96,14 +96,14 @@ func (s *storeEstacionPos) GetBySucursal(ctx context.Context, idSucursal uuid.UU
 
 func (s *storeEstacionPos) Create(ctx context.Context, e *models.EstacionPos) (*models.EstacionPos, error) {
 	defer performance.Trace(ctx, "store", "CreateEstacionPos", performance.DbThreshold, time.Now())
-	
+
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `
 			INSERT INTO estaciones_pos (codigo, nombre, ip, id_sucursal, id_status) 
 			VALUES ($1, $2, $3, $4, $5) 
 			RETURNING id_estacion, created_at, updated_at`
-		
-		return tx.QueryRowContext(ctx, query, 
+
+		return tx.QueryRowContext(ctx, query,
 			e.Codigo, e.Nombre, e.IP, e.IDSucursal, e.IDStatus,
 		).Scan(&e.IDEstacion, &e.CreatedAt, &e.UpdatedAt)
 	})
@@ -116,15 +116,15 @@ func (s *storeEstacionPos) Create(ctx context.Context, e *models.EstacionPos) (*
 
 func (s *storeEstacionPos) Update(ctx context.Context, id uuid.UUID, e *models.EstacionPos) (*models.EstacionPos, error) {
 	defer performance.Trace(ctx, "store", "UpdateEstacionPos", performance.DbThreshold, time.Now())
-	
+
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `
 			UPDATE estaciones_pos 
 			SET codigo = $1, nombre = $2, ip = $3, id_sucursal = $4, id_status = $5, updated_at = CURRENT_TIMESTAMP 
 			WHERE id_estacion = $6 AND deleted_at IS NULL 
 			RETURNING created_at, updated_at`
-		
-		return tx.QueryRowContext(ctx, query, 
+
+		return tx.QueryRowContext(ctx, query,
 			e.Codigo, e.Nombre, e.IP, e.IDSucursal, e.IDStatus, id,
 		).Scan(&e.CreatedAt, &e.UpdatedAt)
 	})
@@ -135,14 +135,14 @@ func (s *storeEstacionPos) Update(ctx context.Context, id uuid.UUID, e *models.E
 	if err != nil {
 		return nil, fmt.Errorf("error al actualizar estación: %w", err)
 	}
-	
+
 	e.IDEstacion = id
 	return e, nil
 }
 
 func (s *storeEstacionPos) Delete(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteEstacionPos", performance.DbThreshold, time.Now())
-	
+
 	return ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `UPDATE estaciones_pos SET deleted_at = CURRENT_TIMESTAMP WHERE id_estacion = $1 AND deleted_at IS NULL`
 		result, err := tx.ExecContext(ctx, query, id)

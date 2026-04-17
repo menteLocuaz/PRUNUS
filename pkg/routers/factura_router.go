@@ -15,7 +15,7 @@ func FacturaRouter(h *transport.FacturaHandler) chi.Router {
 		r.Post("/", h.Create)
 		r.Post("/completa", h.RegistrarCompleta)
 		r.Get("/{id}", h.GetByID)
-		
+
 		// Impuestos
 		r.Get("/impuestos", h.GetImpuestos)
 		r.Get("/impuestos/{id}", h.GetImpuestoByID)

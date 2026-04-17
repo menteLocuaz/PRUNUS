@@ -55,9 +55,15 @@ func NewMainRouter(h *Handlers, log *zap.Logger) http.Handler {
 		// Rate limiting para toda la API (10 peticiones por segundo con ráfaga de 20 por IP)
 		r.Use(middleware.RateLimit(10, 20))
 
+		// Acceso directo al catálogo maestro (requiere autenticación)
+		r.With(middleware.RequireAuth()).Get("/catalogo", h.Estatus.GetMasterCatalog)
+
 		r.Route("/v1", func(r chi.Router) {
 			// Auth Routes
 			r.Mount("/auth", AuthRouter(h.Auth))
+
+			// Catálogo (alias para /api/catalogo)
+			r.With(middleware.RequireAuth()).Get("/catalogo", h.Estatus.GetMasterCatalog)
 
 			// Mantener login en /v1/login por compatibilidad
 			r.Post("/login", h.Auth.Login)

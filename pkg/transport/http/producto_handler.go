@@ -28,13 +28,13 @@ func NewProductoHandler(s *services.ServiceProducto) *ProductoHandler {
 // GetAll obtiene una lista paginada de productos.
 func (h *ProductoHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	params := utils.ParsePaginationParams(r)
-	
+
 	resp, err := h.service.GetAllProductos(r.Context(), params)
 	if err != nil {
 		response.InternalServerError(w, "Error al obtener productos: "+err.Error())
 		return
 	}
-	
+
 	response.Success(w, "Productos obtenidos correctamente", resp)
 }
 
@@ -51,7 +51,7 @@ func (h *ProductoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		response.NotFound(w, "Producto no encontrado")
 		return
 	}
-	
+
 	response.Success(w, "Producto obtenido correctamente", resp)
 }
 
@@ -68,7 +68,7 @@ func (h *ProductoHandler) GetByCodigo(w http.ResponseWriter, r *http.Request) {
 		response.NotFound(w, "Producto no encontrado con el código proporcionado")
 		return
 	}
-	
+
 	response.Success(w, "Producto obtenido correctamente", resp)
 }
 
@@ -76,7 +76,7 @@ func (h *ProductoHandler) GetByCodigo(w http.ResponseWriter, r *http.Request) {
 // Ahora soporta múltiples formatos de fecha gracias a JSONDate.
 func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.ProductoCreateRequest
-	
+
 	// Decodificación con manejo de errores descriptivo
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, fmt.Sprintf("Error en el formato del JSON: %v", err))
@@ -94,7 +94,7 @@ func (h *ProductoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, err.Error())
 		return
 	}
-	
+
 	response.Created(w, "Producto creado correctamente", resp)
 }
 
@@ -123,7 +123,7 @@ func (h *ProductoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		response.InternalServerError(w, "Error al actualizar producto: "+err.Error())
 		return
 	}
-	
+
 	response.Success(w, "Producto actualizado correctamente", resp)
 }
 
@@ -139,6 +139,6 @@ func (h *ProductoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		response.NotFound(w, "No se pudo eliminar: producto no encontrado")
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }

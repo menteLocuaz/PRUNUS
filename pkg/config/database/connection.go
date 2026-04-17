@@ -43,7 +43,66 @@ func InitDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("error al conectar (ping) a PostgreSQL: %w", err)
 	}
 
+	// Hotfix: Sincronizar esquema de estatus si el migrador falló
+	if err := hotfixSyncSchema(db); err != nil {
+		fmt.Printf("⚠️ Aviso: Fallo al sincronizar esquema (hotfix): %v\n", err)
+	}
+
 	return db, nil
+}
+
+// hotfixSyncSchema asegura que las columnas críticas existan y tengan los nombres correctos.
+// Esto es necesario cuando el migrador reporta que está actualizado pero faltan columnas o renombrados.
+func hotfixSyncSchema(db *sql.DB) error {
+	queries := []string{
+		// estatus: columnas nuevas
+		`ALTER TABLE estatus
+		 ADD COLUMN IF NOT EXISTS std_tipo_estado VARCHAR(100),
+		 ADD COLUMN IF NOT EXISTS factor VARCHAR(100),
+		 ADD COLUMN IF NOT EXISTS nivel INTEGER DEFAULT 0;`,
+
+		// control_estacion: renombrar columnas si aún tienen los nombres viejos
+		`DO $$ BEGIN
+		   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='control_estacion' AND column_name='id_control') THEN
+		     ALTER TABLE control_estacion RENAME COLUMN id_control TO id_control_estacion;
+		   END IF;
+		 END $$;`,
+		`DO $$ BEGIN
+		   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='control_estacion' AND column_name='id_usuario') THEN
+		     ALTER TABLE control_estacion RENAME COLUMN id_usuario TO usuario_asignado;
+		   END IF;
+		 END $$;`,
+		`DO $$ BEGIN
+		   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='control_estacion' AND column_name='fecha_apertura') THEN
+		     ALTER TABLE control_estacion RENAME COLUMN fecha_apertura TO fecha_inicio;
+		   END IF;
+		 END $$;`,
+		`DO $$ BEGIN
+		   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='control_estacion' AND column_name='fecha_cierre') THEN
+		     ALTER TABLE control_estacion RENAME COLUMN fecha_cierre TO fecha_salida;
+		   END IF;
+		 END $$;`,
+		`DO $$ BEGIN
+		   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='control_estacion' AND column_name='monto_apertura') THEN
+		     ALTER TABLE control_estacion RENAME COLUMN monto_apertura TO fondo_base;
+		   END IF;
+		 END $$;`,
+
+		// control_estacion: columnas nuevas
+		`ALTER TABLE control_estacion
+		 ADD COLUMN IF NOT EXISTS id_user_pos          UUID,
+		 ADD COLUMN IF NOT EXISTS id_periodo           UUID,
+		 ADD COLUMN IF NOT EXISTS fondo_retirado       NUMERIC(18,2),
+		 ADD COLUMN IF NOT EXISTS usuario_retiro_fondo UUID,
+		 ADD COLUMN IF NOT EXISTS ctrc_motivo_descuadre TEXT;`,
+	}
+
+	for _, q := range queries {
+		if _, err := db.Exec(q); err != nil {
+			return fmt.Errorf("hotfix schema: %w", err)
+		}
+	}
+	return nil
 }
 
 // InitRedis abre la conexión a Redis usando la configuración de Viper.

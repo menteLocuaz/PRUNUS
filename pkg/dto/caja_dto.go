@@ -9,7 +9,7 @@ import (
 // AbrirCajaDTO entrada para iniciar una sesión de caja (Control Estación)
 type AbrirCajaDTO struct {
 	IDEstacion uuid.UUID `json:"id_estacion" validate:"required"`
-	FondoBase  float64   `json:"fondo_base" validate:"required,min=0"`
+	FondoBase  float64   `json:"fondo_base" validate:"min=0"`
 	IDUserPos  uuid.UUID `json:"id_user_pos" validate:"required"`
 }
 

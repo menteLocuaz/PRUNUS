@@ -195,7 +195,7 @@ func (s *storeProducto) UpdateProducto(ctx context.Context, id uuid.UUID, produc
 // DeleteProducto realiza un borrado lógico (soft delete) del producto.
 func (s *storeProducto) DeleteProducto(ctx context.Context, id uuid.UUID) error {
 	defer performance.Trace(ctx, "store", "DeleteProducto", performance.DbThreshold, time.Now())
-	
+
 	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
 		query := `UPDATE producto SET deleted_at = CURRENT_TIMESTAMP WHERE id_producto = $1 AND deleted_at IS NULL`
 		result, err := tx.ExecContext(ctx, query, id)

@@ -116,7 +116,7 @@ func (s *storeCompra) CreateOrden(ctx context.Context, o *models.OrdenCompra) (*
 
 func (s *storeCompra) GetOrdenByID(ctx context.Context, id uuid.UUID) (*models.OrdenCompra, error) {
 	defer performance.Trace(ctx, "store", "GetOrdenByID", performance.DbThreshold, time.Now())
-	
+
 	query := fmt.Sprintf("SELECT %s FROM orden_compra WHERE id_orden_compra = $1 AND deleted_at IS NULL", ordenCompraSelectFields)
 	o := &models.OrdenCompra{}
 	err := s.scanRowOrden(s.db.QueryRowContext(ctx, query, id), o)
@@ -144,7 +144,7 @@ func (s *storeCompra) GetOrdenByID(ctx context.Context, id uuid.UUID) (*models.O
 
 func (s *storeCompra) UpdateStatus(ctx context.Context, id uuid.UUID, statusID uuid.UUID, fechaRecepcion *time.Time) error {
 	defer performance.Trace(ctx, "store", "UpdateStatus", performance.DbThreshold, time.Now())
-	
+
 	query := `UPDATE orden_compra SET id_status = $1, fecha_recepcion = $2, updated_at = CURRENT_TIMESTAMP WHERE id_orden_compra = $3 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, query, statusID, fechaRecepcion, id)
 	return err
@@ -152,7 +152,7 @@ func (s *storeCompra) UpdateStatus(ctx context.Context, id uuid.UUID, statusID u
 
 func (s *storeCompra) UpdateDetalleRecepcion(ctx context.Context, idDetalle uuid.UUID, cantidad float64) error {
 	defer performance.Trace(ctx, "store", "UpdateDetalleRecepcion", performance.DbThreshold, time.Now())
-	
+
 	query := `UPDATE detalle_orden_compra SET cantidad_recibida = $1 WHERE id_detalle_compra = $2`
 	_, err := s.db.ExecContext(ctx, query, cantidad, idDetalle)
 	return err
@@ -160,7 +160,7 @@ func (s *storeCompra) UpdateDetalleRecepcion(ctx context.Context, idDetalle uuid
 
 func (s *storeCompra) GetAllOrdenes(ctx context.Context, params dto.PaginationParams) ([]*models.OrdenCompra, error) {
 	defer performance.Trace(ctx, "store", "GetAllOrdenes", performance.DbThreshold, time.Now())
-	
+
 	if params.Limit <= 0 {
 		params.Limit = dto.DefaultLimit
 	}
@@ -179,7 +179,7 @@ func (s *storeCompra) GetAllOrdenes(ctx context.Context, params dto.PaginationPa
 
 	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprint(len(args)+1)
 	args = append(args, params.Limit)
-	
+
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err

@@ -42,7 +42,7 @@ func (h *FacturaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *FacturaHandler) RegistrarCompleta(w http.ResponseWriter, r *http.Request) {
 	var req dto.FacturaCompletaRequest
-	
+
 	// Decodificar y loguear error si falla
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		fmt.Printf("[DEBUG] Error decodificando factura: %v\n", err)

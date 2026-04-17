@@ -137,7 +137,7 @@ func init() {
 // StartBackgroundWorker ejecuta tareas periódicas como snapshots de inventario
 func StartBackgroundWorker(db *sql.DB) {
 	fmt.Println("⏲️ Worker de segundo plano iniciado (Snapshots diarios)")
-	
+
 	// Ejecutar inmediatamente al arrancar para asegurar el dato del día
 	takeInventorySnapshots(db)
 

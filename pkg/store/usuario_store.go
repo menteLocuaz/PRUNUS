@@ -84,7 +84,7 @@ func NewUsuario(db *sql.DB) StoreUsuario {
 // GetAllUsuarios obtiene todos los usuarios activos con soporte para paginación.
 func (s *storeUsuario) GetAllUsuarios(ctx context.Context, params dto.PaginationParams) ([]*models.Usuario, error) {
 	defer performance.Trace(ctx, "store", "GetAllUsuarios", performance.DbThreshold, time.Now())
-	
+
 	if params.Limit <= 0 {
 		params.Limit = dto.DefaultLimit
 	}

@@ -76,7 +76,7 @@ type AlertaStockResponse struct {
 	IDSucursal     uuid.UUID `json:"id_sucursal"`
 	StockActual    float64   `json:"stock_actual"`
 	StockMinimo    float64   `json:"stock_minimo"`
-	Deficit        float64   `json:"deficit"`       // stock_minimo - stock_actual
+	Deficit        float64   `json:"deficit"` // stock_minimo - stock_actual
 	PrecioCompra   float64   `json:"precio_compra"`
 }
 
@@ -107,9 +107,9 @@ type PerdidaResponse struct {
 type MargenProductoResponse struct {
 	IDProducto       uuid.UUID `json:"id_producto"`
 	NombreProducto   string    `json:"nombre_producto"`
-	CostoProm        float64   `json:"costo_prom"`         // Costo unitario promedio real de ventas
-	PrecioVentaProm  float64   `json:"precio_venta_prom"`  // Precio de venta promedio real
-	MargenBruto      float64   `json:"margen_bruto"`       // PrecioVentaProm - CostoProm
-	MargenPorcentaje float64   `json:"margen_porcentaje"`  // (MargenBruto / PrecioVentaProm) * 100
+	CostoProm        float64   `json:"costo_prom"`        // Costo unitario promedio real de ventas
+	PrecioVentaProm  float64   `json:"precio_venta_prom"` // Precio de venta promedio real
+	MargenBruto      float64   `json:"margen_bruto"`      // PrecioVentaProm - CostoProm
+	MargenPorcentaje float64   `json:"margen_porcentaje"` // (MargenBruto / PrecioVentaProm) * 100
 	UnidadesVendidas float64   `json:"unidades_vendidas"`
 }
