@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/utils/performance"
 )
@@ -33,6 +34,8 @@ type StoreCaja interface {
 
 	// Arqueo
 	GetVentasEfectivoBySesion(ctx context.Context, sesionID uuid.UUID) (float64, error)
+	GetResumenFinanciero(ctx context.Context, controlID uuid.UUID) (*dto.ResumenCierreDTO, error)
+	RegistrarArqueoDesglose(ctx context.Context, idControl uuid.UUID, tipo string, desglose []dto.DenominacionDTO) error
 }
 
 type storeCaja struct {
@@ -292,4 +295,68 @@ func (s *storeCaja) GetVentasEfectivoBySesion(ctx context.Context, sesionID uuid
 		return 0, fmt.Errorf("error al calcular ventas en efectivo: %w", err)
 	}
 	return total, nil
+}
+
+func (s *storeCaja) GetResumenFinanciero(ctx context.Context, controlID uuid.UUID) (*dto.ResumenCierreDTO, error) {
+	defer performance.Trace(ctx, "store", "GetResumenFinanciero", performance.DbThreshold, time.Now())
+
+	query := `
+		WITH ventas AS (
+			SELECT 
+				COALESCE(SUM(CASE WHEN fpf.metodo_pago ILIKE '%Efectivo%' THEN fpf.monto ELSE 0 END), 0) as efectivo,
+				COALESCE(SUM(CASE WHEN fpf.metodo_pago ILIKE '%Tarjeta%' THEN fpf.monto ELSE 0 END), 0) as tarjeta,
+				COALESCE(SUM(CASE WHEN fpf.metodo_pago NOT ILIKE '%Efectivo%' AND fpf.metodo_pago NOT ILIKE '%Tarjeta%' THEN fpf.monto ELSE 0 END), 0) as otros
+			FROM forma_pago_factura fpf
+			JOIN factura f ON f.id_factura = fpf.id_factura
+			WHERE f.id_control_estacion = $1 AND f.deleted_at IS NULL
+		),
+		retiros_gastos AS (
+			SELECT 
+				COALESCE(SUM(CASE WHEN tipo = 'RETIRO' OR tipo = 'SALIDA' THEN monto ELSE 0 END), 0) as retiros,
+				COALESCE(SUM(CASE WHEN tipo = 'GASTO' THEN monto ELSE 0 END), 0) as gastos
+			FROM movimiento_caja
+			WHERE id_sesion = $1 AND deleted_at IS NULL
+		)
+		SELECT 
+			sc.monto_apertura,
+			v.efectivo,
+			v.tarjeta,
+			v.otros,
+			rg.retiros,
+			rg.gastos,
+			(sc.monto_apertura + v.efectivo - rg.retiros - rg.gastos) as esperado
+		FROM sesion_caja sc, ventas v, retiros_gastos rg
+		WHERE sc.id_sesion = $1
+	`
+
+	res := &dto.ResumenCierreDTO{}
+	err := s.db.QueryRowContext(ctx, query, controlID).Scan(
+		&res.FondoInicial,
+		&res.VentasEfectivo,
+		&res.VentasTarjeta,
+		&res.VentasTransfer,
+		&res.TotalRetiros,
+		&res.TotalGastos,
+		&res.SaldoEsperado,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener resumen financiero: %w", err)
+	}
+	return res, nil
+}
+
+func (s *storeCaja) RegistrarArqueoDesglose(ctx context.Context, idControl uuid.UUID, tipo string, desglose []dto.DenominacionDTO) error {
+	defer performance.Trace(ctx, "store", "RegistrarArqueoDesglose", performance.DbThreshold, time.Now())
+
+	err := ExecAudited(ctx, s.db, func(tx *sql.Tx) error {
+		query := `INSERT INTO arqueo_denominaciones (id_control_est, tipo, valor_nominal, cantidad, subtotal) VALUES ($1, $2, $3, $4, $5)`
+		for _, d := range desglose {
+			_, err := tx.ExecContext(ctx, query, idControl, tipo, d.ValorNominal, d.Cantidad, d.Subtotal)
+			if err != nil {
+				return fmt.Errorf("error al insertar denominación: %w", err)
+			}
+		}
+		return nil
+	})
+	return err
 }

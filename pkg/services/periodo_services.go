@@ -31,7 +31,6 @@ func (s *ServicePeriodo) Logger() *zap.Logger {
 
 // AbrirNuevoPeriodo inicia un periodo con controles de concurrencia y auditoría
 func (s *ServicePeriodo) AbrirNuevoPeriodo(ctx context.Context, idUsuario, idSucursal uuid.UUID, ip, motivo string) (*models.Periodo, error) {
-	// 1. Verificar si ya existe un periodo abierto para la sucursal
 	activo, err := s.store.GetActivePeriodo(ctx, idSucursal)
 	if err != nil {
 		s.logger.Error("Error al consultar periodo activo", zap.Error(err), zap.String("id_sucursal", idSucursal.String()))
@@ -39,13 +38,9 @@ func (s *ServicePeriodo) AbrirNuevoPeriodo(ctx context.Context, idUsuario, idSuc
 	}
 
 	if activo != nil {
-		s.logger.Info("Se intentó abrir un periodo, pero ya existe uno activo",
-			zap.String("id_periodo", activo.IDPeriodo.String()),
-			zap.String("id_sucursal", idSucursal.String()))
 		return activo, nil
 	}
 
-	// 2. Preparar el nuevo periodo con auditoría
 	nuevo := &models.Periodo{
 		IDPeriodo:          uuid.New(),
 		IDSucursal:         idSucursal,
@@ -56,34 +51,46 @@ func (s *ServicePeriodo) AbrirNuevoPeriodo(ctx context.Context, idUsuario, idSuc
 		IDStatus:           models.EstatusActivo,
 	}
 
-	// 3. Persistir (El Store maneja la concurrencia real vía UNIQUE INDEX)
 	result, err := s.store.CreatePeriodo(ctx, nuevo)
 	if err != nil {
-		s.logger.Error("Error al crear nuevo periodo (concurrencia)", zap.Error(err))
 		return nil, err
 	}
-
-	s.logger.Info("Nuevo periodo contable abierto exitosamente",
-		zap.String("id_periodo", result.IDPeriodo.String()),
-		zap.String("usuario", idUsuario.String()),
-		zap.String("sucursal", idSucursal.String()),
-		zap.String("ip", ip))
 
 	return result, nil
 }
 
+// FinalizarPeriodo realiza el cierre contable con snapshot histórico
 func (s *ServicePeriodo) FinalizarPeriodo(ctx context.Context, idPeriodo uuid.UUID, idUsuarioCierre uuid.UUID, ipCierre string) error {
-	// 1. Validar que no haya estaciones abiertas (Control Operativo)
+	// 1. VALIDACIÓN OPERATIVA: No pueden haber estaciones abiertas
 	estacionesAbiertas, err := s.posStore.GetTotalActiveControls(ctx)
 	if err != nil {
 		return err
 	}
 
 	if estacionesAbiertas > 0 {
-		return errors.New("no se puede cerrar el periodo: hay cajas o estaciones abiertas en el sistema")
+		return errors.New("no se puede cerrar el periodo: hay estaciones de trabajo aún activas")
 	}
 
-	// 2. Ejecutar cierre con auditoría
+	// 2. GENERAR SNAPSHOT DE AUDITORÍA
+	snapshot, err := s.store.GenerarSnapshotPeriodo(ctx, idPeriodo)
+	if err != nil {
+		s.logger.Error("Fallo al generar snapshot de periodo", zap.Error(err), zap.String("id_periodo", idPeriodo.String()))
+		// Continuamos con el cierre pero logueamos el error, o podrías abortar según requerimiento
+	} else {
+		snapshot.IDUsuarioCierre = idUsuarioCierre
+		snapshot.DataJSON = map[string]interface{}{
+			"ip_cierre": ipCierre,
+			"timestamp": time.Now().Format(time.RFC3339),
+			"version":   "1.0",
+		}
+		
+		// Guardar snapshot persistente
+		if err := s.store.GuardarSnapshot(ctx, snapshot); err != nil {
+			s.logger.Error("No se pudo guardar el snapshot de cierre", zap.Error(err))
+		}
+	}
+
+	// 3. EJECUTAR CIERRE DEFINITIVO
 	return s.store.CerrarPeriodo(ctx, idPeriodo, idUsuarioCierre, ipCierre)
 }
 

@@ -177,9 +177,9 @@ func (s *storeFactura) RegistrarFacturaCompleta(ctx context.Context, req dto.Fac
 		}
 
 		query := `SELECT id_factura, fac_numero, total, status_msg 
-		          FROM factura_registrar_completa($1, $2, $3, $4)`
+		          FROM factura_registrar_completa($1, $2, $3, $4, $5)`
 
-		return tx.QueryRowContext(ctx, query, cabeceraJSON, detallesJSON, pagosJSON, idUsuario).Scan(
+		return tx.QueryRowContext(ctx, query, cabeceraJSON, detallesJSON, pagosJSON, idUsuario, req.IdempotencyKey).Scan(
 			&res.IDFactura, &res.FacNumero, &res.Total, &res.StatusMsg,
 		)
 	})

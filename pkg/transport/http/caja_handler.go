@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/prunus/pkg/dto"
 	"github.com/prunus/pkg/models"
 	"github.com/prunus/pkg/services"
 	"github.com/prunus/pkg/utils/response"
@@ -93,15 +94,16 @@ func (h *CajaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *CajaHandler) AbrirSesion(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		IDCaja        uuid.UUID `json:"id_caja"`
-		IDUsuario     uuid.UUID `json:"id_usuario"`
-		MontoApertura float64   `json:"monto_apertura"`
+		IDCaja        uuid.UUID             `json:"id_caja"`
+		IDUsuario     uuid.UUID             `json:"id_usuario"`
+		MontoApertura float64               `json:"monto_apertura"`
+		Desglose      []dto.DenominacionDTO `json:"desglose"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "JSON inválido")
 		return
 	}
-	resp, err := h.service.AbrirSesion(r.Context(), req.IDCaja, req.IDUsuario, req.MontoApertura)
+	resp, err := h.service.AbrirSesion(r.Context(), req.IDCaja, req.IDUsuario, req.MontoApertura, req.Desglose)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
@@ -110,19 +112,18 @@ func (h *CajaHandler) AbrirSesion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CajaHandler) CerrarSesion(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		response.BadRequest(w, "ID de sesión inválido")
-		return
-	}
-
-	var req struct {
-		MontoCierre float64 `json:"monto_cierre"`
-	}
+	var req dto.CierreCajaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "JSON inválido")
 		return
+	}
+
+	// Si el ID viene en la URL, priorizarlo
+	idStr := chi.URLParam(r, "id")
+	if idStr != "" {
+		if id, err := uuid.Parse(idStr); err == nil {
+			req.IDControlEstacion = id
+		}
 	}
 
 	// Obtener ID de usuario del contexto (inyectado por middleware)
@@ -132,7 +133,7 @@ func (h *CajaHandler) CerrarSesion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.ArqueoYCierre(r.Context(), id, userID, req.MontoCierre)
+	resp, err := h.service.ArqueoYCierre(r.Context(), req, userID)
 	if err != nil {
 		response.InternalServerError(w, err.Error())
 		return
