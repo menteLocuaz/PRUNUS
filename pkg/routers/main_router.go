@@ -83,7 +83,7 @@ func NewMainRouter(h *Handlers, log *zap.Logger) http.Handler {
 			r.Mount("/pos", POSRouter(h.POS))
 			r.Mount("/inventario", InventarioRouter(h.Inventario))
 			r.Mount("/agregadores", AgregadoresRouter(h.Agregadores))
-			r.Mount("/caja", CajaRouter(h.Caja))
+			r.Mount("/cajas", CajaRouter(h.Caja))
 			r.Mount("/facturas", FacturaRouter(h.Factura))
 			r.Mount("/ordenes", OrdenPedidoRouter(h.OrdenPedido))
 			r.Mount("/dispositivos-pos", DispositivoPosRouter(h.DispositivoPos))

@@ -25,6 +25,9 @@ type StorePeriodo interface {
 	// Auditoría y Cierre
 	GenerarSnapshotPeriodo(ctx context.Context, idPeriodo uuid.UUID) (*models.PeriodoSnapshot, error)
 	GuardarSnapshot(ctx context.Context, s *models.PeriodoSnapshot) error
+
+	// Utils
+	GetStatusIDByDesc(ctx context.Context, desc string) (uuid.UUID, error)
 }
 
 type PeriodoStore struct {
@@ -37,16 +40,16 @@ func NewPeriodoStore(db *sql.DB) *PeriodoStore {
 
 func (s *PeriodoStore) CreatePeriodo(ctx context.Context, p *models.Periodo) (*models.Periodo, error) {
 	query := `INSERT INTO periodo (
-				id_periodo, id_sucursal, prd_fecha_apertura, prd_usuario_apertura, 
+				id_periodo, nombre, id_sucursal, prd_fecha_apertura, prd_usuario_apertura, 
 				prd_ip_apertura, prd_motivo_apertura, id_status, created_at, updated_at
-			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING id_periodo`
+			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) RETURNING id_periodo`
 
 	if p.IDPeriodo == uuid.Nil {
 		p.IDPeriodo = uuid.New()
 	}
 
 	err := s.db.QueryRowContext(ctx, query,
-		p.IDPeriodo, p.IDSucursal, p.PrdFechaApertura, p.PrdUsuarioApertura,
+		p.IDPeriodo, p.Nombre, p.IDSucursal, p.PrdFechaApertura, p.PrdUsuarioApertura,
 		p.PrdIPApertura, p.PrdMotivoApertura, p.IDStatus,
 	).Scan(&p.IDPeriodo)
 
@@ -57,14 +60,14 @@ func (s *PeriodoStore) CreatePeriodo(ctx context.Context, p *models.Periodo) (*m
 }
 
 func (s *PeriodoStore) GetActivePeriodo(ctx context.Context, sucursalID uuid.UUID) (*models.Periodo, error) {
-	query := `SELECT id_periodo, id_sucursal, prd_fecha_apertura, prd_usuario_apertura, prd_ip_apertura, prd_motivo_apertura, id_status 
+	query := `SELECT id_periodo, nombre, id_sucursal, prd_fecha_apertura, prd_usuario_apertura, prd_ip_apertura, prd_motivo_apertura, id_status 
 			  FROM periodo 
 			  WHERE id_sucursal = $1 AND prd_fecha_cierre IS NULL AND deleted_at IS NULL 
 			  LIMIT 1`
 
 	var p models.Periodo
 	err := s.db.QueryRowContext(ctx, query, sucursalID).Scan(
-		&p.IDPeriodo, &p.IDSucursal, &p.PrdFechaApertura, &p.PrdUsuarioApertura,
+		&p.IDPeriodo, &p.Nombre, &p.IDSucursal, &p.PrdFechaApertura, &p.PrdUsuarioApertura,
 		&p.PrdIPApertura, &p.PrdMotivoApertura, &p.IDStatus,
 	)
 	if err == sql.ErrNoRows {
@@ -145,13 +148,19 @@ func (s *PeriodoStore) GuardarSnapshot(ctx context.Context, snapshot *models.Per
 			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	_, err := s.db.ExecContext(ctx, query,
-		snapshot.IDPeriodo, snapshot.TotalVentas, snapshot.TotalEfectivo,
-		snapshot.TotalTarjeta, snapshot.TotalOtros, snapshot.TotalDiferencias,
+		snapshot.IDPeriodo, snapshot.TotalVentas, snapshot.TotalEfectivo, 
+		snapshot.TotalTarjeta, snapshot.TotalOtros, snapshot.TotalDiferencias, 
 		snapshot.TotalOperaciones, dataJSON, snapshot.IDUsuarioCierre,
 	)
 	return err
 }
 
+func (s *PeriodoStore) GetStatusIDByDesc(ctx context.Context, desc string) (uuid.UUID, error) {
+	var id uuid.UUID
+	query := `SELECT id_status FROM estatus WHERE std_descripcion ILIKE $1 LIMIT 1`
+	err := s.db.QueryRowContext(ctx, query, desc).Scan(&id)
+	return id, err
+}
 func (s *PeriodoStore) GetPeriodoByID(ctx context.Context, id uuid.UUID) (*models.Periodo, error) {
 	return nil, nil
 }

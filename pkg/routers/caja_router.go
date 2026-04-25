@@ -14,8 +14,8 @@ func CajaRouter(h *transport.CajaHandler) chi.Router {
 		r.Get("/", h.GetAll)
 		r.Post("/", h.Create)
 		r.Get("/{id}", h.GetByID)
-		r.Post("/abrir", h.AbrirSesion)
-		r.Post("/cerrar/{id}", h.CerrarSesion)
+		r.Post("/sesion/abrir", h.AbrirSesion)
+		r.Post("/sesion/cerrar/{id}", h.CerrarSesion)
 	})
 
 	return r

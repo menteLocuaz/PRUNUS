@@ -41,14 +41,26 @@ func (s *ServicePeriodo) AbrirNuevoPeriodo(ctx context.Context, idUsuario, idSuc
 		return activo, nil
 	}
 
+	// 1.1 Resolver Estatus dinámicamente (Evita errores de FK si las constantes no coinciden)
+	statusID, err := s.store.GetStatusIDByDesc(ctx, "Activo")
+	if err != nil {
+		s.logger.Error("Fallo al resolver estatus 'Activo' para periodo", zap.Error(err))
+		return nil, errors.New("error interno: no se encontró el catálogo de estatus activo")
+	}
+
+	// 2. Preparar el nuevo periodo con auditoría
+	ahora := time.Now()
+	nombreDefecto := "PER-" + ahora.Format("2006-01-02-1504")
+
 	nuevo := &models.Periodo{
 		IDPeriodo:          uuid.New(),
+		Nombre:             nombreDefecto,
 		IDSucursal:         idSucursal,
-		PrdFechaApertura:   time.Now(),
+		PrdFechaApertura:   ahora,
 		PrdUsuarioApertura: idUsuario,
 		PrdIPApertura:      ip,
 		PrdMotivoApertura:  motivo,
-		IDStatus:           models.EstatusActivo,
+		IDStatus:           statusID,
 	}
 
 	result, err := s.store.CreatePeriodo(ctx, nuevo)

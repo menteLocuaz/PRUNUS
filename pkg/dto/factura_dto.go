@@ -20,11 +20,11 @@ type FacturaCompletaRequest struct {
 
 type FacturaCabeceraRequest struct {
 	FacNumero         string                 `json:"fac_numero"`
-	IDSucursal        uuid.UUID              `json:"id_sucursal"`
-	IDCliente         uuid.UUID              `json:"id_cliente"`
-	IDEstacion        uuid.UUID              `json:"id_estacion"`
-	IDPeriodo         uuid.UUID              `json:"id_periodo"`
-	IDControlEstacion uuid.UUID              `json:"id_control_estacion"`
+	IDSucursal        *uuid.UUID             `json:"id_sucursal,omitempty"`
+	IDCliente         *uuid.UUID             `json:"id_cliente,omitempty"`
+	IDEstacion        *uuid.UUID             `json:"id_estacion,omitempty"`
+	IDPeriodo         *uuid.UUID             `json:"id_periodo,omitempty"`
+	IDControlEstacion *uuid.UUID             `json:"id_control_estacion,omitempty"`
 	Subtotal          float64                `json:"subtotal"`
 	Impuesto          float64                `json:"impuesto"`
 	Total             float64                `json:"total"`
@@ -32,7 +32,7 @@ type FacturaCabeceraRequest struct {
 }
 
 type FacturaDetalleRequest struct {
-	IDProducto     uuid.UUID  `json:"id_producto"`
+	IDProducto     *uuid.UUID `json:"id_producto,omitempty"`
 	IDLote         *uuid.UUID `json:"id_lote,omitempty"`
 	Cantidad       float64    `json:"cantidad"`
 	PrecioUnitario float64    `json:"precio_unitario"`
