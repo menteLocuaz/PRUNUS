@@ -86,7 +86,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *zap.Logg
 		Inventario:     transport.NewInventarioHandler(inventarioService),
 		Agregadores:    transport.NewAgregadoresHandler(agregadoresService),
 		Caja:           transport.NewCajaHandler(cajaService),
-		Factura:        transport.NewFacturaHandler(facturaService),
+		Factura:        transport.NewFacturaHandler(facturaService, logger),
 		OrdenPedido:    transport.NewOrdenPedidoHandler(ordenPedidoService),
 		DispositivoPos: transport.NewDispositivoPosHandler(dispositivoPosService),
 		EstacionPos:    transport.NewEstacionPosHandler(estacionPosService),

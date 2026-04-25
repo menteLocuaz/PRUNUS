@@ -8,6 +8,7 @@ import (
 
 type Periodo struct {
 	IDPeriodo          uuid.UUID  `json:"id_periodo"`
+	Nombre             string     `json:"nombre"`
 	IDSucursal         uuid.UUID  `json:"id_sucursal"`
 	PrdFechaApertura   time.Time  `json:"prd_fecha_apertura"`
 	PrdFechaCierre     *time.Time `json:"prd_fecha_cierre,omitempty"`

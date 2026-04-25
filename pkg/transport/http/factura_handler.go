@@ -1,8 +1,10 @@
 package transport
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,14 +15,16 @@ import (
 	"github.com/prunus/pkg/utils"
 	"github.com/prunus/pkg/utils/response"
 	"github.com/prunus/pkg/utils/validator"
+	"go.uber.org/zap"
 )
 
 type FacturaHandler struct {
 	service *services.ServiceFactura
+	logger  *zap.Logger
 }
 
-func NewFacturaHandler(s *services.ServiceFactura) *FacturaHandler {
-	return &FacturaHandler{service: s}
+func NewFacturaHandler(s *services.ServiceFactura, l *zap.Logger) *FacturaHandler {
+	return &FacturaHandler{service: s, logger: l}
 }
 
 func (h *FacturaHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +33,7 @@ func (h *FacturaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Items   []*models.DetalleFactura `json:"items"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Warn("Error decodificando factura simple", zap.Error(err))
 		response.BadRequest(w, "JSON inválido")
 		return
 	}
@@ -43,17 +48,22 @@ func (h *FacturaHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *FacturaHandler) RegistrarCompleta(w http.ResponseWriter, r *http.Request) {
 	var req dto.FacturaCompletaRequest
 
-	// Decodificar y loguear error si falla
+	// Leer body para auditoría interna en caso de fallo
+	bodyBytes, _ := io.ReadAll(r.Body)
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Printf("[DEBUG] Error decodificando factura: %v\n", err)
-		response.BadRequest(w, "JSON malformado: "+err.Error())
+		h.logger.Error("Fallo crítico decodificación JSON Factura",
+			zap.Error(err),
+			zap.String("body", string(bodyBytes)))
+		response.BadRequest(w, "JSON malformado o tipos de datos incompatibles (UUIDs inválidos)")
 		return
 	}
 
-	// Validar y loguear campos faltantes
+	// Validar
 	if err := validator.Validate.Struct(req); err != nil {
 		errs := validator.FormatErrors(err)
-		fmt.Printf("[DEBUG] Error de validación en factura: %+v\n", errs)
+		h.logger.Warn("Error validación Factura Completa", zap.Any("errors", errs))
 		response.ValidationError(w, errs)
 		return
 	}
