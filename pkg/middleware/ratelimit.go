@@ -4,38 +4,53 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"golang.org/x/time/rate"
 )
 
-// IPVisitor representa un visitante identificado por su IP con su propio limitador
+// IPVisitor representa un visitante identificado por su IP con su propio limitador.
 type IPVisitor struct {
 	limiter  *rate.Limiter
-	lastSeen int64
+	lastSeen int64 // Unix timestamp de la última petición
 }
 
 var (
-	visitors = make(map[string]*rate.Limiter)
+	visitors = make(map[string]*IPVisitor)
 	mu       sync.Mutex
 )
 
-// getLimiter devuelve el limitador para una IP específica, creándolo si no existe o actualizándolo si los parámetros cambian
+func init() {
+	// Evicta IPs inactivas cada 5 minutos para evitar memory leak.
+	go func() {
+		for {
+			time.Sleep(5 * time.Minute)
+			cutoff := time.Now().Add(-10 * time.Minute).Unix()
+			mu.Lock()
+			for ip, v := range visitors {
+				if v.lastSeen < cutoff {
+					delete(visitors, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+}
+
+// getLimiter devuelve el limitador para una IP específica, creándolo si no existe.
 func getLimiter(ip string, r rate.Limit, b int) *rate.Limiter {
 	mu.Lock()
 	defer mu.Unlock()
 
-	limiter, exists := visitors[ip]
+	v, exists := visitors[ip]
 	if !exists {
-		limiter = rate.NewLimiter(r, b)
-		visitors[ip] = limiter
-		return limiter
+		v = &IPVisitor{limiter: rate.NewLimiter(r, b)}
+		visitors[ip] = v
 	}
-
-	// Actualizar el límite y ráfaga por si cambiaron en la configuración
-	limiter.SetLimit(r)
-	limiter.SetBurst(b)
-
-	return limiter
+	v.lastSeen = time.Now().Unix()
+	v.limiter.SetLimit(r)
+	v.limiter.SetBurst(b)
+	return v.limiter
 }
 
 // RateLimit configura el middleware para limitar la tasa de peticiones por IP usando Token Bucket

@@ -24,7 +24,7 @@ type SesionCaja struct {
 	IDCaja        uuid.UUID  `json:"id_caja"`
 	IDUsuario     uuid.UUID  `json:"id_usuario"`
 	MontoApertura float64    `json:"monto_apertura"` // Base de la caja
-	MontoCierre   float64    `json:"monto_cierre"`
+	MontoCierre   *float64   `json:"monto_cierre,omitempty"`
 	FechaApertura time.Time  `json:"fecha_apertura"`
 	FechaCierre   *time.Time `json:"fecha_cierre,omitempty"`
 	Estado        string     `json:"estado"` // ABIERTA, CERRADA

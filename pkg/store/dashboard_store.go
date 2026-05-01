@@ -30,90 +30,78 @@ func NewDashboardStore(db *sql.DB) StoreDashboard {
 func (s *dashboardStore) GetResumen(ctx context.Context, sucursalID uuid.UUID) (*dto.DashboardResumen, error) {
 	resumen := &dto.DashboardResumen{}
 
-	// 1. Valor Inventario Total
-	queryValor := `
-		SELECT COALESCE(SUM(stock_actual * precio_compra), 0)
-		FROM inventario
-		WHERE id_sucursal = $1 AND deleted_at IS NULL`
-	err := s.db.QueryRowContext(ctx, queryValor, sucursalID).Scan(&resumen.ValorInventarioTotal)
-	if err != nil {
-		return nil, err
-	}
-
-	// 2. Productos bajo stock
-	queryBajoStock := `
-		SELECT COUNT(*)
-		FROM inventario
-		WHERE id_sucursal = $1 AND stock_actual <= stock_minimo AND deleted_at IS NULL`
-	err = s.db.QueryRowContext(ctx, queryBajoStock, sucursalID).Scan(&resumen.ProductosBajoStock)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Ventas Mes Actual
-	queryVentas := `
-		SELECT COALESCE(SUM(f.total), 0)
-		FROM factura f
-		WHERE f.id_sucursal = $1
-		  AND f.id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924'
-		  AND f.created_at >= date_trunc('month', current_date)
-		  AND f.deleted_at IS NULL`
-	err = s.db.QueryRowContext(ctx, queryVentas, sucursalID).Scan(&resumen.VentasMesActual)
-	if err != nil {
-		return nil, err
-	}
-
-	// 4. Cuentas por Cobrar (Facturas Pendientes)
-	queryCxC := `
-		SELECT COALESCE(SUM(f.total), 0)
-		FROM factura f
-		WHERE f.id_sucursal = $1
-		  AND f.id_status = '892340e0-4328-491d-9102-80550bb6aac4'
-		  AND f.deleted_at IS NULL`
-	err = s.db.QueryRowContext(ctx, queryCxC, sucursalID).Scan(&resumen.CuentasPorCobrar)
-	if err != nil {
-		return nil, err
-	}
-
-	// 5. Cuentas por Pagar (Ordenes de Compra Recibidas pero no Pagadas)
-	queryCxP := `
-		SELECT COALESCE(SUM(total), 0)
-		FROM orden_compra
-		WHERE id_sucursal = $1
-		  AND id_status IN (
-			  '00363491-8508-4220-9661-e99f05b0d545',
-			  '00363491-8508-4220-9661-e99f05b00001'
-		  )
-		  AND deleted_at IS NULL`
-	err = s.db.QueryRowContext(ctx, queryCxP, sucursalID).Scan(&resumen.CuentasPorPagar)
-	if err != nil {
-		return nil, err
-	}
-
-	// 6. Gastos Mensuales
-	queryGastos := `SELECT fn_get_gastos_mensuales($1, current_date)`
-	err = s.db.QueryRowContext(ctx, queryGastos, sucursalID).Scan(&resumen.GastosMensuales)
-	if err != nil {
-		return nil, err
-	}
-
-	// 7. Punto de Equilibrio
-	queryPE := `
-		WITH MargenPromedio AS (
-			SELECT
-				COALESCE(SUM((m.precio_unitario - m.costo_unitario) * m.cantidad) / NULLIF(SUM(m.precio_unitario * m.cantidad), 0), 0.2) as margen
-			FROM movimientos_inventario m
-			WHERE m.id_sucursal = $1
-			  AND m.tipo_movimiento = 'VENTA'
-			  AND m.fecha >= date_trunc('month', current_date)
+	// Métricas principales en un solo round-trip a la DB (7 queries → 1 CTE).
+	queryMain := `
+		WITH
+		inv_valor AS (
+			SELECT COALESCE(SUM(stock_actual * precio_compra), 0) AS val
+			FROM inventario
+			WHERE id_sucursal = $1 AND deleted_at IS NULL
+		),
+		bajo_stock AS (
+			SELECT COUNT(*) AS cnt
+			FROM inventario
+			WHERE id_sucursal = $1 AND stock_actual <= stock_minimo AND deleted_at IS NULL
+		),
+		ventas_mes AS (
+			SELECT COALESCE(SUM(total), 0) AS total
+			FROM factura
+			WHERE id_sucursal = $1
+			  AND id_status = '0f447fd7-9849-4a68-b82f-c69297e7a924'
+			  AND created_at >= date_trunc('month', current_date)
+			  AND deleted_at IS NULL
+		),
+		cxc AS (
+			SELECT COALESCE(SUM(total), 0) AS total
+			FROM factura
+			WHERE id_sucursal = $1
+			  AND id_status = '892340e0-4328-491d-9102-80550bb6aac4'
+			  AND deleted_at IS NULL
+		),
+		cxp AS (
+			SELECT COALESCE(SUM(total), 0) AS total
+			FROM orden_compra
+			WHERE id_sucursal = $1
+			  AND id_status IN ('00363491-8508-4220-9661-e99f05b0d545','00363491-8508-4220-9661-e99f05b00001')
+			  AND deleted_at IS NULL
+		),
+		gastos AS (
+			SELECT fn_get_gastos_mensuales($1, current_date) AS total
+		),
+		margen AS (
+			SELECT COALESCE(
+				SUM((precio_unitario - costo_unitario) * cantidad) / NULLIF(SUM(precio_unitario * cantidad), 0),
+				0.2
+			) AS m
+			FROM movimientos_inventario
+			WHERE id_sucursal = $1
+			  AND tipo_movimiento = 'VENTA'
+			  AND fecha >= date_trunc('month', current_date)
 		)
-		SELECT COALESCE($2 / NULLIF(margen, 0), 0) FROM MargenPromedio`
-	err = s.db.QueryRowContext(ctx, queryPE, sucursalID, resumen.GastosMensuales).Scan(&resumen.PuntoEquilibrio)
+		SELECT
+			iv.val,
+			bs.cnt,
+			vm.total,
+			cxc.total,
+			cxp.total,
+			g.total,
+			COALESCE(g.total / NULLIF(mg.m, 0), 0)
+		FROM inv_valor iv, bajo_stock bs, ventas_mes vm, cxc, cxp, gastos g, margen mg`
+
+	err := s.db.QueryRowContext(ctx, queryMain, sucursalID).Scan(
+		&resumen.ValorInventarioTotal,
+		&resumen.ProductosBajoStock,
+		&resumen.VentasMesActual,
+		&resumen.CuentasPorCobrar,
+		&resumen.CuentasPorPagar,
+		&resumen.GastosMensuales,
+		&resumen.PuntoEquilibrio,
+	)
 	if err != nil {
-		resumen.PuntoEquilibrio = 0
+		return nil, err
 	}
 
-	// 8. Ciclo de Conversión de Efectivo
+	// Ciclo de Conversión de Efectivo (query separada por tablas distintas)
 	queryCCC := `
 		WITH Periodo AS (
 			SELECT 90 as dias

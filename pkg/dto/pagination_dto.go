@@ -9,5 +9,8 @@ type PaginationParams struct {
 	Limit    int        `json:"limit"`
 }
 
-// DefaultLimit es el límite por defecto si no se especifica uno
+// DefaultLimit es el límite por defecto si no se especifica uno.
 const DefaultLimit = 20
+
+// MaxLimit es el límite máximo permitido para evitar respuestas sin acotamiento.
+const MaxLimit = 200

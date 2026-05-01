@@ -18,6 +18,9 @@ func ParsePaginationParams(r *http.Request) dto.PaginationParams {
 
 	if limitStr := query.Get("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			if limit > dto.MaxLimit {
+				limit = dto.MaxLimit
+			}
 			params.Limit = limit
 		}
 	}

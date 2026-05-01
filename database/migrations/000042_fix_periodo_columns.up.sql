@@ -1,8 +1,19 @@
 -- 000042_fix_periodo_columns.up.sql
 -- Alinea la tabla 'periodo' con los nombres de columna esperados por el Store en Go
 
-ALTER TABLE periodo RENAME COLUMN fecha_inicio TO prd_fecha_apertura;
-ALTER TABLE periodo RENAME COLUMN fecha_fin TO prd_fecha_cierre;
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'periodo' AND column_name = 'fecha_inicio') THEN
+        ALTER TABLE periodo RENAME COLUMN fecha_inicio TO prd_fecha_apertura;
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'periodo' AND column_name = 'fecha_fin') THEN
+        ALTER TABLE periodo RENAME COLUMN fecha_fin TO prd_fecha_cierre;
+    END IF;
+END $$;
 
 -- Asegurar que las columnas de auditoría existan si el Store las usa
 ALTER TABLE periodo ADD COLUMN IF NOT EXISTS prd_usuario_apertura UUID;

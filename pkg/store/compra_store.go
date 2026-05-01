@@ -90,18 +90,45 @@ func (s *storeCompra) CreateOrden(ctx context.Context, o *models.OrdenCompra) (*
 			return fmt.Errorf("error al insertar cabecera de compra: %w", err)
 		}
 
-		queryDet := `INSERT INTO detalle_orden_compra (
-			id_orden_compra, id_producto, cantidad_pedida, cantidad_recibida, 
-			precio_unitario, impuesto, total
-		) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id_detalle_compra`
+		// Batch insert con UNNEST: un solo round-trip para todos los detalles.
+		if len(o.Detalles) > 0 {
+			productos := make([]uuid.UUID, len(o.Detalles))
+			cantidades := make([]float64, len(o.Detalles))
+			precios := make([]float64, len(o.Detalles))
+			impuestos := make([]float64, len(o.Detalles))
+			totales := make([]float64, len(o.Detalles))
 
-		for _, d := range o.Detalles {
-			err = tx.QueryRowContext(ctx, queryDet,
-				o.IDOrdenCompra, d.IDProducto, d.CantidadPedida, 0,
-				d.PrecioUnitario, d.Impuesto, d.Total,
-			).Scan(&d.IDDetalleCompra)
+			for i, d := range o.Detalles {
+				productos[i] = d.IDProducto
+				cantidades[i] = d.CantidadPedida
+				precios[i] = d.PrecioUnitario
+				impuestos[i] = d.Impuesto
+				totales[i] = d.Total
+			}
+
+			queryDet := `
+				INSERT INTO detalle_orden_compra (
+					id_orden_compra, id_producto, cantidad_pedida, cantidad_recibida,
+					precio_unitario, impuesto, total
+				)
+				SELECT $1, unnest($2::uuid[]), unnest($3::numeric[]),
+				       0,  unnest($4::numeric[]), unnest($5::numeric[]), unnest($6::numeric[])
+				RETURNING id_detalle_compra`
+
+			rows, err := tx.QueryContext(ctx, queryDet,
+				o.IDOrdenCompra, productos, cantidades, precios, impuestos, totales,
+			)
 			if err != nil {
-				return fmt.Errorf("error al insertar detalle de compra: %w", err)
+				return fmt.Errorf("error al insertar detalles de compra: %w", err)
+			}
+			defer rows.Close()
+			for i := 0; rows.Next(); i++ {
+				if err := rows.Scan(&o.Detalles[i].IDDetalleCompra); err != nil {
+					return fmt.Errorf("error al escanear id de detalle: %w", err)
+				}
+			}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("error iterando ids de detalles: %w", err)
 			}
 		}
 		return nil

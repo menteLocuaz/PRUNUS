@@ -43,12 +43,21 @@ func (s *RedisStore) Delete(ctx context.Context, key string) error {
 
 func (s *RedisStore) DeleteByPrefix(ctx context.Context, prefix string) error {
 	defer performance.Trace(ctx, "redis", "DeleteByPrefix", performance.RedisThreshold, time.Now())
-	iter := s.client.Scan(ctx, 0, prefix+"*", 0).Iterator()
-	for iter.Next(ctx) {
-		err := s.client.Del(ctx, iter.Val()).Err()
+	var cursor uint64
+	for {
+		keys, nextCursor, err := s.client.Scan(ctx, cursor, prefix+"*", 100).Result()
 		if err != nil {
 			return err
 		}
+		if len(keys) > 0 {
+			if err := s.client.Del(ctx, keys...).Err(); err != nil {
+				return err
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
 	}
-	return iter.Err()
+	return nil
 }

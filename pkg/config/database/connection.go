@@ -32,7 +32,7 @@ func InitDB() (*sql.DB, error) {
 	}
 
 	maxOpenConns, _ := strconv.Atoi(config.GetDefault("DB_POOL_MAX_OPEN", "25"))
-	maxIdleConns, _ := strconv.Atoi(config.GetDefault("DB_POOL_MAX_IDLE", "5"))
+	maxIdleConns, _ := strconv.Atoi(config.GetDefault("DB_POOL_MAX_IDLE", "15"))
 	connMaxLifetimeMin, _ := strconv.Atoi(config.GetDefault("DB_POOL_CONN_MAX_LIFETIME_MIN", "60"))
 
 	db.SetMaxOpenConns(maxOpenConns)

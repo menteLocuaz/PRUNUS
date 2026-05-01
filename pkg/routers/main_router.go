@@ -65,8 +65,10 @@ func NewMainRouter(h *Handlers, log *zap.Logger) http.Handler {
 			// Catálogo (alias para /api/catalogo)
 			r.With(middleware.RequireAuth()).Get("/catalogo", h.Estatus.GetMasterCatalog)
 
-			// Mantener login en /v1/login por compatibilidad
-			r.Post("/login", h.Auth.Login)
+			// DEPRECADO: /v1/login → usar /v1/auth/login. Mantener por compatibilidad temporal.
+			r.Post("/login", func(w http.ResponseWriter, req *http.Request) {
+				http.Redirect(w, req, "/api/v1/auth/login", http.StatusPermanentRedirect)
+			})
 
 			// Resource Routes
 			r.Mount("/empresas", EmpresaRouter(h.Empresa))

@@ -26,7 +26,7 @@ func (h *UsuarioHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	params := utils.ParsePaginationParams(r)
 	resp, err := h.service.GetAllUsuarios(r.Context(), params)
 	if err != nil {
-		response.InternalServerError(w, err.Error())
+		response.InternalServerError(w, "Error al obtener usuarios")
 		return
 	}
 	response.Success(w, "Usuarios obtenidos correctamente", resp)
@@ -80,7 +80,7 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.UpdateUsuario(r.Context(), id, req.ToModel())
 	if err != nil {
-		response.InternalServerError(w, err.Error())
+		response.InternalServerError(w, "Error al actualizar usuario")
 		return
 	}
 	response.Success(w, "Usuario actualizado correctamente", resp)
@@ -108,7 +108,7 @@ func (h *UsuarioHandler) Administrar(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.AdministrarUsuario(r.Context(), usuario, adminID)
 	if err != nil {
-		response.InternalServerError(w, err.Error())
+		response.InternalServerError(w, "Error al gestionar usuario")
 		return
 	}
 	response.Success(w, "Usuario gestionado correctamente", resp)

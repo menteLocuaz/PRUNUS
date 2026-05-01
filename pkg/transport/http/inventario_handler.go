@@ -225,20 +225,9 @@ func (h *InventarioHandler) GetMovimientos(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *InventarioHandler) GetAllAlertas(w http.ResponseWriter, r *http.Request) {
-	sucursalIDStr := r.URL.Query().Get("id_sucursal")
-	if sucursalIDStr == "" {
-		// Si no viene sucursal, intentar obtenerla del token/contexto
-		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
-		if !ok {
-			response.BadRequest(w, "Debe proporcionar id_sucursal")
-			return
-		}
-		sucursalIDStr = ctxSucursal.String()
-	}
-
-	sucursalID, err := uuid.Parse(sucursalIDStr)
-	if err != nil {
-		response.BadRequest(w, "id_sucursal inválido")
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
 		return
 	}
 
@@ -251,25 +240,15 @@ func (h *InventarioHandler) GetAllAlertas(w http.ResponseWriter, r *http.Request
 }
 
 func (h *InventarioHandler) GetValuacion(w http.ResponseWriter, r *http.Request) {
-	sucursalIDStr := r.URL.Query().Get("id_sucursal")
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
+		return
+	}
+
 	metodo := r.URL.Query().Get("metodo") // peps, ueps, promedio
 	if metodo == "" {
 		metodo = "promedio"
-	}
-
-	if sucursalIDStr == "" {
-		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
-		if !ok {
-			response.BadRequest(w, "Debe proporcionar id_sucursal")
-			return
-		}
-		sucursalIDStr = ctxSucursal.String()
-	}
-
-	sucursalID, err := uuid.Parse(sucursalIDStr)
-	if err != nil {
-		response.BadRequest(w, "id_sucursal inválido")
-		return
 	}
 
 	total, err := h.service.GetValuacion(r.Context(), sucursalID, metodo)
@@ -287,19 +266,9 @@ func (h *InventarioHandler) GetValuacion(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *InventarioHandler) GetRotacion(w http.ResponseWriter, r *http.Request) {
-	sucursalIDStr := r.URL.Query().Get("id_sucursal")
-	if sucursalIDStr == "" {
-		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
-		if !ok {
-			response.BadRequest(w, "Debe proporcionar id_sucursal")
-			return
-		}
-		sucursalIDStr = ctxSucursal.String()
-	}
-
-	sucursalID, err := uuid.Parse(sucursalIDStr)
-	if err != nil {
-		response.BadRequest(w, "id_sucursal inválido")
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
 		return
 	}
 
@@ -363,19 +332,9 @@ func (h *InventarioHandler) GetRotacionDetalle(w http.ResponseWriter, r *http.Re
 }
 
 func (h *InventarioHandler) GetComposicionCategoria(w http.ResponseWriter, r *http.Request) {
-	sucursalIDStr := r.URL.Query().Get("id_sucursal")
-	if sucursalIDStr == "" {
-		ctxSucursal, ok := r.Context().Value("user_sucursal").(uuid.UUID)
-		if !ok {
-			response.BadRequest(w, "Debe proporcionar id_sucursal")
-			return
-		}
-		sucursalIDStr = ctxSucursal.String()
-	}
-
-	sucursalID, err := uuid.Parse(sucursalIDStr)
-	if err != nil {
-		response.BadRequest(w, "id_sucursal inválido")
+	sucursalID, ok := parseSucursalID(r)
+	if !ok {
+		response.BadRequest(w, "Debe proporcionar id_sucursal válido")
 		return
 	}
 

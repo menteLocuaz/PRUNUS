@@ -1,0 +1,13 @@
+DROP INDEX IF EXISTS idx_categoria_status;
+DROP INDEX IF EXISTS idx_moneda_sucursal;
+DROP INDEX IF EXISTS idx_medida_sucursal;
+DROP INDEX IF EXISTS idx_estaciones_pos_sucursal;
+DROP INDEX IF EXISTS idx_estaciones_pos_status;
+DROP INDEX IF EXISTS idx_clientes_status;
+DROP INDEX IF EXISTS idx_clientes_sucursal;
+DROP INDEX IF EXISTS idx_proveedores_status;
+DROP INDEX IF EXISTS idx_proveedores_sucursal;
+DROP INDEX IF EXISTS idx_detalle_factura_factura;
+DROP INDEX IF EXISTS idx_forma_pago_factura_factura;
+DROP INDEX IF EXISTS idx_movimientos_inv_sucursal;
+DROP INDEX IF EXISTS idx_movimientos_inv_tipo;
