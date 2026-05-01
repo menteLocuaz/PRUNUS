@@ -132,19 +132,46 @@ func ValidateToken(tokenString string) (*models.JWTClaims, error) {
 	return claims, nil
 }
 
-// RefreshToken genera un nuevo token basado en un token existente válido
-// Útil para renovar la sesión del usuario antes de que expire
+// RefreshToken genera un nuevo token basado en un token existente.
+// Solo se permite refrescar dentro de la misma ventana de tiempo que el token original
+// (JWT_EXPIRATION_HOURS). Un token expirado hace más tiempo que ese período es rechazado.
 func RefreshToken(tokenString string) (string, int64, error) {
-	// Validar el token actual
 	claims, err := ValidateToken(tokenString)
 	if err != nil {
-		// Si está expirado, permitir refrescar si no ha pasado mucho tiempo
 		if !errors.Is(err, ErrExpiredToken) {
 			return "", 0, err
 		}
+
+		// Token expirado: extraer claims sin validar expiración para comprobar la ventana de gracia.
+		secret, secretErr := getJWTSecret()
+		if secretErr != nil {
+			return "", 0, secretErr
+		}
+		parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+		tok, _, parseErr := parser.ParseUnverified(tokenString, &models.JWTClaims{})
+		if parseErr != nil {
+			return "", 0, ErrInvalidToken
+		}
+		// Verificar firma manualmente para evitar usar un token adulterado.
+		if _, verifyErr := jwt.ParseWithClaims(tokenString, &models.JWTClaims{},
+			func(_ *jwt.Token) (any, error) { return []byte(secret), nil },
+			jwt.WithoutClaimsValidation(),
+		); verifyErr != nil {
+			return "", 0, ErrInvalidToken
+		}
+
+		expiredClaims, ok := tok.Claims.(*models.JWTClaims)
+		if !ok || expiredClaims.ExpiresAt == nil {
+			return "", 0, ErrInvalidToken
+		}
+
+		gracePeriod := time.Duration(getJWTExpirationHours()) * time.Hour
+		if time.Since(expiredClaims.ExpiresAt.Time) > gracePeriod {
+			return "", 0, errors.New("token expirado hace demasiado tiempo, inicie sesión nuevamente")
+		}
+		claims = expiredClaims
 	}
 
-	// Crear un usuario temporal con los datos del token
 	usuario := &models.Usuario{
 		IDUsuario:  claims.IDUsuario,
 		Email:      claims.Email,
@@ -155,7 +182,6 @@ func RefreshToken(tokenString string) (string, int64, error) {
 		},
 	}
 
-	// Generar nuevo token
 	return GenerateToken(usuario)
 }
 

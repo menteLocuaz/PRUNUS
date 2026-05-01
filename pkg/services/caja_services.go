@@ -113,7 +113,14 @@ func (s *ServiceCaja) AbrirSesion(ctx context.Context, cajaID, usuarioID uuid.UU
 
 	// Registrar desglose inicial si existe
 	if len(desglose) > 0 {
-		_ = s.store.RegistrarArqueoDesglose(ctx, res.IDSesion, "APERTURA", desglose)
+		err = s.store.RegistrarArqueoDesglose(ctx, res.IDSesion, "APERTURA", desglose)
+		if err != nil {
+			// No bloqueamos la apertura si falla el desglose, pero lo logueamos
+			zaplogger.WithContext(ctx, s.logger).Error("Sesión abierta pero falló el registro de desglose", 
+				zap.Error(err),
+				zap.String("id_sesion", res.IDSesion.String()),
+			)
+		}
 	}
 
 	if err := s.usuarioStore.UpdateTurnoStatus(ctx, usuarioID, true); err != nil {
@@ -175,8 +182,9 @@ func (s *ServiceCaja) ArqueoYCierre(ctx context.Context, req dto.CierreCajaReque
 
 	// 5. Cerrar sesión en BD
 	ahora := time.Now()
+	montoCierre := resumen.SaldoReal
 	sesionUpdate := &models.SesionCaja{
-		MontoCierre: resumen.SaldoReal,
+		MontoCierre: &montoCierre,
 		FechaCierre: &ahora,
 		Estado:      "CERRADA",
 	}

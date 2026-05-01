@@ -286,7 +286,7 @@ func (s *storeCaja) GetVentasEfectivoBySesion(ctx context.Context, sesionID uuid
 		JOIN forma_pago_factura fpf ON f.id_factura = fpf.id_factura
 		JOIN forma_pago fp ON fpf.metodo_pago = fp.nombre
 		WHERE f.id_control_estacion = $1 
-		  AND fp.nombre ILIKE '%Efectivo%'
+		  AND fp.nombre = 'Efectivo'
 		  AND f.deleted_at IS NULL
 	`
 	var total float64
@@ -303,9 +303,9 @@ func (s *storeCaja) GetResumenFinanciero(ctx context.Context, controlID uuid.UUI
 	query := `
 		WITH ventas AS (
 			SELECT 
-				COALESCE(SUM(CASE WHEN fpf.metodo_pago ILIKE '%Efectivo%' THEN fpf.monto ELSE 0 END), 0) as efectivo,
-				COALESCE(SUM(CASE WHEN fpf.metodo_pago ILIKE '%Tarjeta%' THEN fpf.monto ELSE 0 END), 0) as tarjeta,
-				COALESCE(SUM(CASE WHEN fpf.metodo_pago NOT ILIKE '%Efectivo%' AND fpf.metodo_pago NOT ILIKE '%Tarjeta%' THEN fpf.monto ELSE 0 END), 0) as otros
+				COALESCE(SUM(CASE WHEN fpf.metodo_pago = 'Efectivo' THEN fpf.monto ELSE 0 END), 0) as efectivo,
+				COALESCE(SUM(CASE WHEN fpf.metodo_pago = 'Tarjeta' THEN fpf.monto ELSE 0 END), 0) as tarjeta,
+				COALESCE(SUM(CASE WHEN fpf.metodo_pago NOT IN ('Efectivo', 'Tarjeta') THEN fpf.monto ELSE 0 END), 0) as otros
 			FROM forma_pago_factura fpf
 			JOIN factura f ON f.id_factura = fpf.id_factura
 			WHERE f.id_control_estacion = $1 AND f.deleted_at IS NULL

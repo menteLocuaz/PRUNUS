@@ -258,10 +258,17 @@ Todos los campos son requeridos.
 | POST | `/movimientos/masivo` | Registrar movimientos para múltiples productos |
 | GET | `/movimientos/{id_producto}` | Historial (Kardex) de un producto (paginado) |
 | GET | `/alertas?id_sucursal={uuid}` | Productos con stock ≤ stock_mínimo |
+| GET | `/alertas/detalle?id_sucursal={uuid}` | Alertas con detalle completo del producto |
 | GET | `/valuacion?id_sucursal={uuid}&metodo={peps\|ueps\|promedio}` | Valor contable del inventario |
 | GET | `/rotacion?id_sucursal={uuid}` | Análisis ABC de rotación |
+| GET | `/rotacion/detalle?id_sucursal={uuid}` | Detalle de rotación por producto |
+| GET | `/composicion-categoria?id_sucursal={uuid}` | Composición del inventario por categoría |
+| POST | `/historico/snapshot` | Capturar snapshot del valor del inventario |
+| GET | `/historico?id_sucursal={uuid}` | Histórico de valor del inventario |
+| GET | `/perdidas?id_sucursal={uuid}` | Análisis de pérdidas / mermas |
+| GET | `/margen?id_sucursal={uuid}` | Análisis de margen de ganancia |
 
-> Si `id_sucursal` se omite en alertas/valuacion/rotacion, se toma del token JWT.
+> Si `id_sucursal` se omite en alertas/valuacion/rotacion/composicion/historico/perdidas/margen, se toma del token JWT.
 
 **Body POST /inventario:**
 ```json
@@ -403,15 +410,28 @@ No requieren body.
 
 ---
 
-## 15. Caja (`/caja`) 🔒
+## 15. Cajas (`/cajas`) 🔒
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/` | Listar cajas |
 | POST | `/` | Crear caja |
 | GET | `/{id}` | Obtener por ID |
-| POST | `/abrir` | Abrir sesión de caja |
-| POST | `/cerrar/{id}` | Cerrar sesión de caja |
+| POST | `/sesion/abrir` | Abrir sesión de caja con fondo base |
+| POST | `/sesion/cerrar/{id}` | Cerrar sesión de caja (arqueo y cierre) |
+
+**Body POST /cajas/sesion/abrir:**
+```json
+{ "id_caja": "uuid", "fondo_base": 100.00 }
+```
+
+**Body POST /cajas/sesion/cerrar/{id}:**
+```json
+{
+  "efectivo_declarado": 650.00,
+  "motivo_descuadre": "Diferencia en cambio"
+}
+```
 
 ---
 
@@ -420,10 +440,18 @@ No requieren body.
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/` | Listar (paginado) |
+| POST | `/` | Crear factura simple |
 | GET | `/{id}` | Detalle de factura con ítems |
 | POST | `/completa` | Registro atómico: factura + detalles + pagos |
 | GET | `/impuestos` | Catálogo de impuestos disponibles |
+| GET | `/impuestos/{id}` | Obtener impuesto por ID |
+| POST | `/impuestos` | Crear impuesto |
+| PUT | `/impuestos/{id}` | Actualizar impuesto |
+| DELETE | `/impuestos/{id}` | Eliminar impuesto (204) |
 | GET | `/formas-pago` | Catálogo de formas de pago |
+| POST | `/formas-pago` | Crear forma de pago |
+| PUT | `/formas-pago/{id}` | Actualizar forma de pago |
+| DELETE | `/formas-pago/{id}` | Eliminar forma de pago (204) |
 
 **Body POST /facturas/completa:**
 ```json
@@ -545,6 +573,19 @@ CRUD estándar: `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
 
 ---
 
+## 24. Dashboard (`/dashboard`) 🔒
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/resumen` | Resumen general: ventas, stock, alertas |
+| GET | `/antiguedad-deuda` | Reporte de antigüedad de deuda |
+| GET | `/composicion-categoria` | Composición del inventario por categoría |
+| GET | `/mermas` | Reporte de mermas y pérdidas |
+
+> Todos los endpoints aceptan `?id_sucursal={uuid}`; si se omite, se toma del token JWT.
+
+---
+
 ## Flujos típicos del frontend
 
 ### Carga inicial
@@ -564,3 +605,19 @@ CRUD estándar: `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
 ### Ajuste de inventario
 - `POST /inventario/movimientos` con `tipo_movimiento: "AJUSTE"` para correcciones individuales
 - `POST /inventario/movimientos/masivo` para múltiples productos a la vez
+
+### Apertura de caja (cajero)
+1. `POST /pos/abrir` → abrir sesión POS con fondo base
+2. `POST /cajas/sesion/abrir` → registrar apertura de caja física
+
+### Cierre / arqueo de caja
+1. `POST /pos/actualizar-valores` → declarar efectivo y tarjetas
+2. `POST /cajas/sesion/cerrar/{id}` → cerrar sesión con arqueo
+3. `POST /pos/desmontar` → desmontar cajero de la estación
+
+### Consultas analíticas (dashboard / reportes)
+- `GET /dashboard/resumen` → KPIs del negocio
+- `GET /inventario/valuacion?metodo=promedio` → valor contable
+- `GET /inventario/rotacion` → análisis ABC
+- `GET /inventario/margen` → márgenes por producto
+- `GET /inventario/perdidas` → mermas registradas

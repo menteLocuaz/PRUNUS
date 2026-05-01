@@ -101,7 +101,12 @@ func (s *ServiceUsuario) CreateUsuario(ctx context.Context, usuario models.Usuar
 	}
 	usuario.Password = hashearPassword
 
-	return s.store.CreateUsuario(ctx, &usuario)
+	result, err := s.store.CreateUsuario(ctx, &usuario)
+	if err != nil {
+		return nil, err
+	}
+	result.ClearSensitiveFields()
+	return result, nil
 }
 
 // UpdateUsuario actualiza un usuario existente con validaciones
@@ -127,7 +132,12 @@ func (s *ServiceUsuario) UpdateUsuario(ctx context.Context, id uuid.UUID, usuari
 		usuario.Password = hashearPasword
 	}
 
-	return s.store.UpdateUsuario(ctx, id, &usuario)
+	result, err := s.store.UpdateUsuario(ctx, id, &usuario)
+	if err != nil {
+		return nil, err
+	}
+	result.ClearSensitiveFields()
+	return result, nil
 }
 
 // DeleteUsuario elimina un usuario (soft delete)
@@ -176,6 +186,7 @@ func (s *ServiceUsuario) AdministrarUsuario(ctx context.Context, usuario models.
 		IP:         middleware.GetClientIP(ctx),
 	})
 
+	result.ClearSensitiveFields()
 	return result, nil
 }
 
@@ -225,7 +236,7 @@ func (s *ServiceUsuario) AuthenticateUsuario(ctx context.Context, req models.Log
 
 	zaplogger.WithContext(ctx, s.logger).Info("[LOGIN] Autenticación exitosa", zap.String("id_usuario", usuario.IDUsuario.String()))
 
-	usuario.Password = ""
+	usuario.ClearSensitiveFields()
 	if permisos, err := s.rolService.GetPermisosByRol(ctx, usuario.IDRol); err == nil {
 		usuario.Permisos = permisos
 	}

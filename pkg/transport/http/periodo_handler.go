@@ -87,8 +87,10 @@ func (h *PeriodoHandler) GetPeriodoActivoHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Si no hay periodo, devolvemos éxito pero con data nula
+	// Esto evita que el frontend reciba un 404 y lo trate como error crítico
 	if result == nil {
-		response.NotFound(w, "No existe un periodo activo para su sucursal")
+		response.Success(w, "No existe un periodo activo para su sucursal", nil)
 		return
 	}
 

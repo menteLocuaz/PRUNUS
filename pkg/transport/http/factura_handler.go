@@ -3,7 +3,6 @@ package transport
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -77,8 +76,8 @@ func (h *FacturaHandler) RegistrarCompleta(w http.ResponseWriter, r *http.Reques
 
 	resp, err := h.service.RegistrarFacturaCompleta(r.Context(), req, userID)
 	if err != nil {
-		fmt.Printf("[DEBUG] Error en DB al registrar factura: %v\n", err)
-		response.BadRequest(w, err.Error())
+		h.logger.Error("Error al registrar factura completa", zap.Error(err))
+		response.InternalServerError(w, "Error interno al procesar la factura")
 		return
 	}
 

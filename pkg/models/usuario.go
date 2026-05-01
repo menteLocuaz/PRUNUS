@@ -32,3 +32,9 @@ type Usuario struct {
 	Permisos   []string    `json:"permisos"`                    // Slugs o rutas de módulos permitidos
 	EnTurno    bool        `json:"en_turno"`                    // Indica si el usuario puede operar caja
 }
+
+// ClearSensitiveFields zeroes in-memory sensitive fields antes de devolver el usuario al caller.
+func (u *Usuario) ClearSensitiveFields() {
+	u.Password = ""
+	u.UsuPinPOS = ""
+}

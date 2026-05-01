@@ -57,7 +57,33 @@ func (h *POSHandler) AbrirCajaHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 5. Respuesta exitosa (201 Created si es nueva, 200 OK si ya existía)
 	// Nota: Por simplicidad devolvemos 201 en ambos casos si el frontend lo espera así
-	response.Created(w, "Sesión de caja procesada correctamente", result)
+	response.Created(w, "Fondo asignado correctamente. El cajero debe confirmar la recepción.", result)
+}
+
+// ConfirmarAperturaHandler permite al cajero confirmar que ha recibido el fondo y abrir la caja formalmente.
+func (h *POSHandler) ConfirmarAperturaHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		IDControlEstacion uuid.UUID `json:"id_control_estacion" validate:"required"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		response.BadRequest(w, "JSON de confirmación inválido")
+		return
+	}
+
+	idUsuario, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		response.Unauthorized(w, "Usuario no autenticado")
+		return
+	}
+
+	err := h.service.ConfirmarApertura(r.Context(), input.IDControlEstacion, idUsuario)
+	if err != nil {
+		response.BadRequest(w, err.Error())
+		return
+	}
+
+	response.Success(w, "Caja confirmada y abierta exitosamente. Ya puede facturar.", nil)
 }
 
 // DesmontarCajeroHandler gestiona el cierre forzado o administrativo de una estación

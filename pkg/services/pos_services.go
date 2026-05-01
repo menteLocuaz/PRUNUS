@@ -15,16 +15,18 @@ import (
 )
 
 type ServicePOS struct {
-	store     store.StorePOS
-	logsStore store.StoreLogs
-	logger    *zap.Logger
+	store        store.StorePOS
+	usuarioStore store.StoreUsuario
+	logsStore    store.StoreLogs
+	logger       *zap.Logger
 }
 
-func NewServicePOS(s store.StorePOS, l store.StoreLogs, logger *zap.Logger) *ServicePOS {
+func NewServicePOS(s store.StorePOS, u store.StoreUsuario, l store.StoreLogs, logger *zap.Logger) *ServicePOS {
 	return &ServicePOS{
-		store:     s,
-		logsStore: l,
-		logger:    logger,
+		store:        s,
+		usuarioStore: u,
+		logsStore:    l,
+		logger:       logger,
 	}
 }
 
@@ -32,14 +34,14 @@ func (s *ServicePOS) Logger() *zap.Logger {
 	return s.logger
 }
 
-// AbrirCaja realiza la apertura de una estación de POS con validaciones de consistencia
-func (s *ServicePOS) AbrirCaja(ctx context.Context, input dto.AbrirCajaDTO, idUsuario uuid.UUID) (*models.ControlEstacion, error) {
-	// 1. Validar fondo base (Control Operativo)
+// AbrirCaja (ADMINISTRADOR) - Asigna el fondo y el cajero a una estación.
+func (s *ServicePOS) AbrirCaja(ctx context.Context, input dto.AbrirCajaDTO, idAdmin uuid.UUID) (*models.ControlEstacion, error) {
+	// 1. Validar fondo base
 	if input.FondoBase < 0 {
 		return nil, errors.New("el fondo base no puede ser negativo")
 	}
 
-	// 2. Validar existencia y estado de la estación (Máquina de Estados)
+	// 2. Validar estación
 	estacion, err := s.store.GetEstacionByID(ctx, input.IDEstacion)
 	if err != nil {
 		return nil, fmt.Errorf("la estación especificada no existe")
@@ -52,45 +54,37 @@ func (s *ServicePOS) AbrirCaja(ctx context.Context, input dto.AbrirCajaDTO, idUs
 		return nil, errors.New("la estación está BLOQUEADA por administración")
 	}
 
-	// 3. Validar consistencia del Usuario (Un cajero -> Una caja)
-	usuarioActivo, err := s.store.GetActiveControlByUser(ctx, idUsuario)
+	// 3. Validar consistencia del Cajero (Un cajero -> Una caja)
+	usuarioActivo, err := s.store.GetActiveControlByUser(ctx, input.IDUserPos)
 	if err != nil {
 		return nil, fmt.Errorf("error al validar sesión del usuario: %w", err)
 	}
 	if usuarioActivo != nil {
-		// Si el usuario ya tiene esta misma estación abierta, es idempotente
-		if usuarioActivo.IDEstacion == input.IDEstacion {
-			return usuarioActivo, nil
-		}
-		return nil, fmt.Errorf("el usuario ya tiene una sesión activa en la estación: %s", input.IDEstacion.String())
+		return nil, fmt.Errorf("el cajero ya tiene una sesión activa en la estación: %s", usuarioActivo.IDEstacion.String())
 	}
 
-	// 4. Validar concurrencia de la Estación (Idempotencia / Doble apertura)
+	// 4. Validar si la estación ya tiene algo activo
 	activo, err := s.store.GetActiveControlByEstacion(ctx, input.IDEstacion)
 	if err != nil {
 		return nil, fmt.Errorf("error al verificar sesiones activas: %w", err)
 	}
 	if activo != nil {
-		// Si está ocupada por OTRO usuario
-		if activo.UsuarioAsignado != idUsuario {
-			return nil, errors.New("la estación ya está ocupada por otro usuario")
-		}
-		return activo, nil
+		return nil, errors.New("la estación ya tiene una asignación activa o está ocupada")
 	}
 
 	// 5. Validar periodo contable activo
 	periodo, err := s.store.GetActivePeriodo(ctx)
 	if err != nil || periodo == nil {
-		return nil, errors.New("no es posible abrir caja: no existe un periodo contable activo")
+		return nil, errors.New("no existe un periodo contable activo")
 	}
 
-	// 6. Preparar y Persistir
+	// 6. Persistir Asignación (Estatus: Fondo Asignado)
 	control := &models.ControlEstacion{
 		IDEstacion:      input.IDEstacion,
 		FondoBase:       input.FondoBase,
-		UsuarioAsignado: idUsuario,
+		UsuarioAsignado: idAdmin, // Quien asigna
+		IDUserPos:       input.IDUserPos, // El cajero
 		IDStatus:        models.EstatusFondoAsignado,
-		IDUserPos:       input.IDUserPos,
 		IDPeriodo:       periodo.IDPeriodo,
 	}
 
@@ -99,10 +93,54 @@ func (s *ServicePOS) AbrirCaja(ctx context.Context, input dto.AbrirCajaDTO, idUs
 		return nil, fmt.Errorf("error al crear el registro de control: %w", err)
 	}
 
-	// 7. Actualizar estatus de estación a ocupada (Fondo Asignado)
 	_ = s.store.UpdateEstacionStatus(ctx, input.IDEstacion, models.EstatusFondoAsignado)
 
+	zaplogger.WithContext(ctx, s.logger).Info("Fondo asignado correctamente", 
+		zap.String("admin", idAdmin.String()), 
+		zap.String("cajero", input.IDUserPos.String()))
+
 	return result, nil
+}
+
+// ConfirmarApertura (CAJERO) - El cajero recibe el fondo y comienza a operar.
+func (s *ServicePOS) ConfirmarApertura(ctx context.Context, idControl uuid.UUID, idCajero uuid.UUID) error {
+	// 1. Obtener el control por el cajero activo
+	control, err := s.store.GetActiveControlByUser(ctx, idCajero)
+	if err != nil || control == nil {
+		return errors.New("no tienes una caja asignada para confirmar")
+	}
+
+	if control.IDControlEstacion != idControl {
+		return errors.New("el ID de control no coincide con tu asignación")
+	}
+
+	if control.IDStatus != models.EstatusFondoAsignado {
+		return errors.New("esta caja ya fue confirmada o no está en estado de asignación")
+	}
+
+	// 2. Actualizar a Fondo Activo (Cajero operando)
+	control.IDStatus = models.EstatusFondoActivo
+	err = s.store.UpdateControlEstacion(ctx, control)
+	if err != nil {
+		return fmt.Errorf("error al confirmar apertura: %w", err)
+	}
+
+	// 3. Marcar usuario en turno
+	_ = s.usuarioStore.UpdateTurnoStatus(ctx, idCajero, true)
+
+	// 4. Actualizar estatus de estación
+	_ = s.store.UpdateEstacionStatus(ctx, control.IDEstacion, models.EstatusFondoActivo)
+
+	// 5. Auditoría
+	audit := &models.AuditoriaCaja{
+		IDControlEstacion: control.IDControlEstacion,
+		TipoMovimiento:    models.EstatusFondoActivo,
+		IDUsuario:         idCajero,
+		Descripcion:       "CAJERO CONFIRMA RECEPCIÓN DE FONDO Y COMIENZA TURNO",
+	}
+	_ = s.logsStore.CreateAuditoriaCaja(ctx, audit)
+
+	return nil
 }
 
 // DesmontarCajero cierra la sesión de una estación y actualiza retiros

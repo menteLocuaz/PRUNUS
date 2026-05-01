@@ -95,7 +95,6 @@ func (h *CajaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *CajaHandler) AbrirSesion(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IDCaja        uuid.UUID             `json:"id_caja"`
-		IDUsuario     uuid.UUID             `json:"id_usuario"`
 		MontoApertura float64               `json:"monto_apertura"`
 		Desglose      []dto.DenominacionDTO `json:"desglose"`
 	}
@@ -103,9 +102,24 @@ func (h *CajaHandler) AbrirSesion(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, "JSON inválido")
 		return
 	}
-	resp, err := h.service.AbrirSesion(r.Context(), req.IDCaja, req.IDUsuario, req.MontoApertura, req.Desglose)
+
+	if req.IDCaja == uuid.Nil {
+		response.BadRequest(w, "El ID de la caja es requerido")
+		return
+	}
+
+	// Obtener ID de usuario del contexto (inyectado por middleware)
+	userID, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok {
+		response.Unauthorized(w, "Usuario no autenticado")
+		return
+	}
+
+	resp, err := h.service.AbrirSesion(r.Context(), req.IDCaja, userID, req.MontoApertura, req.Desglose)
 	if err != nil {
-		response.InternalServerError(w, err.Error())
+		// Si el error es por sesión ya abierta, devolvemos Conflict (409) o BadRequest (400)
+		// dependiendo de la convención, aquí usaremos BadRequest para simplificar el manejo en frontend
+		response.BadRequest(w, err.Error())
 		return
 	}
 	response.Created(w, "Sesión de caja abierta correctamente", resp)

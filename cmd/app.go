@@ -55,7 +55,7 @@ func RegisterHandlers(db *sql.DB, cacheStore models.CacheStore, logger *zap.Logg
 	productoService := services.NewServiceProducto(productoStore, inventarioStore, cacheMgr, logger)
 	proveedorService := services.NewServiceProveedor(proveedorStore, logger)
 	estatusService := services.NewServiceEstatus(estatusStore, cacheMgr, logger)
-	posService := services.NewServicePOS(posStore, logsStore, logger)
+	posService := services.NewServicePOS(posStore, usuarioStore, logsStore, logger)
 	inventarioService := services.NewServiceInventario(inventarioStore, logger)
 	agregadoresService := services.NewServiceAgregadores(agregadoresStore, logger)
 	cajaService := services.NewServiceCaja(cajaStore, usuarioStore, logger)
